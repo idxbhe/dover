@@ -22,7 +22,11 @@ std::filesystem::path GetOverlayDllPath() {
     return {};
   }
 
-  return executable_directory / L"dover_overlay.dll";
+#ifdef _WIN64
+  return executable_directory / L"dover_overlay64.dll";
+#else
+  return executable_directory / L"dover_overlay32.dll";
+#endif
 }
 
 std::wstring BuildCommandLine(int argc, wchar_t** argv) {

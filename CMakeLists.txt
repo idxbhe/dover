@@ -105,3 +105,13 @@ target_include_directories(dover_overlay PRIVATE
 )
 
 target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 minhook imgui)
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set_target_properties(dover_launcher PROPERTIES OUTPUT_NAME "dover_launcher")
+  set_target_properties(dover_injector PROPERTIES OUTPUT_NAME "dover_injector64")
+  set_target_properties(dover_overlay PROPERTIES OUTPUT_NAME "dover_overlay64")
+else()
+  set_target_properties(dover_launcher PROPERTIES OUTPUT_NAME "dover_launcher32")
+  set_target_properties(dover_injector PROPERTIES OUTPUT_NAME "dover_injector32")
+  set_target_properties(dover_overlay PROPERTIES OUTPUT_NAME "dover_overlay32")
+endif()

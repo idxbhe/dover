@@ -67,10 +67,11 @@ void SaveGamePath(const std::wstring& path) {
 }
 
 bool LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv) {
-  const auto overlay_path = dover::shared::GetOverlayDllPath();
-  if (overlay_path.empty() || !std::filesystem::exists(overlay_path)) {
-    dover::shared::LogError("Overlay DLL not found beside launcher.");
-    return false;
+  // Detect target process bitness
+  DWORD binary_type = 0;
+  bool is_64bit = true;
+  if (GetBinaryTypeW(target_path.c_str(), &binary_type)) {
+    is_64bit = (binary_type == SCS_64BIT_BINARY);
   }
 
   std::wstring command_line;
@@ -78,6 +79,38 @@ bool LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv) 
     command_line = dover::shared::BuildCommandLine(argc, argv);
   } else {
     command_line = L"\"" + target_path + L"\"";
+  }
+
+  if (!is_64bit) {
+    const auto executable_dir = dover::shared::GetExecutableDirectory();
+    const auto injector32_path = executable_dir / L"dover_injector32.exe";
+
+    if (!std::filesystem::exists(injector32_path)) {
+      dover::shared::LogError("32-bit helper injector (dover_injector32.exe) not found beside launcher.");
+      return false;
+    }
+
+    std::wstring full_command_line = L"\"" + injector32_path.wstring() + L"\" " + command_line;
+
+    STARTUPINFOW si = {};
+    si.cb = sizeof(si);
+    PROCESS_INFORMATION pi = {};
+
+    dover::shared::LogInfo("32-bit target game detected. Spawning dover_injector32.exe...");
+    if (CreateProcessW(nullptr, full_command_line.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
+      CloseHandle(pi.hThread);
+      CloseHandle(pi.hProcess);
+      return true;
+    }
+
+    dover::shared::LogError("Failed to launch 32-bit helper injector.");
+    return false;
+  }
+
+  const auto overlay_path = dover::shared::GetOverlayDllPath();
+  if (overlay_path.empty() || !std::filesystem::exists(overlay_path)) {
+    dover::shared::LogError("64-bit Overlay DLL not found beside launcher.");
+    return false;
   }
 
   PROCESS_INFORMATION process_info{};

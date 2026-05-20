@@ -6,6 +6,7 @@ doverlay/
 # CMake Build & Cache Directories
 build/
 build_x64/
+build_x86/
 out/
 CMakeCache.txt
 CMakeFiles/
