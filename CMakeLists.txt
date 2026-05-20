@@ -24,6 +24,12 @@ FetchContent_Declare(
 )
 FetchContent_Populate(minhook)
 
+FetchContent_Declare(
+  imgui
+  URL https://github.com/ocornut/imgui/archive/refs/tags/v1.90.6.zip
+)
+FetchContent_Populate(imgui)
+
 add_library(minhook STATIC
   ${minhook_SOURCE_DIR}/src/buffer.c
   ${minhook_SOURCE_DIR}/src/hook.c
@@ -45,6 +51,26 @@ if(MSVC)
     /wd4701
     /wd4706
   )
+endif()
+
+add_library(imgui STATIC
+  ${imgui_SOURCE_DIR}/imgui.cpp
+  ${imgui_SOURCE_DIR}/imgui_demo.cpp
+  ${imgui_SOURCE_DIR}/imgui_draw.cpp
+  ${imgui_SOURCE_DIR}/imgui_tables.cpp
+  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_dx9.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
+)
+
+target_include_directories(imgui PUBLIC
+  ${imgui_SOURCE_DIR}
+  ${imgui_SOURCE_DIR}/backends
+)
+
+if(MSVC)
+  target_compile_options(imgui PRIVATE /W0)
 endif()
 
 add_library(dover_shared STATIC
@@ -70,4 +96,9 @@ add_library(dover_overlay SHARED
   src/overlay/overlay_runtime.cpp
 )
 
-target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 minhook)
+target_include_directories(dover_overlay PRIVATE
+  ${imgui_SOURCE_DIR}
+  ${imgui_SOURCE_DIR}/backends
+)
+
+target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 minhook imgui)
