@@ -1,0 +1,45 @@
+# User Specific Ignores
+AGENTS.md
+promts.md
+doverlay/
+
+# CMake Build & Cache Directories
+build/
+out/
+CMakeCache.txt
+CMakeFiles/
+CMakePresets.json.user
+CMakePresets.json.private
+*.cmake
+
+# Visual Studio / MSVC Local Workspace
+.vs/
+*.user
+*.suo
+*.sln.docstates
+*.VC.db
+*.opendb
+
+# Compilations & Executables Output
+x64/
+x86/
+ARM/
+Debug/
+Release/
+*.obj
+*.lib
+*.dll
+*.pdb
+*.ilk
+*.exp
+*.exe
+
+# System & OS Temporary Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Temporary Logs
+*.log
+*.tmp
