@@ -10,5 +10,3 @@ project ini merupakan project lanjutan dari project legacy saya yaitu doverlay, 
 di project legacy yaitu doverlay, saya sudah membuat 
 - dx9 overlay sudah work/sudah muncul, dx11 masih struggle.
 - perlihan input antara game dan overlay belum work.
-
-di project ini overlay bahkan belum muncul sama sekali.
