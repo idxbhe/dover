@@ -85,6 +85,7 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
   }
 
   if (g_imgui_initialized.load() && g_render_target_view) {
+    g_in_overlay_frame = true;
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
@@ -97,6 +98,7 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
     // Bind RenderTargetView before rendering ImGui
     g_d3d11_context->OMSetRenderTargets(1, &g_render_target_view, nullptr);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    g_in_overlay_frame = false;
   }
 
   if (g_original_present) {

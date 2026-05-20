@@ -61,6 +61,7 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
   }
 
   if (g_imgui_initialized.load()) {
+    g_in_overlay_frame = true;
     ImGui_ImplDX9_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
@@ -70,6 +71,7 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
 
     ImGui::Render();
     ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
+    g_in_overlay_frame = false;
   }
 
   if (g_original_end_scene) {

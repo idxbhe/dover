@@ -4,6 +4,7 @@
 namespace dover::overlay {
 
 extern bool g_show_overlay;
+extern bool g_in_overlay_frame;
 extern WNDPROC g_original_wnd_proc;
 extern const char* g_active_dx_version;
 
