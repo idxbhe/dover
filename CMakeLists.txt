@@ -94,6 +94,7 @@ add_library(dover_overlay SHARED
   src/overlay/dllmain.cpp
   src/overlay/dx9_hook.cpp
   src/overlay/dx11_hook.cpp
+  src/overlay/hook_utils.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
 )

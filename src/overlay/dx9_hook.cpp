@@ -1,8 +1,8 @@
 #include "overlay/dx9_hook.h"
 #include "overlay/overlay_ui.h"
+#include "overlay/hook_utils.h"
 #include "shared/log.h"
 
-#include <MinHook.h>
 #include <d3d9.h>
 #include <windows.h>
 
@@ -11,7 +11,6 @@
 #include <imgui_impl_win32.h>
 
 #include <atomic>
-#include <mutex>
 
 namespace dover::overlay {
 
@@ -30,39 +29,6 @@ std::atomic<bool> g_reset_hooked{false};
 std::atomic<bool> g_imgui_initialized{false};
 
 HWND g_game_hwnd = nullptr;
-
-std::once_flag g_mh_once;
-MH_STATUS g_mh_status = MH_OK;
-bool g_mh_ready = false;
-
-bool EnsureMinHookInitialized() {
-  std::call_once(g_mh_once, []() {
-    g_mh_status = MH_Initialize();
-    g_mh_ready = g_mh_status == MH_OK || g_mh_status == MH_ERROR_ALREADY_INITIALIZED;
-  });
-  return g_mh_ready;
-}
-
-bool EnableHook(void* target, void* detour, void** original) {
-  if (!target || !detour) {
-    return false;
-  }
-
-  MH_STATUS status = MH_CreateHook(target, detour, original);
-  if (status != MH_OK && status != MH_ERROR_ALREADY_CREATED) {
-    return false;
-  }
-
-  status = MH_EnableHook(target);
-  return status == MH_OK || status == MH_ERROR_ENABLED;
-}
-
-void DisableHook(void* target) {
-  if (target) {
-    (void)MH_DisableHook(target);
-    (void)MH_RemoveHook(target);
-  }
-}
 
 HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
   if (!device) {
@@ -132,7 +98,7 @@ HRESULT WINAPI HookedReset(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS* para
 } // namespace
 
 bool InitializeDx9Hook() {
-  if (!EnsureMinHookInitialized()) {
+  if (!InitializeHookSystem()) {
     dover::shared::LogError("MinHook initialization failed.");
     return false;
   }
@@ -181,15 +147,15 @@ bool InitializeDx9Hook() {
   void** vtable = *reinterpret_cast<void***>(dummy_device);
   
   if (!g_end_scene_hooked.load()) {
-    if (EnableHook(vtable[kEndSceneIndex], reinterpret_cast<void*>(&HookedEndScene),
-                   reinterpret_cast<void**>(&g_original_end_scene))) {
+    if (CreateAndEnableHook(vtable[kEndSceneIndex], reinterpret_cast<void*>(&HookedEndScene),
+                            reinterpret_cast<void**>(&g_original_end_scene))) {
       g_end_scene_hooked = true;
     }
   }
 
   if (!g_reset_hooked.load()) {
-    if (EnableHook(vtable[kResetIndex], reinterpret_cast<void*>(&HookedReset),
-                   reinterpret_cast<void**>(&g_original_reset))) {
+    if (CreateAndEnableHook(vtable[kResetIndex], reinterpret_cast<void*>(&HookedReset),
+                            reinterpret_cast<void**>(&g_original_reset))) {
       g_reset_hooked = true;
     }
   }
@@ -218,19 +184,13 @@ void ShutdownDx9Hook() {
     g_imgui_initialized = false;
   }
 
-  DisableHook(reinterpret_cast<void*>(g_original_end_scene));
-  DisableHook(reinterpret_cast<void*>(g_original_reset));
+  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_end_scene));
+  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_reset));
 
   g_original_end_scene = nullptr;
   g_original_reset = nullptr;
   g_end_scene_hooked = false;
   g_reset_hooked = false;
-
-  if (g_mh_ready) {
-    (void)MH_DisableHook(MH_ALL_HOOKS);
-    (void)MH_Uninitialize();
-    g_mh_ready = false;
-  }
 }
 
 } // namespace dover::overlay

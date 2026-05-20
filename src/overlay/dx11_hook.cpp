@@ -1,8 +1,8 @@
 #include "overlay/dx11_hook.h"
 #include "overlay/overlay_ui.h"
+#include "overlay/hook_utils.h"
 #include "shared/log.h"
 
-#include <MinHook.h>
 #include <d3d11.h>
 #include <dxgi.h>
 #include <windows.h>
@@ -12,7 +12,6 @@
 #include <imgui_impl_win32.h>
 
 #include <atomic>
-#include <mutex>
 
 namespace dover::overlay {
 
@@ -34,39 +33,6 @@ HWND g_game_hwnd = nullptr;
 ID3D11Device* g_d3d11_device = nullptr;
 ID3D11DeviceContext* g_d3d11_context = nullptr;
 ID3D11RenderTargetView* g_render_target_view = nullptr;
-
-std::once_flag g_mh_once;
-MH_STATUS g_mh_status = MH_OK;
-bool g_mh_ready = false;
-
-bool EnsureMinHookInitialized() {
-  std::call_once(g_mh_once, []() {
-    g_mh_status = MH_Initialize();
-    g_mh_ready = g_mh_status == MH_OK || g_mh_status == MH_ERROR_ALREADY_INITIALIZED;
-  });
-  return g_mh_ready;
-}
-
-bool EnableHook(void* target, void* detour, void** original) {
-  if (!target || !detour) {
-    return false;
-  }
-
-  MH_STATUS status = MH_CreateHook(target, detour, original);
-  if (status != MH_OK && status != MH_ERROR_ALREADY_CREATED) {
-    return false;
-  }
-
-  status = MH_EnableHook(target);
-  return status == MH_OK || status == MH_ERROR_ENABLED;
-}
-
-void DisableHook(void* target) {
-  if (target) {
-    (void)MH_DisableHook(target);
-    (void)MH_RemoveHook(target);
-  }
-}
 
 void CleanupRenderTargetView() {
   if (g_render_target_view) {
@@ -161,7 +127,7 @@ HRESULT WINAPI HookedResizeBuffers(IDXGISwapChain* swapchain, UINT buffer_count,
 } // namespace
 
 bool InitializeDx11Hook() {
-  if (!EnsureMinHookInitialized()) {
+  if (!InitializeHookSystem()) {
     dover::shared::LogError("MinHook initialization failed.");
     return false;
   }
@@ -220,15 +186,15 @@ bool InitializeDx11Hook() {
   void** vtable = *reinterpret_cast<void***>(dummy_swapchain);
 
   if (!g_present_hooked.load()) {
-    if (EnableHook(vtable[kPresentIndex], reinterpret_cast<void*>(&HookedPresent),
-                   reinterpret_cast<void**>(&g_original_present))) {
+    if (CreateAndEnableHook(vtable[kPresentIndex], reinterpret_cast<void*>(&HookedPresent),
+                            reinterpret_cast<void**>(&g_original_present))) {
       g_present_hooked = true;
     }
   }
 
   if (!g_resize_hooked.load()) {
-    if (EnableHook(vtable[kResizeBuffersIndex], reinterpret_cast<void*>(&HookedResizeBuffers),
-                   reinterpret_cast<void**>(&g_original_resize_buffers))) {
+    if (CreateAndEnableHook(vtable[kResizeBuffersIndex], reinterpret_cast<void*>(&HookedResizeBuffers),
+                            reinterpret_cast<void**>(&g_original_resize_buffers))) {
       g_resize_hooked = true;
     }
   }
@@ -259,8 +225,8 @@ void ShutdownDx11Hook() {
     g_imgui_initialized = false;
   }
 
-  DisableHook(reinterpret_cast<void*>(g_original_present));
-  DisableHook(reinterpret_cast<void*>(g_original_resize_buffers));
+  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_present));
+  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_resize_buffers));
 
   g_original_present = nullptr;
   g_original_resize_buffers = nullptr;
@@ -274,12 +240,6 @@ void ShutdownDx11Hook() {
   if (g_d3d11_context) {
     g_d3d11_context->Release();
     g_d3d11_context = nullptr;
-  }
-
-  if (g_mh_ready) {
-    (void)MH_DisableHook(MH_ALL_HOOKS);
-    (void)MH_Uninitialize();
-    g_mh_ready = false;
   }
 }
 

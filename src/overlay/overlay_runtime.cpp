@@ -1,5 +1,6 @@
 #include "overlay/dx9_hook.h"
 #include "overlay/dx11_hook.h"
+#include "overlay/hook_utils.h"
 #include "shared/ipc.h"
 #include "shared/log.h"
 
@@ -51,6 +52,7 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
       dover::shared::LogError("Hook install timed out.");
       ShutdownDx9Hook();
       ShutdownDx11Hook();
+      ShutdownHookSystem();
       return 0;
     }
 
@@ -62,6 +64,7 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
 
   ShutdownDx9Hook();
   ShutdownDx11Hook();
+  ShutdownHookSystem();
   dover::shared::LogInfo("Overlay runtime stopped.");
   return 0;
 }
