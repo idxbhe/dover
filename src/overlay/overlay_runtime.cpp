@@ -1,4 +1,5 @@
 #include "overlay/dx9_hook.h"
+#include "overlay/dx11_hook.h"
 #include "shared/ipc.h"
 #include "shared/log.h"
 
@@ -21,10 +22,20 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
 
   dover::shared::LogInfo("Overlay runtime started.");
   DWORD attempts = 0;
+  bool hook_installed = false;
   while (!g_shutdown_requested.load() && attempts < kHookRetryMaxAttempts) {
-    if (InitializeDx9Hook()) {
-      dover::shared::LogInfo("DX9 hook installed.");
-      break;
+    if (GetModuleHandleW(L"d3d11.dll")) {
+      if (InitializeDx11Hook()) {
+        dover::shared::LogInfo("DX11 hook installed.");
+        hook_installed = true;
+        break;
+      }
+    } else if (GetModuleHandleW(L"d3d9.dll")) {
+      if (InitializeDx9Hook()) {
+        dover::shared::LogInfo("DX9 hook installed.");
+        hook_installed = true;
+        break;
+      }
     }
 
     ++attempts;
@@ -36,9 +47,10 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   }
 
   if (!g_shutdown_requested.load()) {
-    if (attempts >= kHookRetryMaxAttempts) {
-      dover::shared::LogError("DX9 hook install timed out.");
+    if (!hook_installed) {
+      dover::shared::LogError("Hook install timed out.");
       ShutdownDx9Hook();
+      ShutdownDx11Hook();
       return 0;
     }
 
@@ -49,6 +61,7 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   }
 
   ShutdownDx9Hook();
+  ShutdownDx11Hook();
   dover::shared::LogInfo("Overlay runtime stopped.");
   return 0;
 }
