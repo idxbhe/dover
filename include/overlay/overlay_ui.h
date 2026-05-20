@@ -11,4 +11,7 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
 void SetupImGuiTheme();
 void RenderImGuiUI();
 
+bool InitializeInputHooks();
+void ShutdownInputHooks();
+
 } // namespace dover::overlay

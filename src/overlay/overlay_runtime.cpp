@@ -1,6 +1,7 @@
 #include "overlay/dx9_hook.h"
 #include "overlay/dx11_hook.h"
 #include "overlay/hook_utils.h"
+#include "overlay/overlay_ui.h"
 #include "shared/ipc.h"
 #include "shared/log.h"
 
@@ -56,12 +57,20 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
       return 0;
     }
 
+    // Initialize input state API hooking
+    if (InitializeInputHooks()) {
+      dover::shared::LogInfo("Input state API hooks installed successfully.");
+    } else {
+      dover::shared::LogError("Some input API hooks failed to install.");
+    }
+
     dover::shared::LogInfo("Overlay runtime entering wait loop.");
     while (!g_shutdown_requested.load()) {
       Sleep(100);
     }
   }
 
+  ShutdownInputHooks();
   ShutdownDx9Hook();
   ShutdownDx11Hook();
   ShutdownHookSystem();

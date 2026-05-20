@@ -1,8 +1,10 @@
 #include "overlay/overlay_ui.h"
+#include "overlay/hook_utils.h"
 
 #include <windows.h>
 #include <imgui.h>
 #include <imgui_impl_win32.h>
+#include <cstring>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -11,6 +13,69 @@ namespace dover::overlay {
 bool g_show_overlay = false;
 WNDPROC g_original_wnd_proc = nullptr;
 const char* g_active_dx_version = "Unknown API";
+
+namespace {
+using GetAsyncKeyStateFn = SHORT(WINAPI*)(int);
+using GetKeyStateFn = SHORT(WINAPI*)(int);
+using GetKeyboardStateFn = BOOL(WINAPI*)(PBYTE);
+using ClipCursorFn = BOOL(WINAPI*)(const RECT*);
+
+GetAsyncKeyStateFn g_original_get_async_key_state = nullptr;
+GetKeyStateFn g_original_get_key_state = nullptr;
+GetKeyboardStateFn g_original_get_keyboard_state = nullptr;
+ClipCursorFn g_original_clip_cursor = nullptr;
+
+SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
+  if (g_show_overlay) {
+    if (vKey == VK_TAB || vKey == VK_SHIFT) {
+      if (g_original_get_async_key_state) {
+        return g_original_get_async_key_state(vKey);
+      }
+    }
+    return 0;
+  }
+  if (g_original_get_async_key_state) {
+    return g_original_get_async_key_state(vKey);
+  }
+  return 0;
+}
+
+SHORT WINAPI HookedGetKeyState(int nVirtKey) {
+  if (g_show_overlay) {
+    if (nVirtKey == VK_TAB || nVirtKey == VK_SHIFT) {
+      if (g_original_get_key_state) {
+        return g_original_get_key_state(nVirtKey);
+      }
+    }
+    return 0;
+  }
+  if (g_original_get_key_state) {
+    return g_original_get_key_state(nVirtKey);
+  }
+  return 0;
+}
+
+BOOL WINAPI HookedGetKeyboardState(PBYTE lpKeyState) {
+  if (g_show_overlay && lpKeyState) {
+    std::memset(lpKeyState, 0, 256);
+    return TRUE;
+  }
+  if (g_original_get_keyboard_state) {
+    return g_original_get_keyboard_state(lpKeyState);
+  }
+  return FALSE;
+}
+
+BOOL WINAPI HookedClipCursor(const RECT* lpRect) {
+  if (g_show_overlay) {
+    return TRUE;
+  }
+  if (g_original_clip_cursor) {
+    return g_original_clip_cursor(lpRect);
+  }
+  return ClipCursor(lpRect);
+}
+} // namespace
 
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   // Toggle overlay on Shift + Tab
@@ -33,11 +98,14 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
       return true; // ImGui processed, block from game
     }
 
-    // Block keyboard and mouse events from leaking into the game when overlay is active
+    // Block keyboard, mouse and raw input events from leaking into the game when overlay is active
     if (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) {
       return 1;
     }
     if (msg >= WM_KEYFIRST && msg <= WM_KEYLAST) {
+      return 1;
+    }
+    if (msg == WM_INPUT) {
       return 1;
     }
   }
@@ -110,6 +178,59 @@ void RenderImGuiUI() {
 
     ImGui::End();
   }
+}
+
+bool InitializeInputHooks() {
+  HMODULE user32 = GetModuleHandleW(L"user32.dll");
+  if (!user32) {
+    return false;
+  }
+
+  void* get_async_key_state_addr = GetProcAddress(user32, "GetAsyncKeyState");
+  void* get_key_state_addr = GetProcAddress(user32, "GetKeyState");
+  void* get_keyboard_state_addr = GetProcAddress(user32, "GetKeyboardState");
+  void* clip_cursor_addr = GetProcAddress(user32, "ClipCursor");
+
+  bool success = true;
+
+  if (get_async_key_state_addr) {
+    success &= CreateAndEnableHook(
+        get_async_key_state_addr,
+        reinterpret_cast<void*>(&HookedGetAsyncKeyState),
+        reinterpret_cast<void**>(&g_original_get_async_key_state));
+  }
+  if (get_key_state_addr) {
+    success &= CreateAndEnableHook(
+        get_key_state_addr,
+        reinterpret_cast<void*>(&HookedGetKeyState),
+        reinterpret_cast<void**>(&g_original_get_key_state));
+  }
+  if (get_keyboard_state_addr) {
+    success &= CreateAndEnableHook(
+        get_keyboard_state_addr,
+        reinterpret_cast<void*>(&HookedGetKeyboardState),
+        reinterpret_cast<void**>(&g_original_get_keyboard_state));
+  }
+  if (clip_cursor_addr) {
+    success &= CreateAndEnableHook(
+        clip_cursor_addr,
+        reinterpret_cast<void*>(&HookedClipCursor),
+        reinterpret_cast<void**>(&g_original_clip_cursor));
+  }
+
+  return success;
+}
+
+void ShutdownInputHooks() {
+  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_get_async_key_state));
+  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_get_key_state));
+  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_get_keyboard_state));
+  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_clip_cursor));
+
+  g_original_get_async_key_state = nullptr;
+  g_original_get_key_state = nullptr;
+  g_original_get_keyboard_state = nullptr;
+  g_original_clip_cursor = nullptr;
 }
 
 } // namespace dover::overlay
