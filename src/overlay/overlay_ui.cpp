@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 #include <cstring>
+#include <string>
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -249,7 +250,24 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
   return CallWindowProcW(g_original_wnd_proc, hwnd, msg, wparam, lparam);
 }
 
+static std::string g_ini_path_utf8;
+
 void SetupImGuiTheme() {
+  // Setup robust global INI file path in user LOCALAPPDATA directory
+  wchar_t local_app_data[MAX_PATH];
+  if (GetEnvironmentVariableW(L"LOCALAPPDATA", local_app_data, MAX_PATH)) {
+    std::wstring dover_dir = std::wstring(local_app_data) + L"\\dover";
+    CreateDirectoryW(dover_dir.c_str(), NULL);
+    std::wstring ini_path = dover_dir + L"\\imgui.ini";
+    
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, ini_path.c_str(), -1, NULL, 0, NULL, NULL);
+    g_ini_path_utf8.resize(size_needed);
+    WideCharToMultiByte(CP_UTF8, 0, ini_path.c_str(), -1, &g_ini_path_utf8[0], size_needed, NULL, NULL);
+    
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = g_ini_path_utf8.c_str();
+  }
+
   ImGuiStyle& style = ImGui::GetStyle();
   style.WindowRounding = 8.0f;
   style.FrameRounding = 4.0f;
@@ -278,41 +296,99 @@ void RenderImGuiUI() {
   ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", g_active_dx_version);
   ImGui::End();
 
-  // 2. Draw Interactive Overlay Panel if visible
+  // 2. Draw Steam-style Interactive Navigation and floating windows if visible
   if (g_show_overlay) {
     // Dim the underlying game frame for premium presentation
     ImVec2 display_size = ImGui::GetIO().DisplaySize;
     ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, 160));
 
-    ImGui::SetNextWindowSize(ImVec2(550.0f, 350.0f), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Dover Overlay Panel (Press Shift+Tab to Close)", &g_show_overlay, ImGuiWindowFlags_NoCollapse);
+    static bool show_notes = true;
+    static bool show_settings = false;
 
-    ImGui::Text("Welcome to Dover Steam Overlay alternative!");
-    ImGui::TextDisabled("Take notes or configure settings while gaming.");
-    ImGui::Spacing();
+    // A. Top Navigation Bar (Fixed persistent toolbar at the top)
+    const float bar_height = 55.0f;
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(display_size.x, bar_height), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.92f);
     
-    if (ImGui::BeginTabBar("DoverTabs")) {
-      if (ImGui::BeginTabItem("Notes")) {
-        static char notes[2048] = "Write down your notes, strategies, or game codes here...";
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    
+    ImGui::Begin("Top Navigation Bar", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                 ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
+                 ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+                 
+    ImGui::PopStyleVar(2);
+
+    // Title / Brand Layout
+    ImGui::SetCursorPosY(16.0f);
+    ImGui::SetCursorPosX(16.0f);
+    ImGui::TextColored(ImVec4(0.35f, 0.65f, 1.00f, 1.00f), "DOVER OVERLAY");
+    
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(150.0f);
+    ImGui::SetCursorPosY(12.0f);
+
+    // Notes Toggle Button
+    if (show_notes) {
+      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.45f, 0.65f, 1.00f));
+    }
+    if (ImGui::Button("Notes", ImVec2(100, 30))) {
+      show_notes = !show_notes;
+    }
+    if (show_notes) {
+      ImGui::PopStyleColor();
+    }
+
+    ImGui::SameLine();
+    
+    // Settings Toggle Button
+    if (show_settings) {
+      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.45f, 0.65f, 1.00f));
+    }
+    if (ImGui::Button("Settings", ImVec2(100, 30))) {
+      show_settings = !show_settings;
+    }
+    if (show_settings) {
+      ImGui::PopStyleColor();
+    }
+
+    // Close Button on the far right
+    ImGui::SameLine(display_size.x - 120.0f);
+    if (ImGui::Button("Close", ImVec2(100, 30))) {
+      g_show_overlay = false;
+      ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+    }
+
+    ImGui::End();
+
+    // B. Floating Feature Jendela (Modular, bebas geser, mengingat posisi via dover/imgui.ini)
+    
+    // Notes Jendela
+    if (show_notes) {
+      ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_FirstUseEver);
+      if (ImGui::Begin("Notes", &show_notes, ImGuiWindowFlags_NoCollapse)) {
+        static char notes[4096] = "Write down your notes, strategies, or game codes here...";
         ImGui::InputTextMultiline("##notes", notes, sizeof(notes), ImVec2(-FLT_MIN, -FLT_MIN));
-        ImGui::EndTabItem();
       }
-      if (ImGui::BeginTabItem("Settings")) {
+      ImGui::End();
+    }
+
+    // Settings Jendela
+    if (show_settings) {
+      ImGui::SetNextWindowSize(ImVec2(320.0f, 200.0f), ImGuiCond_FirstUseEver);
+      if (ImGui::Begin("Settings", &show_settings, ImGuiWindowFlags_NoCollapse)) {
         ImGui::Text("Configurations:");
         ImGui::Separator();
         static bool vsync = true;
         ImGui::Checkbox("Enable VSync Simulation", &vsync);
         ImGui::Spacing();
-        if (ImGui::Button("Close Overlay")) {
-          g_show_overlay = false;
-          ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-        }
-        ImGui::EndTabItem();
+        ImGui::TextDisabled("Future game-specific saving:");
+        ImGui::TextDisabled("dover/imgui_<game>.ini");
       }
-      ImGui::EndTabBar();
+      ImGui::End();
     }
-
-    ImGui::End();
   }
 }
 
