@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <psapi.h>
 #include <imgui.h>
+#include <misc/freetype/imgui_freetype.h>
 #include <imgui_impl_win32.h>
 #include <cstring>
 #include <string>
@@ -307,15 +308,22 @@ void SetupImGuiTheme() {
           };
 
           std::string p_inter_reg = to_utf8(base_dir + L"\\fonts\\Inter\\Inter-Regular.ttf");
-          std::string p_inter_bold = to_utf8(base_dir + L"\\fonts\\Inter\\Inter-Bold.ttf");
-          std::string p_inter_italic = to_utf8(base_dir + L"\\fonts\\Inter\\Inter-Italic.ttf");
-          std::string p_inter_bi = to_utf8(base_dir + L"\\fonts\\Inter\\Inter-BoldItalic.ttf");
           std::string p_jb_reg = to_utf8(base_dir + L"\\fonts\\JetBrainsMono\\JetBrainsMono-Regular.ttf");
 
           ImFontConfig cfg;
           cfg.OversampleH = 4;
           cfg.OversampleV = 1;
           cfg.PixelSnapH = true;
+          cfg.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LightHinting;
+
+          ImFontConfig cfg_bold = cfg;
+          cfg_bold.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_Bold;
+
+          ImFontConfig cfg_italic = cfg;
+          cfg_italic.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_Oblique;
+
+          ImFontConfig cfg_bi = cfg;
+          cfg_bi.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_Bold | ImGuiFreeTypeBuilderFlags_Oblique;
           
           // 1. GUI Font (Inter) - Default
           g_font_gui = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 14.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
@@ -329,24 +337,24 @@ void SetupImGuiTheme() {
           g_font_editor = io.Fonts->AddFontFromFileTTF(p_jb_reg.c_str(), 13.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_editor) g_font_editor = g_font_gui;
 
-          // 4. Varian Font Preview (Bold, Italic, Bold-Italic)
-          g_font_preview_bold = io.Fonts->AddFontFromFileTTF(p_inter_bold.c_str(), 15.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          // 4. Varian Font Preview (Bold, Italic, Bold-Italic) generated from Regular
+          g_font_preview_bold = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 15.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview_bold) g_font_preview_bold = g_font_preview;
 
-          g_font_preview_italic = io.Fonts->AddFontFromFileTTF(p_inter_italic.c_str(), 15.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          g_font_preview_italic = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 15.0f, &cfg_italic, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview_italic) g_font_preview_italic = g_font_preview;
 
-          g_font_preview_bold_italic = io.Fonts->AddFontFromFileTTF(p_inter_bi.c_str(), 15.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          g_font_preview_bold_italic = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 15.0f, &cfg_bi, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview_bold_italic) g_font_preview_bold_italic = g_font_preview;
 
-          // 5. Headings
-          g_font_preview_h1 = io.Fonts->AddFontFromFileTTF(p_inter_bold.c_str(), 22.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          // 5. Headings (generated from Regular + Bold flag)
+          g_font_preview_h1 = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 22.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview_h1) g_font_preview_h1 = g_font_preview;
 
-          g_font_preview_h2 = io.Fonts->AddFontFromFileTTF(p_inter_bold.c_str(), 18.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          g_font_preview_h2 = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 18.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview_h2) g_font_preview_h2 = g_font_preview;
 
-          g_font_preview_h3 = io.Fonts->AddFontFromFileTTF(p_inter_bold.c_str(), 16.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          g_font_preview_h3 = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 16.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview_h3) g_font_preview_h3 = g_font_preview;
         }
       }

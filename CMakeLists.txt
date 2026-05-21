@@ -42,6 +42,23 @@ FetchContent_Declare(
 )
 FetchContent_Populate(imgui_md)
 
+set(FT_REQUIRE_ZLIB OFF CACHE BOOL "Disable ZLIB" FORCE)
+set(FT_REQUIRE_BZIP2 OFF CACHE BOOL "Disable BZIP2" FORCE)
+set(FT_REQUIRE_PNG OFF CACHE BOOL "Disable PNG" FORCE)
+set(FT_REQUIRE_HARFBUZZ OFF CACHE BOOL "Disable HarfBuzz" FORCE)
+set(FT_REQUIRE_BROTLI OFF CACHE BOOL "Disable Brotli" FORCE)
+set(FT_DISABLE_ZLIB ON CACHE BOOL "Disable ZLIB" FORCE)
+set(FT_DISABLE_BZIP2 ON CACHE BOOL "Disable BZIP2" FORCE)
+set(FT_DISABLE_PNG ON CACHE BOOL "Disable PNG" FORCE)
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "Disable HarfBuzz" FORCE)
+set(FT_DISABLE_BROTLI ON CACHE BOOL "Disable Brotli" FORCE)
+
+FetchContent_Declare(
+  freetype
+  URL https://github.com/freetype/freetype/archive/refs/tags/VER-2-13-2.zip
+)
+FetchContent_MakeAvailable(freetype)
+
 add_library(minhook STATIC
   ${minhook_SOURCE_DIR}/src/buffer.c
   ${minhook_SOURCE_DIR}/src/hook.c
@@ -74,12 +91,15 @@ add_library(imgui STATIC
   ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_dx9.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
+  ${imgui_SOURCE_DIR}/misc/freetype/imgui_freetype.cpp
 )
 
 target_include_directories(imgui PUBLIC
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
 )
+target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_FREETYPE)
+target_link_libraries(imgui PUBLIC freetype)
 
 if(MSVC)
   target_compile_options(imgui PRIVATE /W0)
