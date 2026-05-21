@@ -64,6 +64,28 @@ struct DoverMarkdownRenderer : public imgui_md {
     return imgui_md::get_color();
   }
 
+  void BLOCK_CODE(const MD_BLOCK_CODE_DETAIL* d, bool e) override {
+    m_is_code = e;
+    if (e) {
+      ImGui::PushFont(get_font());
+      ImGui::PushStyleColor(ImGuiCol_Text, get_color());
+    } else {
+      ImGui::PopStyleColor();
+      ImGui::PopFont();
+    }
+  }
+
+  void SPAN_CODE(bool e) override {
+    m_is_code = e;
+    if (e) {
+      ImGui::PushFont(get_font());
+      ImGui::PushStyleColor(ImGuiCol_Text, get_color());
+    } else {
+      ImGui::PopStyleColor();
+      ImGui::PopFont();
+    }
+  }
+
   void open_url() const override {}
   bool get_image(image_info&) const override { return false; }
 };
