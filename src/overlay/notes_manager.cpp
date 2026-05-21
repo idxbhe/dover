@@ -182,8 +182,9 @@ void TickAutosave() {
       g_last_dirty_time = now;
       g_has_pending_save = true;
     } else {
-      auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - g_last_dirty_time).count();
-      if (elapsed >= 2) {
+      // Steam-like: save 500ms after last change
+      auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_last_dirty_time).count();
+      if (elapsed_ms >= 500) {
         AutoSaveAll();
       }
     }
