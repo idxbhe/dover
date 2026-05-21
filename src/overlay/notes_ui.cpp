@@ -14,10 +14,7 @@ namespace dover::overlay {
 
 namespace {
 
-using Clock = std::chrono::steady_clock;
-
 constexpr float kNavBarHeight = 42.0f;
-constexpr long long kAutoPreviewIdleMs = 1500;
 
 // ---- UI Window States ----
 static bool g_maximized = false;
@@ -26,9 +23,6 @@ static bool g_maximized = false;
 static int  g_selected_note_idx = 0;
 static bool g_sidebar_visible   = true;
 static int  g_view_mode         = 1;   // 0=editor, 1=preview
-
-static Clock::time_point g_last_edit_time{};
-static bool g_edit_timer_active = false;
 
 static char g_edit_buffer[65536] = {};
 static int  g_synced_note_idx   = -1;
@@ -97,14 +91,11 @@ void SelectNote(int idx) {
   g_selected_note_idx = idx;
   SyncEditBufferFromNote(idx);
   g_view_mode = 1;
-  g_edit_timer_active = false;
   g_confirm_delete = false;
 }
 
 void SwitchToEditor() {
   g_view_mode = 0;
-  g_last_edit_time    = Clock::now();
-  g_edit_timer_active = true;
 }
 
 // ---------- Formatting callback ----------
@@ -147,7 +138,6 @@ void InitializeNotesUI() {
   g_selected_note_idx = 0;
   g_view_mode         = 1;
   g_sidebar_visible   = true;
-  g_edit_timer_active = false;
   g_maximized         = false;
   g_confirm_delete    = false;
   SyncEditBufferFromNote(0);
@@ -172,17 +162,6 @@ void RenderNotesWindow(bool* p_open) {
   }
 
   TickAutosave();
-
-  // Auto-switch to preview after idle
-  if (g_view_mode == 0 && g_edit_timer_active) {
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                  Clock::now() - g_last_edit_time).count();
-    if (ms >= kAutoPreviewIdleMs) {
-      FlushEditBufferToNote();
-      g_view_mode = 1;
-      g_edit_timer_active = false;
-    }
-  }
 
   // ---- Setup window position, size, and style ----
   // Always borderless (NoTitleBar). If maximized, block moving/resizing.
@@ -349,19 +328,11 @@ void RenderNotesWindow(bool* p_open) {
       if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_X, false)) g_fmt_strike = true;
     }
 
-    long long elapsed_ms = g_edit_timer_active
-        ? std::chrono::duration_cast<std::chrono::milliseconds>(
-              Clock::now() - g_last_edit_time).count()
-        : 0LL;
-    long long remaining_ms = kAutoPreviewIdleMs - elapsed_ms;
-    if (remaining_ms < 0) remaining_ms = 0;
-    ImGui::TextDisabled("Shortcuts: Ctrl+B Bold | Ctrl+I Italic | Ctrl+` Code | Ctrl+Shift+X Strike   |   Preview in %.1fs",
-                        static_cast<float>(remaining_ms) / 1000.0f);
+    ImGui::TextDisabled("Shortcuts: Ctrl+B Bold | Ctrl+I Italic | Ctrl+` Code | Ctrl+Shift+X Strike");
     ImGui::SameLine();
     if (ImGui::SmallButton("Preview")) {
       FlushEditBufferToNote();
       g_view_mode = 1;
-      g_edit_timer_active = false;
     }
     ImGui::Separator();
     content_h = ImGui::GetContentRegionAvail().y;
@@ -374,14 +345,15 @@ void RenderNotesWindow(bool* p_open) {
 
     if (changed) {
       notes[g_selected_note_idx].is_dirty = true;
-      g_last_edit_time    = Clock::now();
-      g_edit_timer_active = true;
+    }
+
+    if (ImGui::IsItemDeactivated()) {
+      FlushEditBufferToNote();
+      g_view_mode = 1;
     }
 
   } else {
     // ---- PREVIEW MODE ----
-    ImGui::TextDisabled("Click area below to edit content...");
-    ImGui::Separator();
     content_h = ImGui::GetContentRegionAvail().y;
 
     ImGui::BeginChild("MDPreview", ImVec2(-FLT_MIN, content_h), false,
@@ -393,8 +365,6 @@ void RenderNotesWindow(bool* p_open) {
     const auto& content = notes[g_selected_note_idx].content;
     if (!content.empty()) {
       g_md_renderer.print(content.c_str(), content.c_str() + content.size());
-    } else {
-      ImGui::TextDisabled("(empty note — click to start writing)");
     }
 
     ImGui::EndChild();
