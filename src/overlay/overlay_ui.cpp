@@ -306,7 +306,11 @@ void RenderImGuiUI() {
     static bool show_settings = false;
 
     // A. Top Navigation Bar (Fixed persistent toolbar at the top)
-    const float bar_height = 55.0f;
+    const float bar_height = 42.0f;
+    const float bar_padding_x = 14.0f;
+    const float button_width = 92.0f;
+    const float button_height = 24.0f;
+    const float button_spacing = 8.0f;
     ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(display_size.x, bar_height), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.92f);
@@ -321,42 +325,41 @@ void RenderImGuiUI() {
                  
     ImGui::PopStyleVar(2);
 
-    // Title / Brand Layout
-    ImGui::SetCursorPosY(16.0f);
-    ImGui::SetCursorPosX(16.0f);
-    ImGui::TextColored(ImVec4(0.35f, 0.65f, 1.00f, 1.00f), "DOVER OVERLAY");
-    
-    ImGui::SameLine();
-    ImGui::SetCursorPosX(150.0f);
-    ImGui::SetCursorPosY(12.0f);
+    const float button_group_width = (button_width * 3.0f) + (button_spacing * 2.0f);
+    const float brand_y = (bar_height - ImGui::GetTextLineHeight()) * 0.5f;
+    const float button_y = (bar_height - button_height) * 0.5f;
 
-    // Notes Toggle Button
+    ImGui::SetCursorPos(ImVec2(bar_padding_x, brand_y));
+    ImGui::TextColored(ImVec4(0.35f, 0.65f, 1.00f, 1.00f), "DOVER OVERLAY");
+
+    const float center_start_x = (display_size.x - button_group_width) * 0.5f;
+    const float close_button_x = display_size.x - bar_padding_x - button_width;
+
+    ImGui::SetCursorPos(ImVec2(center_start_x, button_y));
     if (show_notes) {
       ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.45f, 0.65f, 1.00f));
     }
-    if (ImGui::Button("Notes", ImVec2(100, 30))) {
+    if (ImGui::Button("Notes", ImVec2(button_width, button_height))) {
       show_notes = !show_notes;
     }
     if (show_notes) {
       ImGui::PopStyleColor();
     }
 
-    ImGui::SameLine();
-    
-    // Settings Toggle Button
+    ImGui::SameLine(0.0f, button_spacing);
     if (show_settings) {
       ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.45f, 0.65f, 1.00f));
     }
-    if (ImGui::Button("Settings", ImVec2(100, 30))) {
+    if (ImGui::Button("Settings", ImVec2(button_width, button_height))) {
       show_settings = !show_settings;
     }
     if (show_settings) {
       ImGui::PopStyleColor();
     }
 
-    // Close Button on the far right
-    ImGui::SameLine(display_size.x - 120.0f);
-    if (ImGui::Button("Close", ImVec2(100, 30))) {
+    ImGui::SameLine(0.0f, button_spacing);
+    ImGui::SetCursorPos(ImVec2(close_button_x, button_y));
+    if (ImGui::Button("Close", ImVec2(button_width, button_height))) {
       g_show_overlay = false;
       ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
     }
