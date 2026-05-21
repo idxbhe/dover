@@ -12,14 +12,15 @@
 
 namespace dover::overlay {
 
-extern ImFont* g_font_editor;
-extern ImFont* g_font_preview;
-extern ImFont* g_font_preview_bold;
-extern ImFont* g_font_preview_italic;
-extern ImFont* g_font_preview_bold_italic;
-extern ImFont* g_font_preview_h1;
-extern ImFont* g_font_preview_h2;
-extern ImFont* g_font_preview_h3;
+extern ImFont* g_font_gui;
+extern ImFont* g_fonts_editor[5];
+extern ImFont* g_fonts_preview[5];
+extern ImFont* g_fonts_preview_bold[5];
+extern ImFont* g_fonts_preview_italic[5];
+extern ImFont* g_fonts_preview_bold_italic[5];
+extern ImFont* g_fonts_preview_h1[5];
+extern ImFont* g_fonts_preview_h2[5];
+extern ImFont* g_fonts_preview_h3[5];
 
 namespace {
 
@@ -33,7 +34,7 @@ static float g_sidebar_width = 180.0f;
 static int  g_selected_note_idx = 0;
 static bool g_sidebar_visible   = true;
 static int  g_view_mode         = 1;   // 0=editor, 1=preview
-static float g_zoom             = 1.0f;
+static int  g_zoom_idx          = 2;   // 0=Tiny, 1=Small, 2=Medium, 3=Large, 4=Huge
 
 static char g_edit_buffer[65536] = {};
 static int  g_synced_note_idx   = -1;
@@ -44,15 +45,16 @@ static bool g_confirm_delete = false;
 // ---- imgui_md renderer ----
 struct DoverMarkdownRenderer : public imgui_md {
   ImFont* get_font() const override {
-    if (m_is_code) return g_font_editor;
-    if (m_hlevel == 1) return g_font_preview_h1;
-    if (m_hlevel == 2) return g_font_preview_h2;
-    if (m_hlevel >= 3) return g_font_preview_h3;
-    if (m_is_strong && m_is_em) return g_font_preview_bold_italic;
-    if (m_is_strong) return g_font_preview_bold;
-    if (m_is_em) return g_font_preview_italic;
-    if (m_is_table_header) return g_font_preview_bold;
-    return g_font_preview;
+    int idx = g_zoom_idx;
+    if (m_is_code) return g_fonts_editor[idx];
+    if (m_hlevel == 1) return g_fonts_preview_h1[idx];
+    if (m_hlevel == 2) return g_fonts_preview_h2[idx];
+    if (m_hlevel >= 3) return g_fonts_preview_h3[idx];
+    if (m_is_strong && m_is_em) return g_fonts_preview_bold_italic[idx];
+    if (m_is_strong) return g_fonts_preview_bold[idx];
+    if (m_is_em) return g_fonts_preview_italic[idx];
+    if (m_is_table_header) return g_fonts_preview_bold[idx];
+    return g_fonts_preview[idx];
   }
   
   ImVec4 get_color() const override {
@@ -208,8 +210,6 @@ void RenderNotesWindow(bool* p_open) {
     return;
   }
 
-  ImGui::SetWindowFontScale(g_zoom);
-
   // ---- Premium Custom Toolbar / Header Row ----
   ImGui::AlignTextToFramePadding();
 
@@ -231,11 +231,9 @@ void RenderNotesWindow(bool* p_open) {
   }
   ImGui::SameLine();
 
-  ImGui::SetNextItemWidth(90.0f);
-  if (ImGui::InputFloat("Zoom", &g_zoom, 0.1f, 0.5f, "%.1fx")) {
-    if (g_zoom < 0.5f) g_zoom = 0.5f;
-    if (g_zoom > 4.0f) g_zoom = 4.0f;
-  }
+  ImGui::SetNextItemWidth(110.0f);
+  const char* size_items[] = { "Size: Tiny", "Size: Small", "Size: Medium", "Size: Large", "Size: Huge" };
+  ImGui::Combo("##zoom", &g_zoom_idx, size_items, IM_ARRAYSIZE(size_items));
   ImGui::SameLine();
 
   // Save indicator (Steam-style)
@@ -376,7 +374,7 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::Separator();
     content_h = ImGui::GetContentRegionAvail().y;
 
-    ImGui::PushFont(g_font_editor);
+    ImGui::PushFont(g_fonts_editor[g_zoom_idx]);
     bool changed = ImGui::InputTextMultiline(
         "##ed", g_edit_buffer, sizeof(g_edit_buffer),
         ImVec2(-FLT_MIN, content_h),
@@ -409,7 +407,9 @@ void RenderNotesWindow(bool* p_open) {
 
     const auto& content = notes[g_selected_note_idx].content;
     if (!content.empty()) {
+      ImGui::PushFont(g_fonts_preview[g_zoom_idx]);
       g_md_renderer.print(content.c_str(), content.c_str() + content.size());
+      ImGui::PopFont();
     }
 
     ImGui::EndChild();

@@ -11,14 +11,14 @@ extern WNDPROC g_original_wnd_proc;
 extern const char* g_active_dx_version;
 
 extern ImFont* g_font_gui;
-extern ImFont* g_font_editor;
-extern ImFont* g_font_preview;
-extern ImFont* g_font_preview_bold;
-extern ImFont* g_font_preview_italic;
-extern ImFont* g_font_preview_bold_italic;
-extern ImFont* g_font_preview_h1;
-extern ImFont* g_font_preview_h2;
-extern ImFont* g_font_preview_h3;
+extern ImFont* g_fonts_editor[5];
+extern ImFont* g_fonts_preview[5];
+extern ImFont* g_fonts_preview_bold[5];
+extern ImFont* g_fonts_preview_italic[5];
+extern ImFont* g_fonts_preview_bold_italic[5];
+extern ImFont* g_fonts_preview_h1[5];
+extern ImFont* g_fonts_preview_h2[5];
+extern ImFont* g_fonts_preview_h3[5];
 
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 void SetupImGuiTheme();

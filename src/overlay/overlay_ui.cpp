@@ -23,14 +23,14 @@ WNDPROC g_original_wnd_proc = nullptr;
 const char* g_active_dx_version = "Unknown API";
 
 ImFont* g_font_gui = nullptr;
-ImFont* g_font_editor = nullptr;
-ImFont* g_font_preview = nullptr;
-ImFont* g_font_preview_bold = nullptr;
-ImFont* g_font_preview_italic = nullptr;
-ImFont* g_font_preview_bold_italic = nullptr;
-ImFont* g_font_preview_h1 = nullptr;
-ImFont* g_font_preview_h2 = nullptr;
-ImFont* g_font_preview_h3 = nullptr;
+ImFont* g_fonts_editor[5] = {};
+ImFont* g_fonts_preview[5] = {};
+ImFont* g_fonts_preview_bold[5] = {};
+ImFont* g_fonts_preview_italic[5] = {};
+ImFont* g_fonts_preview_bold_italic[5] = {};
+ImFont* g_fonts_preview_h1[5] = {};
+ImFont* g_fonts_preview_h2[5] = {};
+ImFont* g_fonts_preview_h3[5] = {};
 
 namespace {
 using GetAsyncKeyStateFn = SHORT(WINAPI*)(int);
@@ -311,7 +311,7 @@ void SetupImGuiTheme() {
           std::string p_jb_reg = to_utf8(base_dir + L"\\fonts\\JetBrainsMono\\JetBrainsMono-Regular.ttf");
 
           ImFontConfig cfg;
-          cfg.OversampleH = 4;
+          cfg.OversampleH = 1;
           cfg.OversampleV = 1;
           cfg.PixelSnapH = true;
           cfg.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LightHinting;
@@ -329,47 +329,61 @@ void SetupImGuiTheme() {
           g_font_gui = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 14.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_gui) g_font_gui = io.Fonts->AddFontDefault();
           
-          // 2. Preview Font (Inter with slightly bigger size)
-          g_font_preview = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 15.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
-          if (!g_font_preview) g_font_preview = g_font_gui;
-          
-          // 3. Editor Font (JetBrainsMono)
-          g_font_editor = io.Fonts->AddFontFromFileTTF(p_jb_reg.c_str(), 13.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
-          if (!g_font_editor) g_font_editor = g_font_gui;
+          // 2. Define sizes for editor and preview styles
+          // 2. Define 5 sizes for editor and preview styles
+          float editor_sizes[5]  = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
+          float preview_sizes[5] = { 13.0f, 15.0f, 18.0f, 22.0f, 26.0f };
+          float h3_sizes[5]      = { 15.0f, 17.0f, 20.0f, 24.0f, 28.0f };
+          float h2_sizes[5]      = { 17.0f, 19.0f, 23.0f, 27.0f, 32.0f };
+          float h1_sizes[5]      = { 20.0f, 23.0f, 27.0f, 32.0f, 38.0f };
 
-          // 4. Varian Font Preview (Bold, Italic, Bold-Italic) generated from Regular
-          g_font_preview_bold = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 15.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-          if (!g_font_preview_bold) g_font_preview_bold = g_font_preview;
+          for (int i = 0; i < 5; ++i) {
+            // Editor Font (JetBrainsMono)
+            g_fonts_editor[i] = io.Fonts->AddFontFromFileTTF(p_jb_reg.c_str(), editor_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
+            if (!g_fonts_editor[i]) g_fonts_editor[i] = g_font_gui;
 
-          g_font_preview_italic = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 15.0f, &cfg_italic, io.Fonts->GetGlyphRangesDefault());
-          if (!g_font_preview_italic) g_font_preview_italic = g_font_preview;
+            // Preview Font (Inter Regular)
+            g_fonts_preview[i] = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), preview_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
+            if (!g_fonts_preview[i]) g_fonts_preview[i] = g_font_gui;
 
-          g_font_preview_bold_italic = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 15.0f, &cfg_bi, io.Fonts->GetGlyphRangesDefault());
-          if (!g_font_preview_bold_italic) g_font_preview_bold_italic = g_font_preview;
+            // Preview Bold
+            g_fonts_preview_bold[i] = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), preview_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+            if (!g_fonts_preview_bold[i]) g_fonts_preview_bold[i] = g_fonts_preview[i];
 
-          // 5. Headings (generated from Regular + Bold flag)
-          g_font_preview_h1 = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 22.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-          if (!g_font_preview_h1) g_font_preview_h1 = g_font_preview;
+            // Preview Italic
+            g_fonts_preview_italic[i] = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), preview_sizes[i], &cfg_italic, io.Fonts->GetGlyphRangesDefault());
+            if (!g_fonts_preview_italic[i]) g_fonts_preview_italic[i] = g_fonts_preview[i];
 
-          g_font_preview_h2 = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 18.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-          if (!g_font_preview_h2) g_font_preview_h2 = g_font_preview;
+            // Preview Bold Italic
+            g_fonts_preview_bold_italic[i] = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), preview_sizes[i], &cfg_bi, io.Fonts->GetGlyphRangesDefault());
+            if (!g_fonts_preview_bold_italic[i]) g_fonts_preview_bold_italic[i] = g_fonts_preview[i];
 
-          g_font_preview_h3 = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 16.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-          if (!g_font_preview_h3) g_font_preview_h3 = g_font_preview;
+            // Headings
+            g_fonts_preview_h1[i] = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), h1_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+            if (!g_fonts_preview_h1[i]) g_fonts_preview_h1[i] = g_fonts_preview[i];
+
+            g_fonts_preview_h2[i] = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), h2_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+            if (!g_fonts_preview_h2[i]) g_fonts_preview_h2[i] = g_fonts_preview[i];
+
+            g_fonts_preview_h3[i] = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), h3_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+            if (!g_fonts_preview_h3[i]) g_fonts_preview_h3[i] = g_fonts_preview[i];
+          }
         }
       }
     }
 
     if (!g_font_gui) {
       g_font_gui = io.Fonts->AddFontDefault();
-      g_font_preview = g_font_gui;
-      g_font_editor = g_font_gui;
-      g_font_preview_bold = g_font_gui;
-      g_font_preview_italic = g_font_gui;
-      g_font_preview_bold_italic = g_font_gui;
-      g_font_preview_h1 = g_font_gui;
-      g_font_preview_h2 = g_font_gui;
-      g_font_preview_h3 = g_font_gui;
+      for (int i = 0; i < 5; ++i) {
+        g_fonts_editor[i] = g_font_gui;
+        g_fonts_preview[i] = g_font_gui;
+        g_fonts_preview_bold[i] = g_font_gui;
+        g_fonts_preview_italic[i] = g_font_gui;
+        g_fonts_preview_bold_italic[i] = g_font_gui;
+        g_fonts_preview_h1[i] = g_font_gui;
+        g_fonts_preview_h2[i] = g_font_gui;
+        g_fonts_preview_h3[i] = g_font_gui;
+      }
     }
 
     // Determine game name from the current process executable
