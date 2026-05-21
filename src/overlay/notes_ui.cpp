@@ -18,6 +18,7 @@ constexpr float kNavBarHeight = 42.0f;
 
 // ---- UI Window States ----
 static bool g_maximized = false;
+static float g_sidebar_width = 180.0f;
 
 // ---- Editor States ----
 static int  g_selected_note_idx = 0;
@@ -26,12 +27,6 @@ static int  g_view_mode         = 1;   // 0=editor, 1=preview
 
 static char g_edit_buffer[65536] = {};
 static int  g_synced_note_idx   = -1;
-
-// ---- Formatting shortcut flags ----
-static bool g_fmt_bold   = false;
-static bool g_fmt_italic = false;
-static bool g_fmt_code   = false;
-static bool g_fmt_strike = false;
 
 // ---- Delete confirm ----
 static bool g_confirm_delete = false;
@@ -123,10 +118,13 @@ void WrapSelection(ImGuiInputTextCallbackData* data,
 }
 
 int FormatCallback(ImGuiInputTextCallbackData* data) {
-  if (g_fmt_bold)   { g_fmt_bold   = false; WrapSelection(data, "**", "**"); }
-  if (g_fmt_italic) { g_fmt_italic = false; WrapSelection(data, "*",  "*");  }
-  if (g_fmt_code)   { g_fmt_code   = false; WrapSelection(data, "`",  "`");  }
-  if (g_fmt_strike) { g_fmt_strike = false; WrapSelection(data, "~~", "~~"); }
+  ImGuiIO& io = ImGui::GetIO();
+  if (io.KeyCtrl) {
+    if (ImGui::IsKeyPressed(ImGuiKey_B, false))           { WrapSelection(data, "**", "**"); }
+    if (ImGui::IsKeyPressed(ImGuiKey_I, false))           { WrapSelection(data, "*",  "*");  }
+    if (ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false)) { WrapSelection(data, "`",  "`");  }
+    if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_X, false)) { WrapSelection(data, "~~", "~~"); }
+  }
   return 0;
 }
 
@@ -184,8 +182,6 @@ void RenderNotesWindow(bool* p_open) {
 
   // ---- Premium Custom Toolbar / Header Row ----
   ImGui::AlignTextToFramePadding();
-  ImGui::TextColored(ImVec4(0.35f, 0.70f, 1.00f, 1.00f), "Notes");
-  ImGui::SameLine();
 
   const char* sidebar_lbl = g_sidebar_visible ? "< Hide Sidebar" : "> Show Sidebar";
   if (ImGui::Button(sidebar_lbl)) {
@@ -264,7 +260,7 @@ void RenderNotesWindow(bool* p_open) {
   // ---- Main Layout: Sidebar + Content ----
   const float win_w    = ImGui::GetContentRegionAvail().x;
   const float win_h    = ImGui::GetContentRegionAvail().y;
-  const float sb_w     = g_sidebar_visible ? 180.0f : 0.0f;
+  const float sb_w     = g_sidebar_visible ? g_sidebar_width : 0.0f;
   const float split_w  = g_sidebar_visible ? 5.0f   : 0.0f;
   const float cont_w   = win_w - sb_w - split_w;
 
@@ -277,7 +273,12 @@ void RenderNotesWindow(bool* p_open) {
     for (int i = 0; i < static_cast<int>(notes.size()); ++i) {
       bool is_sel = (i == g_selected_note_idx);
 
-      std::string title = ExtractTitleFromContent(notes[i].content);
+      std::string title;
+      if (is_sel && g_view_mode == 0) {
+        title = ExtractTitleFromContent(g_edit_buffer);
+      } else {
+        title = ExtractTitleFromContent(notes[i].content);
+      }
       if (title.size() > 20) title = title.substr(0, 18) + "..";
       if (notes[i].is_dirty) title = "* " + title;
 
@@ -302,8 +303,15 @@ void RenderNotesWindow(bool* p_open) {
     // Splitter bar
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14f, 0.14f, 0.18f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.25f, 0.25f, 0.30f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 1.00f));
     ImGui::Button("##spl", ImVec2(split_w, win_h));
-    ImGui::PopStyleColor();
+    if (ImGui::IsItemActive()) {
+      g_sidebar_width += io.MouseDelta.x;
+      if (g_sidebar_width < 100.0f) g_sidebar_width = 100.0f;
+      if (g_sidebar_width > 300.0f) g_sidebar_width = 300.0f;
+    }
+    ImGui::PopStyleColor(3);
     ImGui::SameLine();
   }
 
@@ -321,12 +329,6 @@ void RenderNotesWindow(bool* p_open) {
 
   if (g_view_mode == 0) {
     // ---- EDITOR MODE ----
-    if (io.KeyCtrl) {
-      if (ImGui::IsKeyPressed(ImGuiKey_B,           false)) g_fmt_bold   = true;
-      if (ImGui::IsKeyPressed(ImGuiKey_I,           false)) g_fmt_italic = true;
-      if (ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false)) g_fmt_code   = true;
-      if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_X, false)) g_fmt_strike = true;
-    }
 
     ImGui::TextDisabled("Shortcuts: Ctrl+B Bold | Ctrl+I Italic | Ctrl+` Code | Ctrl+Shift+X Strike");
     ImGui::SameLine();
