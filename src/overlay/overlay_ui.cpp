@@ -21,6 +21,16 @@ bool g_in_overlay_frame = false;
 WNDPROC g_original_wnd_proc = nullptr;
 const char* g_active_dx_version = "Unknown API";
 
+ImFont* g_font_gui = nullptr;
+ImFont* g_font_editor = nullptr;
+ImFont* g_font_preview = nullptr;
+ImFont* g_font_preview_bold = nullptr;
+ImFont* g_font_preview_italic = nullptr;
+ImFont* g_font_preview_bold_italic = nullptr;
+ImFont* g_font_preview_h1 = nullptr;
+ImFont* g_font_preview_h2 = nullptr;
+ImFont* g_font_preview_h3 = nullptr;
+
 namespace {
 using GetAsyncKeyStateFn = SHORT(WINAPI*)(int);
 using GetKeyStateFn = SHORT(WINAPI*)(int);
@@ -271,6 +281,88 @@ void SetupImGuiTheme() {
     
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = g_ini_path_utf8.c_str();
+
+    // ---- Load Custom Fonts (3 Roles) ----
+    HMODULE hMod = NULL;
+    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           (LPCWSTR)&SetupImGuiTheme, &hMod)) {
+      wchar_t dll_path[MAX_PATH];
+      if (GetModuleFileNameW(hMod, dll_path, MAX_PATH)) {
+        std::wstring path_str = dll_path;
+        size_t last_slash = path_str.find_last_of(L"\\/");
+        if (last_slash != std::wstring::npos) {
+          std::wstring base_dir = path_str.substr(0, last_slash);
+          
+          auto to_utf8 = [](const std::wstring& wstr) -> std::string {
+            int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL);
+            std::string str;
+            if (len > 0) {
+              str.resize(len);
+              WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &str[0], len, NULL, NULL);
+              if (!str.empty() && str.back() == '\0') {
+                str.pop_back();
+              }
+            }
+            return str;
+          };
+
+          std::string p_inter_reg = to_utf8(base_dir + L"\\fonts\\Inter\\Inter-Regular.ttf");
+          std::string p_inter_bold = to_utf8(base_dir + L"\\fonts\\Inter\\Inter-Bold.ttf");
+          std::string p_inter_italic = to_utf8(base_dir + L"\\fonts\\Inter\\Inter-Italic.ttf");
+          std::string p_inter_bi = to_utf8(base_dir + L"\\fonts\\Inter\\Inter-BoldItalic.ttf");
+          std::string p_jb_reg = to_utf8(base_dir + L"\\fonts\\JetBrainsMono\\JetBrainsMono-Regular.ttf");
+
+          ImFontConfig cfg;
+          cfg.OversampleH = 4;
+          cfg.OversampleV = 1;
+          cfg.PixelSnapH = true;
+          
+          // 1. GUI Font (Inter) - Default
+          g_font_gui = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 14.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_gui) g_font_gui = io.Fonts->AddFontDefault();
+          
+          // 2. Preview Font (Inter with slightly bigger size)
+          g_font_preview = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 15.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview) g_font_preview = g_font_gui;
+          
+          // 3. Editor Font (JetBrainsMono)
+          g_font_editor = io.Fonts->AddFontFromFileTTF(p_jb_reg.c_str(), 13.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_editor) g_font_editor = g_font_gui;
+
+          // 4. Varian Font Preview (Bold, Italic, Bold-Italic)
+          g_font_preview_bold = io.Fonts->AddFontFromFileTTF(p_inter_bold.c_str(), 15.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview_bold) g_font_preview_bold = g_font_preview;
+
+          g_font_preview_italic = io.Fonts->AddFontFromFileTTF(p_inter_italic.c_str(), 15.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview_italic) g_font_preview_italic = g_font_preview;
+
+          g_font_preview_bold_italic = io.Fonts->AddFontFromFileTTF(p_inter_bi.c_str(), 15.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview_bold_italic) g_font_preview_bold_italic = g_font_preview;
+
+          // 5. Headings
+          g_font_preview_h1 = io.Fonts->AddFontFromFileTTF(p_inter_bold.c_str(), 22.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview_h1) g_font_preview_h1 = g_font_preview;
+
+          g_font_preview_h2 = io.Fonts->AddFontFromFileTTF(p_inter_bold.c_str(), 18.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview_h2) g_font_preview_h2 = g_font_preview;
+
+          g_font_preview_h3 = io.Fonts->AddFontFromFileTTF(p_inter_bold.c_str(), 16.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview_h3) g_font_preview_h3 = g_font_preview;
+        }
+      }
+    }
+
+    if (!g_font_gui) {
+      g_font_gui = io.Fonts->AddFontDefault();
+      g_font_preview = g_font_gui;
+      g_font_editor = g_font_gui;
+      g_font_preview_bold = g_font_gui;
+      g_font_preview_italic = g_font_gui;
+      g_font_preview_bold_italic = g_font_gui;
+      g_font_preview_h1 = g_font_gui;
+      g_font_preview_h2 = g_font_gui;
+      g_font_preview_h3 = g_font_gui;
+    }
 
     // Determine game name from the current process executable
     char exe_name[MAX_PATH] = {};
