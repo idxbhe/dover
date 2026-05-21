@@ -112,6 +112,23 @@ const std::string& GetNotesGameName() {
   return g_game_name;
 }
 
+std::string CreateAutoNote() {
+  const std::string base = "untitled";
+  // Try "untitled" first, then "untitled_2", "untitled_3", ...
+  std::string candidate = base;
+  int suffix = 2;
+  while (true) {
+    bool conflict = false;
+    for (const auto& n : g_notes) {
+      if (n.title == candidate) { conflict = true; break; }
+    }
+    if (!conflict) break;
+    candidate = base + "_" + std::to_string(suffix++);
+  }
+  if (CreateNote(candidate)) return candidate;
+  return {};
+}
+
 bool CreateNote(const std::string& title) {
   // Normalize title to safe filename
   std::string safe_title = title;

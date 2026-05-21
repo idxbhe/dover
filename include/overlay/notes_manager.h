@@ -23,6 +23,10 @@ std::vector<NoteFile>& GetNotes();
 // Returns the normalized game folder name (e.g. "csgo")
 const std::string& GetNotesGameName();
 
+// Creates a note with a guaranteed unique auto-generated title.
+// Returns the title of the created note, empty string on failure.
+std::string CreateAutoNote();
+
 // Creates a new empty note with the given title. Returns false if title exists.
 bool CreateNote(const std::string& title);
 
