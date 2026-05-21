@@ -30,6 +30,18 @@ FetchContent_Declare(
 )
 FetchContent_Populate(imgui)
 
+FetchContent_Declare(
+  md4c
+  URL https://github.com/mity/md4c/archive/refs/tags/release-0.5.2.zip
+)
+FetchContent_Populate(md4c)
+
+FetchContent_Declare(
+  imgui_md
+  URL https://github.com/mekhontsev/imgui_md/archive/refs/heads/main.zip
+)
+FetchContent_Populate(imgui_md)
+
 add_library(minhook STATIC
   ${minhook_SOURCE_DIR}/src/buffer.c
   ${minhook_SOURCE_DIR}/src/hook.c
@@ -73,6 +85,25 @@ if(MSVC)
   target_compile_options(imgui PRIVATE /W0)
 endif()
 
+# MD4C: fast C-based Markdown parser
+add_library(md4c STATIC
+  ${md4c_SOURCE_DIR}/src/md4c.c
+)
+target_include_directories(md4c PUBLIC ${md4c_SOURCE_DIR}/src)
+if(MSVC)
+  target_compile_options(md4c PRIVATE /W0)
+endif()
+
+# imgui_md: Markdown renderer for Dear ImGui (backed by md4c)
+add_library(imgui_md_lib STATIC
+  ${imgui_md_SOURCE_DIR}/imgui_md.cpp
+)
+target_include_directories(imgui_md_lib PUBLIC ${imgui_md_SOURCE_DIR})
+target_link_libraries(imgui_md_lib PUBLIC md4c imgui)
+if(MSVC)
+  target_compile_options(imgui_md_lib PRIVATE /W0)
+endif()
+
 add_library(dover_shared STATIC
   src/shared/config.cpp
   src/shared/ipc.cpp
@@ -97,14 +128,18 @@ add_library(dover_overlay SHARED
   src/overlay/hook_utils.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
+  src/overlay/notes_manager.cpp
+  src/overlay/notes_ui.cpp
 )
 
 target_include_directories(dover_overlay PRIVATE
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
+  ${imgui_md_SOURCE_DIR}
+  ${md4c_SOURCE_DIR}/src
 )
 
-target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 minhook imgui)
+target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 minhook imgui imgui_md_lib)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_target_properties(dover_launcher PROPERTIES OUTPUT_NAME "dover_launcher")

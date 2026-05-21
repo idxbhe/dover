@@ -1,0 +1,41 @@
+#pragma once
+#include <string>
+#include <vector>
+
+namespace dover::overlay {
+
+struct NoteFile {
+  std::string filename;  // "strategy.md"
+  std::string title;     // "strategy"
+  std::string content;   // Full file content
+  bool is_dirty = false; // Unsaved changes flag
+};
+
+// Must be called once after ImGui context is created.
+// localappdata_base: path to %LOCALAPPDATA%
+// game_exe: name of the game process (e.g. "csgo.exe") — will be normalized
+bool InitializeNotesManager(const std::wstring& localappdata_base,
+                             const std::string& game_exe);
+
+// Returns mutable reference to the in-memory notes list
+std::vector<NoteFile>& GetNotes();
+
+// Returns the normalized game folder name (e.g. "csgo")
+const std::string& GetNotesGameName();
+
+// Creates a new empty note with the given title. Returns false if title exists.
+bool CreateNote(const std::string& title);
+
+// Deletes the note at index from disk and memory. Returns false on failure.
+bool DeleteNote(size_t index);
+
+// Saves a single note to disk. Returns false on failure.
+bool SaveNote(size_t index);
+
+// Saves all dirty notes (call on overlay close / DLL unload)
+void AutoSaveAll();
+
+// Triggers a debounced autosave check (call every frame when overlay is open)
+void TickAutosave();
+
+} // namespace dover::overlay

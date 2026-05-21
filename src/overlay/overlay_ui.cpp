@@ -1,11 +1,16 @@
 #include "overlay/overlay_ui.h"
 #include "overlay/hook_utils.h"
+#include "overlay/notes_manager.h"
+#include "overlay/notes_ui.h"
 
 #include <windows.h>
+#include <psapi.h>
 #include <imgui.h>
 #include <imgui_impl_win32.h>
 #include <cstring>
 #include <string>
+
+#pragma comment(lib, "psapi.lib")
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -266,6 +271,12 @@ void SetupImGuiTheme() {
     
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = g_ini_path_utf8.c_str();
+
+    // Determine game name from the current process executable
+    char exe_name[MAX_PATH] = {};
+    GetModuleBaseNameA(GetCurrentProcess(), nullptr, exe_name, MAX_PATH);
+    InitializeNotesManager(std::wstring(local_app_data), std::string(exe_name));
+    InitializeNotesUI();
   }
 
   ImGuiStyle& style = ImGui::GetStyle();
@@ -368,14 +379,9 @@ void RenderImGuiUI() {
 
     // B. Floating Feature Jendela (Modular, bebas geser, mengingat posisi via dover/imgui.ini)
     
-    // Notes Jendela
+    // Notes Jendela (modular — handled by notes_ui module)
     if (show_notes) {
-      ImGui::SetNextWindowSize(ImVec2(400.0f, 300.0f), ImGuiCond_FirstUseEver);
-      if (ImGui::Begin("Notes", &show_notes, ImGuiWindowFlags_NoCollapse)) {
-        static char notes[4096] = "Write down your notes, strategies, or game codes here...";
-        ImGui::InputTextMultiline("##notes", notes, sizeof(notes), ImVec2(-FLT_MIN, -FLT_MIN));
-      }
-      ImGui::End();
+      RenderNotesWindow(&show_notes);
     }
 
     // Settings Jendela

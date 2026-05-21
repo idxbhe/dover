@@ -2,6 +2,8 @@
 #include "overlay/dx11_hook.h"
 #include "overlay/hook_utils.h"
 #include "overlay/overlay_ui.h"
+#include "overlay/notes_manager.h"
+#include "overlay/notes_ui.h"
 #include "shared/ipc.h"
 #include "shared/log.h"
 
@@ -70,6 +72,8 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
     }
   }
 
+  ShutdownNotesUI();
+  AutoSaveAll();
   ShutdownInputHooks();
   ShutdownDx9Hook();
   ShutdownDx11Hook();
