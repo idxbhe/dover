@@ -1,4 +1,16 @@
 {
+    "window-windowed": {
+        "macro": "ICON_WINDOW_WINDOWED",
+        "codepoint_dec": 64425,
+        "codepoint_hex": "U+FBA9",
+        "utf8_cpp": "\\xef\\xae\\xa9"
+    },
+    "window-full": {
+        "macro": "ICON_WINDOW_FULL",
+        "codepoint_dec": 65458,
+        "codepoint_hex": "U+FFB2",
+        "utf8_cpp": "\\xef\\xbe\\xb2"
+    },
     "text-format-headings": {
         "macro": "ICON_TEXT_FORMAT_HEADINGS",
         "codepoint_dec": 63435,
@@ -136,18 +148,6 @@
         "codepoint_dec": 64975,
         "codepoint_hex": "U+FDCF",
         "utf8_cpp": "\\xef\\xb7\\x8f"
-    },
-    "window-full": {
-        "macro": "ICON_WINDOW_FULL",
-        "codepoint_dec": 64906,
-        "codepoint_hex": "U+FD8A",
-        "utf8_cpp": "\\xef\\xb6\\x8a"
-    },
-    "window-windowed": {
-        "macro": "ICON_WINDOW_WINDOWED",
-        "codepoint_dec": 65578,
-        "codepoint_hex": "U+1002A",
-        "utf8_cpp": "\\xf0\\x90\\x80\\xaa"
     },
     "add-new": {
         "macro": "ICON_ADD_NEW",

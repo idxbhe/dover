@@ -326,8 +326,8 @@ void SetupImGuiTheme() {
           ImFontConfig cfg_bi = cfg;
           cfg_bi.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_Bold | ImGuiFreeTypeBuilderFlags_Oblique;
           
-          // 1. GUI Font (Inter) - Default
-          g_font_gui = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 14.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          // 1. GUI Font (Inter) - Default (Enlarged)
+          g_font_gui = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 16.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_gui) {
             g_font_gui = io.Fonts->AddFontDefault();
           } else {
@@ -337,8 +337,8 @@ void SetupImGuiTheme() {
             icons_config.PixelSnapH = true;
             icons_config.OversampleH = 2;
             icons_config.OversampleV = 1;
-            icons_config.GlyphOffset.y = 2.5f; // Vertically align slightly larger icons with Inter CapHeight
-            io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 15.0f, &icons_config, icon_ranges);
+            icons_config.GlyphOffset.y = 3.0f; // Vertically align slightly larger icons with Inter CapHeight
+            io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 17.5f, &icons_config, icon_ranges);
           }
           
           // 2. Define sizes for editor and preview styles

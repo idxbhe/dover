@@ -29,16 +29,33 @@ constexpr float kNavBarHeight = 42.0f;
 
 // ---- UI Window States ----
 static bool g_maximized = false;
-static float g_sidebar_width = 180.0f;
+static float g_sidebar_width = 240.0f;
+static ImVec2 g_prev_pos(0.0f, 0.0f);
+static ImVec2 g_prev_size(0.0f, 0.0f);
+static bool g_was_maximized = false;
 
 // ---- Editor States ----
 static int  g_selected_note_idx = 0;
 static bool g_sidebar_visible   = true;
 static int  g_view_mode         = 1;   // 0=editor, 1=preview
 static int  g_zoom_idx          = 2;   // 0=Tiny, 1=Small, 2=Medium, 3=Large, 4=Huge
+static bool g_focus_editor      = false;
+static bool g_focus_editor_restore = false;
+
+static int  g_saved_selection_start = 0;
+static int  g_saved_selection_end   = 0;
+static int  g_saved_cursor_pos      = 0;
+static bool g_has_saved_state       = false;
 
 static char g_edit_buffer[65536] = {};
 static int  g_synced_note_idx   = -1;
+
+enum PendingFormat {
+  FORMAT_NONE, FORMAT_BOLD, FORMAT_ITALIC, FORMAT_STRIKETHROUGH, FORMAT_UNDERLINE,
+  FORMAT_CODE, FORMAT_CODE_BLOCK, FORMAT_H1, FORMAT_H2, FORMAT_H3, FORMAT_H4, FORMAT_H5,
+  FORMAT_LIST_BULLET, FORMAT_LIST_NUMBER, FORMAT_INDENT, FORMAT_OUTDENT
+};
+static PendingFormat g_pending_format = FORMAT_NONE;
 
 // ---- Delete confirm ----
 static bool g_confirm_delete = false;
@@ -171,13 +188,56 @@ void WrapSelection(ImGuiInputTextCallbackData* data,
 }
 
 int FormatCallback(ImGuiInputTextCallbackData* data) {
-  ImGuiIO& io = ImGui::GetIO();
-  if (io.KeyCtrl) {
-    if (ImGui::IsKeyPressed(ImGuiKey_B, false))           { WrapSelection(data, "**", "**"); }
-    if (ImGui::IsKeyPressed(ImGuiKey_I, false))           { WrapSelection(data, "*",  "*");  }
-    if (ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false)) { WrapSelection(data, "`",  "`");  }
-    if (io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_X, false)) { WrapSelection(data, "~~", "~~"); }
+  // If we just focused back from a toolbar button click, restore selection first
+  if (g_focus_editor_restore && g_has_saved_state) {
+    data->SelectionStart = g_saved_selection_start;
+    data->SelectionEnd   = g_saved_selection_end;
+    data->CursorPos      = g_saved_cursor_pos;
+    g_focus_editor_restore = false;
   }
+
+  if (g_pending_format != FORMAT_NONE) {
+    switch (g_pending_format) {
+      case FORMAT_BOLD: WrapSelection(data, "**", "**"); break;
+      case FORMAT_ITALIC: WrapSelection(data, "*", "*"); break;
+      case FORMAT_STRIKETHROUGH: WrapSelection(data, "~~", "~~"); break;
+      case FORMAT_UNDERLINE: WrapSelection(data, "<u>", "</u>"); break;
+      case FORMAT_CODE: WrapSelection(data, "`", "`"); break;
+      case FORMAT_CODE_BLOCK: WrapSelection(data, "\n```\n", "\n```\n"); break;
+      case FORMAT_H1: WrapSelection(data, "# ", ""); break;
+      case FORMAT_H2: WrapSelection(data, "## ", ""); break;
+      case FORMAT_H3: WrapSelection(data, "### ", ""); break;
+      case FORMAT_H4: WrapSelection(data, "#### ", ""); break;
+      case FORMAT_H5: WrapSelection(data, "##### ", ""); break;
+      case FORMAT_LIST_BULLET: WrapSelection(data, "- ", ""); break;
+      case FORMAT_LIST_NUMBER: WrapSelection(data, "1. ", ""); break;
+      case FORMAT_INDENT: WrapSelection(data, "\t", ""); break;
+      default: break;
+    }
+    g_pending_format = FORMAT_NONE;
+  } else {
+    // Robust Windows API-driven shortcut detection inside callback
+    bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+    bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+    if (ctrl) {
+      if (ImGui::IsKeyPressed(ImGuiKey_B, false) || ImGui::IsKeyPressed((ImGuiKey)'B', false)) {
+        WrapSelection(data, "**", "**");
+      } else if (ImGui::IsKeyPressed(ImGuiKey_I, false) || ImGui::IsKeyPressed((ImGuiKey)'I', false)) {
+        WrapSelection(data, "*", "*");
+      } else if (ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false) || ImGui::IsKeyPressed((ImGuiKey)192, false)) {
+        WrapSelection(data, "`", "`");
+      } else if (shift && (ImGui::IsKeyPressed(ImGuiKey_X, false) || ImGui::IsKeyPressed((ImGuiKey)'X', false))) {
+        WrapSelection(data, "~~", "~~");
+      }
+    }
+  }
+
+  // Record selection state while editor is active/focused
+  g_saved_selection_start = data->SelectionStart;
+  g_saved_selection_end   = data->SelectionEnd;
+  g_saved_cursor_pos      = data->CursorPos;
+  g_has_saved_state       = true;
+
   return 0;
 }
 
@@ -214,15 +274,23 @@ void RenderNotesWindow(bool* p_open) {
 
   TickAutosave();
 
+  // ---- Check Global Editor Shortcuts (Handled internally in FormatCallback) ----
+
   // ---- Setup window position, size, and style ----
   // Always borderless (NoTitleBar). If maximized, block moving/resizing.
-  ImGuiWindowFlags win_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse;
+  ImGuiWindowFlags win_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
   if (g_maximized) {
     ImGui::SetNextWindowPos( ImVec2(0.0f, kNavBarHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(display_size.x, display_size.y - kNavBarHeight), ImGuiCond_Always);
     win_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
   } else {
-    ImGui::SetNextWindowSize(ImVec2(700.0f, 450.0f), ImGuiCond_FirstUseEver);
+    if (g_was_maximized) {
+      ImGui::SetNextWindowPos(g_prev_pos, ImGuiCond_Always);
+      ImGui::SetNextWindowSize(g_prev_size, ImGuiCond_Always);
+      g_was_maximized = false;
+    } else {
+      ImGui::SetNextWindowSize(ImVec2(800.0f, 500.0f), ImGuiCond_FirstUseEver);
+    }
   }
 
   // Set slightly transparent background for overlay feel
@@ -236,24 +304,19 @@ void RenderNotesWindow(bool* p_open) {
   // ---- Premium Custom Toolbar / Header Row ----
   ImGui::AlignTextToFramePadding();
 
-  // Push flat style for left-aligned controls (Sidebar & New Note)
+  // Push flat style for toolbar buttons
   ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
   ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
   ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
 
+  // --- 1. LEFT CONTROLS (Sidebar, New, Delete) ---
   const char* sidebar_lbl = g_sidebar_visible ? ICON_TOGGLE_HIDE_SIDEBAR : ICON_TOGGLE_SHOW_SIDEBAR;
   if (ImGui::Button(sidebar_lbl)) {
     g_sidebar_visible = !g_sidebar_visible;
   }
-  ImGui::PopStyleColor(3); // Pop flat style to draw tooltip/combo correctly
-  if (ImGui::IsItemHovered()) {
-    ImGui::SetTooltip(g_sidebar_visible ? "Hide Sidebar" : "Show Sidebar");
-  }
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_sidebar_visible ? "Hide Sidebar" : "Show Sidebar");
   ImGui::SameLine();
 
-  ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
   if (ImGui::Button(ICON_ADD_NEW)) {
     std::string new_title = CreateAutoNote();
     if (!new_title.empty()) {
@@ -264,47 +327,18 @@ void RenderNotesWindow(bool* p_open) {
       SwitchToEditor();
     }
   }
-  ImGui::PopStyleColor(3);
-  if (ImGui::IsItemHovered()) {
-    ImGui::SetTooltip("Create New Note");
-  }
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Create New Note");
   ImGui::SameLine();
 
-  ImGui::SetNextItemWidth(110.0f);
-  const char* size_items[] = { "Size: Tiny", "Size: Small", "Size: Medium", "Size: Large", "Size: Huge" };
-  ImGui::Combo("##zoom", &g_zoom_idx, size_items, IM_ARRAYSIZE(size_items));
-  if (ImGui::IsItemHovered()) {
-    ImGui::SetTooltip("Change Text Size");
-  }
-  ImGui::SameLine();
-
-  // Save indicator (Steam-style)
-  bool any_dirty = false;
-  for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
-  if (any_dirty) {
-    ImGui::TextColored(ImVec4(0.85f, 0.65f, 0.20f, 1.00f), "Saving...");
-  } else {
-    ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.40f, 1.00f), "Saved");
-  }
-
-  // --- Right-aligned toolbar items (Delete, Maximize/Restore, Close X) ---
-  float avail_x = ImGui::GetContentRegionAvail().x;
-  float right_align_start = ImGui::GetCursorPosX() + avail_x - 150.0f;
-  ImGui::SameLine(right_align_start > ImGui::GetCursorPosX() ? right_align_start : ImGui::GetCursorPosX());
-
-  // 1. Delete button (subtle low-profile red flat)
   if (!notes.empty()) {
     if (!g_confirm_delete) {
-      ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.50f, 0.15f, 0.15f, 0.40f)); // Flat subtle red
-      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.18f, 0.18f, 0.85f)); // Bright red hover
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.18f, 0.18f, 0.85f));
       ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
       if (ImGui::Button(ICON_DELETE)) g_confirm_delete = true;
-      ImGui::PopStyleColor(3);
-      if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Delete Selected Note");
-      }
+      ImGui::PopStyleColor(2);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Delete Selected Note");
     } else {
-      ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.75f, 0.15f, 0.15f, 0.90f)); // Solid red confirm
+      ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.75f, 0.15f, 0.15f, 0.90f));
       ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
       ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(1.00f, 0.25f, 0.25f, 1.00f));
       if (ImGui::Button(ICON_DELETE)) {
@@ -316,43 +350,140 @@ void RenderNotesWindow(bool* p_open) {
         g_confirm_delete = false;
       }
       ImGui::PopStyleColor(3);
-      if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Confirm Deletion (Irreversible!)");
-      }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Confirm Deletion");
       ImGui::SameLine();
-
-      ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f)); // Flat cancel button
-      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
       if (ImGui::Button("Cancel")) g_confirm_delete = false;
-      ImGui::PopStyleColor(2);
-      if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Cancel Deletion");
-      }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cancel Deletion");
     }
+    ImGui::SameLine();
+  }
+
+  ImGui::TextDisabled("|"); ImGui::SameLine();
+
+  // --- 2. MIDDLE CONTROLS (View Toggles & Formatting) ---
+  if (g_view_mode == 0) {
+    if (ImGui::Button(ICON_TOGGLE_READ)) { FlushEditBufferToNote(); g_view_mode = 1; }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Switch to Preview Mode");
+  } else {
+    if (ImGui::Button(ICON_TOGGLE_EDIT)) SwitchToEditor();
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Switch to Editor Mode");
   }
   ImGui::SameLine();
 
-  // 2. Maximize / Restore button (Flat)
-  ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
+  if (g_view_mode == 0) {
+    ImGui::TextDisabled("|"); ImGui::SameLine();
+
+    auto ApplyToolbarFormat = [&](const char* prefix, const char* suffix) {
+      int s_start = g_saved_selection_start;
+      int s_end   = g_saved_selection_end;
+      if (s_start > s_end) std::swap(s_start, s_end);
+      
+      std::string text = g_edit_buffer;
+      if (s_start >= 0 && s_start <= static_cast<int>(text.length()) && s_end >= 0 && s_end <= static_cast<int>(text.length())) {
+          text.insert(s_end, suffix);
+          text.insert(s_start, prefix);
+          strncpy_s(g_edit_buffer, sizeof(g_edit_buffer), text.c_str(), _TRUNCATE);
+          
+          int plen = static_cast<int>(strlen(prefix));
+          int slen = static_cast<int>(strlen(suffix));
+          g_saved_selection_start = s_start + plen;
+          g_saved_selection_end   = s_end + plen;
+          g_saved_cursor_pos      = s_end + plen + slen;
+          
+          auto& ns = GetNotes();
+          if (g_selected_note_idx >= 0 && g_selected_note_idx < static_cast<int>(ns.size())) {
+              ns[g_selected_note_idx].is_dirty = true;
+          }
+      }
+      g_focus_editor = true;
+      g_focus_editor_restore = true;
+    };
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_BOLD)) ApplyToolbarFormat("**", "**");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Bold (Ctrl+B)"); ImGui::SameLine();
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_ITALIC)) ApplyToolbarFormat("*", "*");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Italic (Ctrl+I)"); ImGui::SameLine();
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_STRIKETHROUGH)) ApplyToolbarFormat("~~", "~~");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Strikethrough (Ctrl+Shift+X)"); ImGui::SameLine();
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_CODE)) ApplyToolbarFormat("`", "`");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code (Ctrl+`)"); ImGui::SameLine();
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_CODE_BLOCK)) ApplyToolbarFormat("\n```\n", "\n```\n");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code Block"); ImGui::SameLine();
+
+    // Headings Dropdown
+    ImGui::SetNextItemWidth(35.0f);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+    if (ImGui::BeginCombo("##h", ICON_TEXT_FORMAT_HEADINGS, ImGuiComboFlags_NoArrowButton)) {
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_ONE " Heading 1")) ApplyToolbarFormat("# ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_TWO " Heading 2")) ApplyToolbarFormat("## ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_THREE " Heading 3")) ApplyToolbarFormat("### ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FOUR " Heading 4")) ApplyToolbarFormat("#### ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FIVE " Heading 5")) ApplyToolbarFormat("##### ", "");
+      ImGui::EndCombo();
+    }
+    ImGui::PopStyleColor(2);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Headings");
+    ImGui::SameLine();
+
+    // Lists Dropdown
+    ImGui::SetNextItemWidth(35.0f);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+    if (ImGui::BeginCombo("##l", ICON_TEXT_FORMAT_LISTS, ImGuiComboFlags_NoArrowButton)) {
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_BULLETS " Bullet List")) ApplyToolbarFormat("- ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_NUMBERS " Numbered List")) ApplyToolbarFormat("1. ", "");
+      ImGui::EndCombo();
+    }
+    ImGui::PopStyleColor(2);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lists");
+    ImGui::SameLine();
+  }
+
+  // Zoom Combo
+  ImGui::SetNextItemWidth(100.0f);
+  const char* size_items[] = { "Size: Tiny", "Size: Small", "Size: Medium", "Size: Large", "Size: Huge" };
+  ImGui::Combo("##zoom", &g_zoom_idx, size_items, IM_ARRAYSIZE(size_items));
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Change Text Size");
+  ImGui::SameLine();
+
+  // --- 3. RIGHT CONTROLS (Save Status, Maximize, Close) ---
+  bool any_dirty = false;
+  for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
+
+  float avail_x = ImGui::GetContentRegionAvail().x;
+  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 140.0f : 120.0f);
+  if (right_align_start > ImGui::GetCursorPosX()) ImGui::SameLine(right_align_start);
+  else ImGui::SameLine();
+
+  if (any_dirty) {
+    ImGui::TextColored(ImVec4(0.85f, 0.65f, 0.20f, 1.00f), "Saving...");
+  } else {
+    ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.40f, 1.00f), "Saved");
+  }
+  ImGui::SameLine();
+
   if (ImGui::Button(g_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_FULL)) {
+    if (!g_maximized) {
+      g_prev_pos = ImGui::GetWindowPos();
+      g_prev_size = ImGui::GetWindowSize();
+      g_was_maximized = true;
+    }
     g_maximized = !g_maximized;
   }
-  ImGui::PopStyleColor(3);
-  if (ImGui::IsItemHovered()) {
-    ImGui::SetTooltip(g_maximized ? "Restore Window Size" : "Maximize Window");
-  }
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_maximized ? "Restore Window Size" : "Maximize Window");
   ImGui::SameLine();
 
-  // 3. Custom Close Button (X) (Flat by default, solid warning red on hover)
-  ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
   ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.15f, 0.15f, 0.90f));
   ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
-  if (ImGui::Button(ICON_WINDOW_CLOSE)) {
-    *p_open = false;
-  }
-  ImGui::PopStyleColor(3);
+  if (ImGui::Button(ICON_WINDOW_CLOSE)) *p_open = false;
+  ImGui::PopStyleColor(2);
+
+  ImGui::PopStyleColor(3); // Pop main flat button styles
 
   ImGui::Separator();
 
@@ -367,7 +498,8 @@ void RenderNotesWindow(bool* p_open) {
   if (g_sidebar_visible) {
     ImGui::BeginChild("Sidebar", ImVec2(sb_w, win_h), false,
                       ImGuiWindowFlags_NoScrollbar);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 5.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 8.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 8.0f));
 
     for (int i = 0; i < static_cast<int>(notes.size()); ++i) {
       bool is_sel = (i == g_selected_note_idx);
@@ -396,11 +528,11 @@ void RenderNotesWindow(bool* p_open) {
       if (is_sel) ImGui::PopStyleColor(3);
     }
 
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
     ImGui::EndChild();
 
     // Splitter bar
-    ImGui::SameLine();
+    ImGui::SameLine(0.0f, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14f, 0.14f, 0.18f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.25f, 0.25f, 0.30f, 1.00f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 1.00f));
@@ -411,7 +543,7 @@ void RenderNotesWindow(bool* p_open) {
       if (g_sidebar_width > 300.0f) g_sidebar_width = 300.0f;
     }
     ImGui::PopStyleColor(3);
-    ImGui::SameLine();
+    ImGui::SameLine(0.0f, 0.0f);
   }
 
   // ---- CONTENT PANEL ----
@@ -429,26 +561,14 @@ void RenderNotesWindow(bool* p_open) {
   if (g_view_mode == 0) {
     // ---- EDITOR MODE ----
 
-    ImGui::TextDisabled("Shortcuts: Ctrl+B Bold | Ctrl+I Italic | Ctrl+` Code | Ctrl+Shift+X Strike");
-    ImGui::SameLine();
-    
-    // Small Button "Preview" with flat styling
-    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
-    if (ImGui::SmallButton(ICON_TOGGLE_READ)) {
-      FlushEditBufferToNote();
-      g_view_mode = 1;
-    }
-    ImGui::PopStyleColor(3);
-    if (ImGui::IsItemHovered()) {
-      ImGui::SetTooltip("Switch to Preview Mode");
-    }
-    
-    ImGui::Separator();
     content_h = ImGui::GetContentRegionAvail().y;
 
     ImGui::PushFont(g_fonts_editor[g_zoom_idx]);
+    if (g_focus_editor) {
+      ImGui::SetWindowFocus();
+      ImGui::SetKeyboardFocusHere();
+      g_focus_editor = false;
+    }
     bool changed = ImGui::InputTextMultiline(
         "##ed", g_edit_buffer, sizeof(g_edit_buffer),
         ImVec2(-FLT_MIN, content_h),
@@ -464,29 +584,14 @@ void RenderNotesWindow(bool* p_open) {
                          ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                          !ImGui::IsAnyItemHovered();
 
-    if (ImGui::IsItemDeactivated() || click_outside) {
+    if (click_outside) {
       FlushEditBufferToNote();
       g_view_mode = 1;
     }
 
   } else {
     // ---- PREVIEW MODE ----
-    ImGui::TextDisabled("Preview Mode (Click text or button to edit)");
-    ImGui::SameLine();
     
-    // Small Button "Edit" with flat styling
-    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
-    if (ImGui::SmallButton(ICON_TOGGLE_EDIT)) {
-      SwitchToEditor();
-    }
-    ImGui::PopStyleColor(3);
-    if (ImGui::IsItemHovered()) {
-      ImGui::SetTooltip("Switch to Editor Mode");
-    }
-    
-    ImGui::Separator();
     content_h = ImGui::GetContentRegionAvail().y;
 
     ImGui::BeginChild("MDPreview", ImVec2(-FLT_MIN, content_h), false,

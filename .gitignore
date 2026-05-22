@@ -3,6 +3,15 @@ AGENTS.md
 promts.md
 doverlay/
 
+# IDE Workspace Settings & Metadata
+.vscode/
+.idea/
+cmake-build-*/
+out/
+x64/
+x86/
+ARM/
+
 # CMake Build & Cache Directories
 build/
 build_x64/
@@ -23,9 +32,6 @@ CMakePresets.json.private
 *.opendb
 
 # Compilations & Executables Output
-x64/
-x86/
-ARM/
 Debug/
 Release/
 *.obj
