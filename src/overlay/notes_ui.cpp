@@ -40,7 +40,7 @@ static bool g_sidebar_visible   = true;
 static int  g_view_mode         = 1;   // 0=editor, 1=preview
 static int  g_zoom_idx          = 2;   // 0=Tiny, 1=Small, 2=Medium, 3=Large, 4=Huge
 static bool g_focus_editor      = false;
-static bool g_focus_editor_restore = false;
+static int g_focus_editor_restore_frames = 0;
 
 static int  g_saved_selection_start = 0;
 static int  g_saved_selection_end   = 0;
@@ -188,12 +188,11 @@ void WrapSelection(ImGuiInputTextCallbackData* data,
 }
 
 int FormatCallback(ImGuiInputTextCallbackData* data) {
-  // If we just focused back from a toolbar button click, restore selection first
-  if (g_focus_editor_restore && g_has_saved_state) {
-    data->SelectionStart = g_saved_selection_start;
-    data->SelectionEnd   = g_saved_selection_end;
-    data->CursorPos      = g_saved_cursor_pos;
-    g_focus_editor_restore = false;
+  if (g_focus_editor_restore_frames > 0 && g_has_saved_state) {
+    data->SelectionStart          = g_saved_selection_start;
+    data->SelectionEnd            = g_saved_selection_end;
+    data->CursorPos               = g_saved_cursor_pos;
+    g_focus_editor_restore_frames--; 
   }
 
   if (g_pending_format != FORMAT_NONE) {
@@ -386,9 +385,15 @@ void RenderNotesWindow(bool* p_open) {
           
           int plen = static_cast<int>(strlen(prefix));
           int slen = static_cast<int>(strlen(suffix));
-          g_saved_selection_start = s_start + plen;
-          g_saved_selection_end   = s_end + plen;
-          g_saved_cursor_pos      = s_end + plen + slen;
+          if (s_start == s_end) {
+              g_saved_cursor_pos = s_start + plen;
+              g_saved_selection_start = g_saved_cursor_pos;
+              g_saved_selection_end   = g_saved_cursor_pos;
+          } else {
+              g_saved_cursor_pos      = s_end + plen + slen;
+              g_saved_selection_start = s_start + plen;
+              g_saved_selection_end   = s_end + plen;
+          }
           
           auto& ns = GetNotes();
           if (g_selected_note_idx >= 0 && g_selected_note_idx < static_cast<int>(ns.size())) {
@@ -396,7 +401,8 @@ void RenderNotesWindow(bool* p_open) {
           }
       }
       g_focus_editor = true;
-      g_focus_editor_restore = true;
+      g_focus_editor_restore_frames = 1;
+      g_has_saved_state = true;
     };
 
     if (ImGui::Button(ICON_TEXT_FORMAT_BOLD)) ApplyToolbarFormat("**", "**");
@@ -560,20 +566,30 @@ void RenderNotesWindow(bool* p_open) {
 
   if (g_view_mode == 0) {
     // ---- EDITOR MODE ----
-
     content_h = ImGui::GetContentRegionAvail().y;
 
     ImGui::PushFont(g_fonts_editor[g_zoom_idx]);
+
+    // Force focus request immediately before rendering the widget
     if (g_focus_editor) {
-      ImGui::SetWindowFocus();
-      ImGui::SetKeyboardFocusHere();
-      g_focus_editor = false;
+        ImGui::SetKeyboardFocusHere(0);
     }
+
+    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
+
     bool changed = ImGui::InputTextMultiline(
         "##ed", g_edit_buffer, sizeof(g_edit_buffer),
         ImVec2(-FLT_MIN, content_h),
-        ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways,
+        input_flags,
         FormatCallback);
+
+    // OVERRIDE ENFORCEMENT: Force this item as the absolute active focus target
+    // This intentionally overwrites and clears any dangling toolbar/combo mouse states!
+    if (g_focus_editor) {
+        ImGui::SetItemDefaultFocus();
+        g_focus_editor = false; // Safely turn off the trigger AFTER the item has successfully registered focus
+    }
+
     ImGui::PopFont();
 
     if (changed) {
