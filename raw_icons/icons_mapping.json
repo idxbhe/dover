@@ -1,0 +1,170 @@
+{
+    "text-format-headings": {
+        "macro": "ICON_TEXT_FORMAT_HEADINGS",
+        "codepoint_dec": 63435,
+        "codepoint_hex": "U+F7CB",
+        "utf8_cpp": "\\xef\\x9f\\x8b"
+    },
+    "text-format-lists": {
+        "macro": "ICON_TEXT_FORMAT_LISTS",
+        "codepoint_dec": 65521,
+        "codepoint_hex": "U+FFF1",
+        "utf8_cpp": "\\xef\\xbf\\xb1"
+    },
+    "text-format-list-numbers": {
+        "macro": "ICON_TEXT_FORMAT_LIST_NUMBERS",
+        "codepoint_dec": 65051,
+        "codepoint_hex": "U+FE1B",
+        "utf8_cpp": "\\xef\\xb8\\x9b"
+    },
+    "text-format-list-bullets": {
+        "macro": "ICON_TEXT_FORMAT_LIST_BULLETS",
+        "codepoint_dec": 65141,
+        "codepoint_hex": "U+FE75",
+        "utf8_cpp": "\\xef\\xb9\\xb5"
+    },
+    "text-format-code-block": {
+        "macro": "ICON_TEXT_FORMAT_CODE_BLOCK",
+        "codepoint_dec": 62860,
+        "codepoint_hex": "U+F58C",
+        "utf8_cpp": "\\xef\\x96\\x8c"
+    },
+    "text-format-code": {
+        "macro": "ICON_TEXT_FORMAT_CODE",
+        "codepoint_dec": 65052,
+        "codepoint_hex": "U+FE1C",
+        "utf8_cpp": "\\xef\\xb8\\x9c"
+    },
+    "text-format-indent": {
+        "macro": "ICON_TEXT_FORMAT_INDENT",
+        "codepoint_dec": 62311,
+        "codepoint_hex": "U+F367",
+        "utf8_cpp": "\\xef\\x8d\\xa7"
+    },
+    "text-format-outdent": {
+        "macro": "ICON_TEXT_FORMAT_OUTDENT",
+        "codepoint_dec": 63463,
+        "codepoint_hex": "U+F7E7",
+        "utf8_cpp": "\\xef\\x9f\\xa7"
+    },
+    "text-format-strikethrough": {
+        "macro": "ICON_TEXT_FORMAT_STRIKETHROUGH",
+        "codepoint_dec": 64093,
+        "codepoint_hex": "U+FA5D",
+        "utf8_cpp": "\\xef\\xa9\\x9d"
+    },
+    "text-format-underline": {
+        "macro": "ICON_TEXT_FORMAT_UNDERLINE",
+        "codepoint_dec": 61846,
+        "codepoint_hex": "U+F196",
+        "utf8_cpp": "\\xef\\x86\\x96"
+    },
+    "text-format-bold": {
+        "macro": "ICON_TEXT_FORMAT_BOLD",
+        "codepoint_dec": 65116,
+        "codepoint_hex": "U+FE5C",
+        "utf8_cpp": "\\xef\\xb9\\x9c"
+    },
+    "text-format-italic": {
+        "macro": "ICON_TEXT_FORMAT_ITALIC",
+        "codepoint_dec": 63725,
+        "codepoint_hex": "U+F8ED",
+        "utf8_cpp": "\\xef\\xa3\\xad"
+    },
+    "text-format-h-five": {
+        "macro": "ICON_TEXT_FORMAT_H_FIVE",
+        "codepoint_dec": 62166,
+        "codepoint_hex": "U+F2D6",
+        "utf8_cpp": "\\xef\\x8b\\x96"
+    },
+    "text-format-h-four": {
+        "macro": "ICON_TEXT_FORMAT_H_FOUR",
+        "codepoint_dec": 64319,
+        "codepoint_hex": "U+FB3F",
+        "utf8_cpp": "\\xef\\xac\\xbf"
+    },
+    "text-format-h-three": {
+        "macro": "ICON_TEXT_FORMAT_H_THREE",
+        "codepoint_dec": 63383,
+        "codepoint_hex": "U+F797",
+        "utf8_cpp": "\\xef\\x9e\\x97"
+    },
+    "text-format-h-two": {
+        "macro": "ICON_TEXT_FORMAT_H_TWO",
+        "codepoint_dec": 65667,
+        "codepoint_hex": "U+10083",
+        "utf8_cpp": "\\xf0\\x90\\x82\\x83"
+    },
+    "text-format-h-one": {
+        "macro": "ICON_TEXT_FORMAT_H_ONE",
+        "codepoint_dec": 64398,
+        "codepoint_hex": "U+FB8E",
+        "utf8_cpp": "\\xef\\xae\\x8e"
+    },
+    "panel-settings": {
+        "macro": "ICON_PANEL_SETTINGS",
+        "codepoint_dec": 63524,
+        "codepoint_hex": "U+F824",
+        "utf8_cpp": "\\xef\\xa0\\xa4"
+    },
+    "panel-notes": {
+        "macro": "ICON_PANEL_NOTES",
+        "codepoint_dec": 63857,
+        "codepoint_hex": "U+F971",
+        "utf8_cpp": "\\xef\\xa5\\xb1"
+    },
+    "toggle-edit": {
+        "macro": "ICON_TOGGLE_EDIT",
+        "codepoint_dec": 64819,
+        "codepoint_hex": "U+FD33",
+        "utf8_cpp": "\\xef\\xb4\\xb3"
+    },
+    "toggle-read": {
+        "macro": "ICON_TOGGLE_READ",
+        "codepoint_dec": 62237,
+        "codepoint_hex": "U+F31D",
+        "utf8_cpp": "\\xef\\x8c\\x9d"
+    },
+    "toggle-show-sidebar": {
+        "macro": "ICON_TOGGLE_SHOW_SIDEBAR",
+        "codepoint_dec": 62238,
+        "codepoint_hex": "U+F31E",
+        "utf8_cpp": "\\xef\\x8c\\x9e"
+    },
+    "toggle-hide-sidebar": {
+        "macro": "ICON_TOGGLE_HIDE_SIDEBAR",
+        "codepoint_dec": 64975,
+        "codepoint_hex": "U+FDCF",
+        "utf8_cpp": "\\xef\\xb7\\x8f"
+    },
+    "window-full": {
+        "macro": "ICON_WINDOW_FULL",
+        "codepoint_dec": 64906,
+        "codepoint_hex": "U+FD8A",
+        "utf8_cpp": "\\xef\\xb6\\x8a"
+    },
+    "window-windowed": {
+        "macro": "ICON_WINDOW_WINDOWED",
+        "codepoint_dec": 65578,
+        "codepoint_hex": "U+1002A",
+        "utf8_cpp": "\\xf0\\x90\\x80\\xaa"
+    },
+    "add-new": {
+        "macro": "ICON_ADD_NEW",
+        "codepoint_dec": 61547,
+        "codepoint_hex": "U+F06B",
+        "utf8_cpp": "\\xef\\x81\\xab"
+    },
+    "window-close": {
+        "macro": "ICON_WINDOW_CLOSE",
+        "codepoint_dec": 62600,
+        "codepoint_hex": "U+F488",
+        "utf8_cpp": "\\xef\\x92\\x88"
+    },
+    "delete": {
+        "macro": "ICON_DELETE",
+        "codepoint_dec": 62255,
+        "codepoint_hex": "U+F32F",
+        "utf8_cpp": "\\xef\\x8c\\xaf"
+    }
+}

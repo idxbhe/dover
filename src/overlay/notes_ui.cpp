@@ -1,5 +1,6 @@
 #include "overlay/notes_ui.h"
 #include "overlay/notes_manager.h"
+#include "overlay/icons.h"
 
 #include <imgui.h>
 #include <imgui_md.h>
@@ -235,13 +236,25 @@ void RenderNotesWindow(bool* p_open) {
   // ---- Premium Custom Toolbar / Header Row ----
   ImGui::AlignTextToFramePadding();
 
-  const char* sidebar_lbl = g_sidebar_visible ? "< Hide Sidebar" : "> Show Sidebar";
+  // Push flat style for left-aligned controls (Sidebar & New Note)
+  ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
+
+  const char* sidebar_lbl = g_sidebar_visible ? ICON_TOGGLE_HIDE_SIDEBAR : ICON_TOGGLE_SHOW_SIDEBAR;
   if (ImGui::Button(sidebar_lbl)) {
     g_sidebar_visible = !g_sidebar_visible;
   }
+  ImGui::PopStyleColor(3); // Pop flat style to draw tooltip/combo correctly
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip(g_sidebar_visible ? "Hide Sidebar" : "Show Sidebar");
+  }
   ImGui::SameLine();
 
-  if (ImGui::Button("+ New Note")) {
+  ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
+  if (ImGui::Button(ICON_ADD_NEW)) {
     std::string new_title = CreateAutoNote();
     if (!new_title.empty()) {
       auto& ns = GetNotes();
@@ -251,11 +264,18 @@ void RenderNotesWindow(bool* p_open) {
       SwitchToEditor();
     }
   }
+  ImGui::PopStyleColor(3);
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip("Create New Note");
+  }
   ImGui::SameLine();
 
   ImGui::SetNextItemWidth(110.0f);
   const char* size_items[] = { "Size: Tiny", "Size: Small", "Size: Medium", "Size: Large", "Size: Huge" };
   ImGui::Combo("##zoom", &g_zoom_idx, size_items, IM_ARRAYSIZE(size_items));
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip("Change Text Size");
+  }
   ImGui::SameLine();
 
   // Save indicator (Steam-style)
@@ -269,21 +289,25 @@ void RenderNotesWindow(bool* p_open) {
 
   // --- Right-aligned toolbar items (Delete, Maximize/Restore, Close X) ---
   float avail_x = ImGui::GetContentRegionAvail().x;
-  // Calculate total width needed for right items:
-  // Close: ~28px, Maximize: ~75px, Delete: ~95px/140px. Align from the right edge.
-  float right_align_start = ImGui::GetCursorPosX() + avail_x - 220.0f;
+  float right_align_start = ImGui::GetCursorPosX() + avail_x - 150.0f;
   ImGui::SameLine(right_align_start > ImGui::GetCursorPosX() ? right_align_start : ImGui::GetCursorPosX());
 
-  // 1. Delete button
+  // 1. Delete button (subtle low-profile red flat)
   if (!notes.empty()) {
     if (!g_confirm_delete) {
-      ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.45f, 0.12f, 0.12f, 0.70f));
-      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.65f, 0.18f, 0.18f, 1.00f));
-      if (ImGui::Button("Delete")) g_confirm_delete = true;
-      ImGui::PopStyleColor(2);
+      ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.50f, 0.15f, 0.15f, 0.40f)); // Flat subtle red
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.18f, 0.18f, 0.85f)); // Bright red hover
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
+      if (ImGui::Button(ICON_DELETE)) g_confirm_delete = true;
+      ImGui::PopStyleColor(3);
+      if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Delete Selected Note");
+      }
     } else {
-      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.15f, 0.15f, 0.90f));
-      if (ImGui::Button("Confirm?")) {
+      ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.75f, 0.15f, 0.15f, 0.90f)); // Solid red confirm
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(1.00f, 0.25f, 0.25f, 1.00f));
+      if (ImGui::Button(ICON_DELETE)) {
         DeleteNote(static_cast<size_t>(g_selected_note_idx));
         auto& ns = GetNotes();
         if (g_selected_note_idx >= static_cast<int>(ns.size()))
@@ -291,26 +315,44 @@ void RenderNotesWindow(bool* p_open) {
         SyncEditBufferFromNote(g_selected_note_idx);
         g_confirm_delete = false;
       }
-      ImGui::PopStyleColor();
+      ImGui::PopStyleColor(3);
+      if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Confirm Deletion (Irreversible!)");
+      }
       ImGui::SameLine();
+
+      ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f)); // Flat cancel button
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
       if (ImGui::Button("Cancel")) g_confirm_delete = false;
+      ImGui::PopStyleColor(2);
+      if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Cancel Deletion");
+      }
     }
   }
   ImGui::SameLine();
 
-  // 2. Maximize / Restore button
-  if (ImGui::Button(g_maximized ? "Restore" : "Maximize")) {
+  // 2. Maximize / Restore button (Flat)
+  ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
+  if (ImGui::Button(g_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_FULL)) {
     g_maximized = !g_maximized;
+  }
+  ImGui::PopStyleColor(3);
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip(g_maximized ? "Restore Window Size" : "Maximize Window");
   }
   ImGui::SameLine();
 
-  // 3. Custom Close Button (X)
-  ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.30f, 0.30f, 0.35f, 0.50f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.70f, 0.15f, 0.15f, 0.90f));
-  if (ImGui::Button(" X ")) {
+  // 3. Custom Close Button (X) (Flat by default, solid warning red on hover)
+  ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.15f, 0.15f, 0.90f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
+  if (ImGui::Button(ICON_WINDOW_CLOSE)) {
     *p_open = false;
   }
-  ImGui::PopStyleColor(2);
+  ImGui::PopStyleColor(3);
 
   ImGui::Separator();
 
@@ -389,10 +431,20 @@ void RenderNotesWindow(bool* p_open) {
 
     ImGui::TextDisabled("Shortcuts: Ctrl+B Bold | Ctrl+I Italic | Ctrl+` Code | Ctrl+Shift+X Strike");
     ImGui::SameLine();
-    if (ImGui::SmallButton("Preview")) {
+    
+    // Small Button "Preview" with flat styling
+    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
+    if (ImGui::SmallButton(ICON_TOGGLE_READ)) {
       FlushEditBufferToNote();
       g_view_mode = 1;
     }
+    ImGui::PopStyleColor(3);
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip("Switch to Preview Mode");
+    }
+    
     ImGui::Separator();
     content_h = ImGui::GetContentRegionAvail().y;
 
@@ -419,6 +471,22 @@ void RenderNotesWindow(bool* p_open) {
 
   } else {
     // ---- PREVIEW MODE ----
+    ImGui::TextDisabled("Preview Mode (Click text or button to edit)");
+    ImGui::SameLine();
+    
+    // Small Button "Edit" with flat styling
+    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
+    if (ImGui::SmallButton(ICON_TOGGLE_EDIT)) {
+      SwitchToEditor();
+    }
+    ImGui::PopStyleColor(3);
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip("Switch to Editor Mode");
+    }
+    
+    ImGui::Separator();
     content_h = ImGui::GetContentRegionAvail().y;
 
     ImGui::BeginChild("MDPreview", ImVec2(-FLT_MIN, content_h), false,

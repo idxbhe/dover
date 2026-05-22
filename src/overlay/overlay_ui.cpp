@@ -2,6 +2,7 @@
 #include "overlay/hook_utils.h"
 #include "overlay/notes_manager.h"
 #include "overlay/notes_ui.h"
+#include "overlay/icons.h"
 
 #include <windows.h>
 #include <psapi.h>
@@ -327,7 +328,18 @@ void SetupImGuiTheme() {
           
           // 1. GUI Font (Inter) - Default
           g_font_gui = io.Fonts->AddFontFromFileTTF(p_inter_reg.c_str(), 14.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
-          if (!g_font_gui) g_font_gui = io.Fonts->AddFontDefault();
+          if (!g_font_gui) {
+            g_font_gui = io.Fonts->AddFontDefault();
+          } else {
+            static const ImWchar icon_ranges[] = { 0xf000, 0xffff, 0 };
+            ImFontConfig icons_config;
+            icons_config.MergeMode = true;
+            icons_config.PixelSnapH = true;
+            icons_config.OversampleH = 2;
+            icons_config.OversampleV = 1;
+            icons_config.GlyphOffset.y = 2.5f; // Vertically align slightly larger icons with Inter CapHeight
+            io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 15.0f, &icons_config, icon_ranges);
+          }
           
           // 2. Define sizes for editor and preview styles
           // 2. Define 5 sizes for editor and preview styles
