@@ -308,8 +308,8 @@ void SetupImGuiTheme() {
             return str;
           };
 
-          std::string p_inter_reg = to_utf8(base_dir + L"\\fonts\\Inter\\Inter-Regular.ttf");
-          std::string p_jb_reg = to_utf8(base_dir + L"\\fonts\\JetBrainsMono\\JetBrainsMono-Regular.ttf");
+          std::string p_inter_reg = to_utf8(base_dir + L"\\fonts\\Inter-Regular.ttf");
+          std::string p_mona_reg = to_utf8(base_dir + L"\\fonts\\MonaSans-Regular.ttf");
 
           ImFontConfig cfg;
           cfg.OversampleH = 1;
@@ -341,7 +341,6 @@ void SetupImGuiTheme() {
             io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 17.5f, &icons_config, icon_ranges);
           }
           
-          // 2. Define sizes for editor and preview styles
           // 2. Define 5 sizes for editor and preview styles
           float editor_sizes[5]  = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
           float preview_sizes[5] = { 13.0f, 15.0f, 18.0f, 22.0f, 26.0f };
@@ -350,8 +349,8 @@ void SetupImGuiTheme() {
           float h1_sizes[5]      = { 20.0f, 23.0f, 27.0f, 32.0f, 38.0f };
 
           for (int i = 0; i < 5; ++i) {
-            // Editor Font (JetBrainsMono)
-            g_fonts_editor[i] = io.Fonts->AddFontFromFileTTF(p_jb_reg.c_str(), editor_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
+            // Editor Font (Mona Sans)
+            g_fonts_editor[i] = io.Fonts->AddFontFromFileTTF(p_mona_reg.c_str(), editor_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_editor[i]) g_fonts_editor[i] = g_font_gui;
 
             // Preview Font (Inter Regular)
