@@ -39,7 +39,7 @@ static int  g_selected_note_idx = 0;
 static bool g_sidebar_visible   = true;
 static int  g_view_mode         = 1;   // 0=editor, 1=preview
 static int  g_zoom_idx          = 2;   // 0=Tiny, 1=Small, 2=Medium, 3=Large, 4=Huge
-static bool g_focus_editor      = false;
+static int g_force_focus_frames = 0;
 static int g_focus_editor_restore_frames = 0;
 
 static int  g_saved_selection_start = 0;
@@ -400,8 +400,9 @@ void RenderNotesWindow(bool* p_open) {
               ns[g_selected_note_idx].is_dirty = true;
           }
       }
-      g_focus_editor = true;
-      g_focus_editor_restore_frames = 1;
+      // THE FIX: Spam perintah fokus selama 3 frame penuh!
+      g_force_focus_frames = 3;
+      g_focus_editor_restore_frames = 3;
       g_has_saved_state = true;
     };
 
@@ -570,9 +571,10 @@ void RenderNotesWindow(bool* p_open) {
 
     ImGui::PushFont(g_fonts_editor[g_zoom_idx]);
 
-    // Force focus request immediately before rendering the widget
-    if (g_focus_editor) {
+    // THE FIX: Eksekusi spam fokus selama 3 frame untuk mengalahkan sistem popup ImGui
+    if (g_force_focus_frames > 0) {
         ImGui::SetKeyboardFocusHere(0);
+        g_force_focus_frames--;
     }
 
     ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
@@ -582,13 +584,6 @@ void RenderNotesWindow(bool* p_open) {
         ImVec2(-FLT_MIN, content_h),
         input_flags,
         FormatCallback);
-
-    // OVERRIDE ENFORCEMENT: Force this item as the absolute active focus target
-    // This intentionally overwrites and clears any dangling toolbar/combo mouse states!
-    if (g_focus_editor) {
-        ImGui::SetItemDefaultFocus();
-        g_focus_editor = false; // Safely turn off the trigger AFTER the item has successfully registered focus
-    }
 
     ImGui::PopFont();
 
