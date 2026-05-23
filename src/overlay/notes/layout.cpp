@@ -274,22 +274,36 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::SameLine();
   }
 
-  // Size Dropdown
-  ImGui::AlignTextToFramePadding();
-  ImGui::TextDisabled("Size:"); ImGui::SameLine();
+  // Size Button behave like Combo
+  float orig_size_y = ImGui::GetCursorPosY();
+  ImGui::SetCursorPosY(orig_size_y - 2.0f);
+  ImGui::TextDisabled("Size:"); 
+  ImGui::SetCursorPosY(orig_size_y);
+  ImGui::SameLine();
   
   ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.5f, 0.5f));
+  ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
   
-  ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0.15f, 0.18f, 0.26f, 1.00f));
-  ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0.22f, 0.27f, 0.38f, 1.00f));
-  ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0.28f, 0.35f, 0.50f, 1.00f));
+  ImGui::PushStyleColor(ImGuiCol_Button,           ImVec4(0.15f, 0.18f, 0.26f, 1.00f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonHovered,    ImVec4(0.22f, 0.27f, 0.38f, 1.00f));
+  ImGui::PushStyleColor(ImGuiCol_ButtonActive,     ImVec4(0.28f, 0.35f, 0.50f, 1.00f));
   ImGui::PushStyleColor(ImGuiCol_Border,           ImVec4(0.32f, 0.40f, 0.58f, 0.70f));
   
-  ImGui::SetNextItemWidth(65.0f);
   const char* size_items[] = { "Tiny", "Small", "Medium", "Large", "Huge" };
   
-  if (ImGui::BeginCombo("##zoom", size_items[g_zoom_idx], ImGuiComboFlags_NoArrowButton)) {
+  if (ImGui::Button(size_items[g_zoom_idx], ImVec2(80.0f, 0))) {
+    ImGui::OpenPopup("##zoom_popup");
+  }
+  
+  ImVec2 popup_pos = ImGui::GetItemRectMin();
+  popup_pos.y += ImGui::GetItemRectSize().y;
+  
+  ImGui::SetNextWindowPos(popup_pos);
+  ImGui::SetNextWindowSize(ImVec2(80.0f, 0.0f));
+  
+  if (ImGui::BeginPopup("##zoom_popup")) {
     for (int i = 0; i < IM_ARRAYSIZE(size_items); i++) {
       bool is_selected = (g_zoom_idx == i);
       if (ImGui::Selectable(size_items[i], is_selected)) {
@@ -297,18 +311,23 @@ void RenderNotesWindow(bool* p_open) {
       }
       if (is_selected) ImGui::SetItemDefaultFocus();
     }
-    ImGui::EndCombo();
+    ImGui::EndPopup();
   }
   ImGui::PopStyleColor(4);
-  ImGui::PopStyleVar(2);
+  ImGui::PopStyleVar(4);
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("Change Text Size");
   ImGui::SameLine();
 
   // Opacity Control
-  ImGui::AlignTextToFramePadding();
-  ImGui::TextDisabled("Opacity:"); ImGui::SameLine();
+  float orig_y = ImGui::GetCursorPosY();
+  ImGui::SetCursorPosY(orig_y - 2.0f);
+  ImGui::TextDisabled("Opacity:"); 
+  ImGui::SetCursorPosY(orig_y);
+  ImGui::SameLine();
   
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(0.0f, 0.0f));
+  ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f);
+  
   float frame_height = ImGui::GetFrameHeight(); 
   ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize,   frame_height);
   ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding,  frame_height * 0.5f);
@@ -323,16 +342,30 @@ void RenderNotesWindow(bool* p_open) {
   ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0, 0, 0, 0));
   ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0, 0, 0, 0));
   ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0, 0, 0, 0));
-  ImGui::PushStyleColor(ImGuiCol_SliderGrab,       ImVec4(1.00f, 1.00f, 1.00f, 0.90f));
-  ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));
+  ImGui::PushStyleColor(ImGuiCol_SliderGrab,       ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0, 0, 0, 0));
   
   ImGui::SetNextItemWidth(slider_width);
   ImGui::SliderFloat("##opacity", &g_bg_alpha, 0.00f, 1.00f, "");
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Opacity (Ctrl+Click to type exact float value)");
-  ImGui::SameLine();
-
+  
+  // Draw custom perfect circle grab (slightly smaller, 11px diameter)
+  float grab_center_x = slider_pos.x + g_bg_alpha * slider_width;
+  float grab_center_y = slider_pos.y + frame_height * 0.5f;
+  
+  ImVec4 grab_color = ImVec4(1.00f, 1.00f, 1.00f, 0.90f);
+  if (ImGui::IsItemActive()) {
+    grab_color = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+  } else if (ImGui::IsItemHovered()) {
+    grab_color = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+  }
+  
+  ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
+  
   ImGui::PopStyleColor(5);
   ImGui::PopStyleVar(3);
+
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Opacity (Ctrl+Click to type exact float value)");
+  ImGui::SameLine();
 
   ImGui::TextDisabled("%.0f%%", g_bg_alpha * 100.0f);
   ImGui::SameLine();
@@ -342,7 +375,7 @@ void RenderNotesWindow(bool* p_open) {
   for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
 
   float avail_x = ImGui::GetContentRegionAvail().x;
-  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 138.0f : 108.0f);
+  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 158.0f : 128.0f);
   if (right_align_start > ImGui::GetCursorPosX()) ImGui::SameLine(right_align_start);
   else ImGui::SameLine();
 
@@ -396,10 +429,13 @@ void RenderNotesWindow(bool* p_open) {
 
   // ---- SIDEBAR ----
   if (g_sidebar_visible) {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::BeginChild("Sidebar", ImVec2(sb_w, win_h), false,
                       ImGuiWindowFlags_NoScrollbar);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 8.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 8.0f));
+    ImGui::PopStyleVar();
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 8.0f));
 
     for (int i = 0; i < static_cast<int>(notes.size()); ++i) {
       bool is_sel = (i == g_selected_note_idx);
@@ -420,9 +456,43 @@ void RenderNotesWindow(bool* p_open) {
       }
 
       ImGui::PushFont(g_fonts_preview_bold[2]);
-      bool selected_now = ImGui::Selectable(title.c_str(), is_sel,
+      ImVec2 pos = ImGui::GetCursorScreenPos();
+      std::string id_str = "##note_" + std::to_string(i);
+      
+      ImVec2 min_p = ImVec2(pos.x + 6.0f, pos.y);
+      ImVec2 max_p = ImVec2(pos.x + sb_w, pos.y + 32.0f);
+      
+      ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0, 0, 0, 0));
+      ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0, 0, 0, 0));
+      ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0, 0, 0, 0));
+      
+      ImGui::SetCursorPosX(6.0f);
+      bool selected_now = ImGui::Selectable(id_str.c_str(), is_sel,
                             ImGuiSelectableFlags_None,
-                            ImVec2(sb_w - 4.0f, 0));
+                            ImVec2(sb_w - 6.0f, 32.0f));
+                            
+      bool is_hovered = ImGui::IsItemHovered();
+      bool is_active = ImGui::IsItemActive();
+      
+      ImGui::PopStyleColor(3);
+      
+      if (is_sel || is_hovered || is_active) {
+        ImVec4 highlight_color = ImVec4(0, 0, 0, 0);
+        if (is_sel) {
+          if (is_active) highlight_color = ImVec4(0.33f, 0.50f, 0.75f, 1.00f);
+          else if (is_hovered) highlight_color = ImVec4(0.28f, 0.44f, 0.68f, 0.90f);
+          else highlight_color = ImVec4(0.22f, 0.38f, 0.62f, 0.85f);
+        } else {
+          if (is_active) highlight_color = ImGui::GetStyle().Colors[ImGuiCol_HeaderActive];
+          else if (is_hovered) highlight_color = ImGui::GetStyle().Colors[ImGuiCol_HeaderHovered];
+        }
+        if (highlight_color.w > 0.0f) {
+          ImGui::GetWindowDrawList()->AddRectFilled(min_p, max_p, ImGui::GetColorU32(highlight_color), 4.0f);
+        }
+      }
+      
+      float text_y = pos.y + (32.0f - ImGui::GetFontSize()) * 0.5f;
+      ImGui::GetWindowDrawList()->AddText(g_fonts_preview_bold[2], g_fonts_preview_bold[2]->FontSize, ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), title.c_str());
       ImGui::PopFont();
 
       if (selected_now && !is_sel) {
@@ -441,6 +511,9 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
     ImGui::Button("##spl", ImVec2(split_w, win_h));
+    if (ImGui::IsItemHovered() || ImGui::IsItemActive()) {
+      ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+    }
     if (ImGui::IsItemActive()) {
       g_sidebar_width += io.MouseDelta.x;
       if (g_sidebar_width < 100.0f) g_sidebar_width = 100.0f;
@@ -471,8 +544,10 @@ void RenderNotesWindow(bool* p_open) {
   {
     ImVec2 content_pos = ImGui::GetWindowPos();
     ImVec2 content_size = ImGui::GetWindowSize();
-    float_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 10.0f);
-    delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + content_size.y - 45.0f);
+    // Edit/Read toggle shifted to the left
+    float_btn_pos = ImVec2(content_pos.x + content_size.x - 85.0f, content_pos.y + 10.0f);
+    // Delete button placed to the right of the Edit/Read toggle
+    delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 10.0f);
     show_float_btn = true;
     show_delete_btn = true;
   }

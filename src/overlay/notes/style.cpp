@@ -100,7 +100,9 @@ struct DoverMarkdownRenderer : public imgui_md {
 void RenderMarkdown(const std::string& content, int zoom_idx) {
   static DoverMarkdownRenderer renderer;
   renderer.m_zoom_idx = zoom_idx;
+  ImGui::PushFont(g_fonts_preview[zoom_idx]);
   renderer.print(content.c_str(), content.c_str() + content.size());
+  ImGui::PopFont();
 }
 
 } // namespace dover::overlay::notes

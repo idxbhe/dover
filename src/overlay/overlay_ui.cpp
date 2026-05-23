@@ -3,6 +3,7 @@
 #include "overlay/notes/layout.h"
 #include "overlay/notes/manager.h"
 #include "overlay/icons.h"
+#include "overlay/fonts.h"
 
 #include <windows.h>
 #include <psapi.h>
@@ -295,24 +296,8 @@ void SetupImGuiTheme() {
         if (last_slash != std::wstring::npos) {
           std::wstring base_dir = path_str.substr(0, last_slash);
           
-          auto to_utf8 = [](const std::wstring& wstr) -> std::string {
-            int len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL);
-            std::string str;
-            if (len > 0) {
-              str.resize(len);
-              WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &str[0], len, NULL, NULL);
-              if (!str.empty() && str.back() == '\0') {
-                str.pop_back();
-              }
-            }
-            return str;
-          };
-
-          std::string p_inter_reg = to_utf8(base_dir + L"\\fonts\\Inter-Regular.ttf");
-          std::string p_mona_reg = to_utf8(base_dir + L"\\fonts\\MonaSans-Regular.ttf");
-          std::string p_jb_reg = to_utf8(base_dir + L"\\fonts\\JetBrainsMono-Regular.ttf");
-
           ImFontConfig cfg;
+          cfg.FontDataOwnedByAtlas = false;
           cfg.OversampleH = 1;
           cfg.OversampleV = 1;
           cfg.PixelSnapH = true;
@@ -327,19 +312,20 @@ void SetupImGuiTheme() {
           ImFontConfig cfg_bi = cfg;
           cfg_bi.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_Bold | ImGuiFreeTypeBuilderFlags_Oblique;
           
-          // 1. GUI Font (Mona Sans) - Default (Enlarged)
-          g_font_gui = io.Fonts->AddFontFromFileTTF(p_mona_reg.c_str(), 16.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          // 1. GUI Font - Default (Enlarged)
+          g_font_gui = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, 18.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_gui) {
             g_font_gui = io.Fonts->AddFontDefault();
           } else {
             static const ImWchar icon_ranges[] = { 0xf000, 0xffff, 0 };
             ImFontConfig icons_config;
+            icons_config.FontDataOwnedByAtlas = false;
             icons_config.MergeMode = true;
             icons_config.PixelSnapH = true;
             icons_config.OversampleH = 2;
             icons_config.OversampleV = 1;
             icons_config.GlyphOffset.y = 3.0f; // Vertically align slightly larger icons with Mona Sans CapHeight
-            io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 17.5f, &icons_config, icon_ranges);
+            io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 19.5f, &icons_config, icon_ranges);
           }
           
           // 2. Define 5 sizes for editor and preview styles
@@ -351,33 +337,33 @@ void SetupImGuiTheme() {
 
           for (int i = 0; i < 5; ++i) {
             // Editor Font (JetBrainsMono - Monospace for code/typing)
-            g_fonts_editor[i] = io.Fonts->AddFontFromFileTTF(p_jb_reg.c_str(), editor_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
+            g_fonts_editor[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_mono_data, g_font_mono_data_size, editor_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_editor[i]) g_fonts_editor[i] = g_font_gui;
 
             // Preview Font (Mona Sans Regular - Proportional premium sans-serif)
-            g_fonts_preview[i] = io.Fonts->AddFontFromFileTTF(p_mona_reg.c_str(), preview_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
+            g_fonts_preview[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_preview[i]) g_fonts_preview[i] = g_font_gui;
 
             // Preview Bold (Mona Sans Bold)
-            g_fonts_preview_bold[i] = io.Fonts->AddFontFromFileTTF(p_mona_reg.c_str(), preview_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+            g_fonts_preview_bold[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_preview_bold[i]) g_fonts_preview_bold[i] = g_fonts_preview[i];
 
             // Preview Italic (Mona Sans Italic)
-            g_fonts_preview_italic[i] = io.Fonts->AddFontFromFileTTF(p_mona_reg.c_str(), preview_sizes[i], &cfg_italic, io.Fonts->GetGlyphRangesDefault());
+            g_fonts_preview_italic[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_italic, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_preview_italic[i]) g_fonts_preview_italic[i] = g_fonts_preview[i];
 
             // Preview Bold Italic (Mona Sans Bold Italic)
-            g_fonts_preview_bold_italic[i] = io.Fonts->AddFontFromFileTTF(p_mona_reg.c_str(), preview_sizes[i], &cfg_bi, io.Fonts->GetGlyphRangesDefault());
+            g_fonts_preview_bold_italic[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_bi, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_preview_bold_italic[i]) g_fonts_preview_bold_italic[i] = g_fonts_preview[i];
 
             // Headings (Mona Sans Headings)
-            g_fonts_preview_h1[i] = io.Fonts->AddFontFromFileTTF(p_mona_reg.c_str(), h1_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+            g_fonts_preview_h1[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h1_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_preview_h1[i]) g_fonts_preview_h1[i] = g_fonts_preview[i];
 
-            g_fonts_preview_h2[i] = io.Fonts->AddFontFromFileTTF(p_mona_reg.c_str(), h2_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+            g_fonts_preview_h2[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h2_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_preview_h2[i]) g_fonts_preview_h2[i] = g_fonts_preview[i];
 
-            g_fonts_preview_h3[i] = io.Fonts->AddFontFromFileTTF(p_mona_reg.c_str(), h3_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+            g_fonts_preview_h3[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h3_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_preview_h3[i]) g_fonts_preview_h3[i] = g_fonts_preview[i];
           }
         }
