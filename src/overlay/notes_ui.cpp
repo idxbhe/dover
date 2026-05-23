@@ -49,6 +49,7 @@ static bool g_has_saved_state       = false;
 
 static char g_edit_buffer[65536] = {};
 static int  g_synced_note_idx   = -1;
+static float g_editor_wrap_width = 400.0f;
 
 enum PendingFormat {
   FORMAT_NONE, FORMAT_BOLD, FORMAT_ITALIC, FORMAT_STRIKETHROUGH, FORMAT_UNDERLINE,
@@ -179,8 +180,25 @@ void FlushEditBufferToNote() {
   if (g_synced_note_idx < 0 ||
       static_cast<size_t>(g_synced_note_idx) >= notes.size()) return;
   auto& note = notes[g_synced_note_idx];
-  if (note.content != g_edit_buffer) {
-    note.content = g_edit_buffer;
+
+  // Clean soft-wrapped characters before saving/comparing
+  std::string clean_content;
+  const char* buf = g_edit_buffer;
+  int len = static_cast<int>(strlen(buf));
+  for (int i = 0; i < len; ) {
+    if (i + 1 < len && buf[i] == ' ' && buf[i+1] == '\n') {
+      clean_content += ' ';
+      i += 2;
+    } else if (i + 1 < len && buf[i] == '-' && buf[i+1] == '\n') {
+      i += 2;
+    } else {
+      clean_content += buf[i];
+      i++;
+    }
+  }
+
+  if (note.content != clean_content) {
+    note.content = clean_content;
     note.is_dirty = true;
   }
 }
@@ -218,6 +236,205 @@ void WrapSelection(ImGuiInputTextCallbackData* data,
     data->SelectionStart = sel_s + plen;
     data->SelectionEnd   = sel_e + plen;
   }
+}
+
+void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
+  if (data->BufTextLen == 0) return;
+
+  // Build clean string and mapping from wrapped index to clean index
+  std::string clean_str;
+  std::vector<int> map_W_to_C(data->BufTextLen + 1, 0);
+  int c_idx = 0;
+  for (int i = 0; i < data->BufTextLen; ) {
+    if (i + 1 < data->BufTextLen && data->Buf[i] == ' ' && data->Buf[i+1] == '\n') {
+      // Soft word wrap! Map " \n" (2 bytes) to a single space ' ' (1 byte)
+      map_W_to_C[i] = c_idx;
+      map_W_to_C[i+1] = c_idx;
+      clean_str += ' ';
+      c_idx++;
+      i += 2;
+    } else if (i + 1 < data->BufTextLen && data->Buf[i] == '-' && data->Buf[i+1] == '\n') {
+      // Soft char wrap! Map "-\n" (2 bytes) to nothing (0 bytes) since it was a broken word
+      map_W_to_C[i] = c_idx;
+      map_W_to_C[i+1] = c_idx;
+      i += 2;
+    } else {
+      map_W_to_C[i] = c_idx;
+      clean_str += data->Buf[i];
+      c_idx++;
+      i++;
+    }
+  }
+  map_W_to_C[data->BufTextLen] = c_idx;
+
+  // Performance optimization check:
+  static std::string s_last_clean_str;
+  static float s_last_wrap_width = 0.0f;
+  static int s_last_zoom_idx = -1;
+
+  if (clean_str == s_last_clean_str &&
+      g_editor_wrap_width == s_last_wrap_width &&
+      g_zoom_idx == s_last_zoom_idx) {
+    return;
+  }
+
+  s_last_clean_str = clean_str;
+  s_last_wrap_width = g_editor_wrap_width;
+  s_last_zoom_idx = g_zoom_idx;
+
+  // Wrap clean string to build wrapped string and mapping from clean index to new wrapped index
+  ImFont* font = g_fonts_editor[g_zoom_idx];
+  std::string wrapped_str;
+  std::vector<int> map_C_to_Wnew(clean_str.length() + 1, 0);
+
+  int clean_len = static_cast<int>(clean_str.length());
+  int last_wrap_c_idx = 0;
+  int last_space_c_idx = -1;
+
+  for (int i = 0; i <= clean_len; i++) {
+    if (i == clean_len || clean_str[i] == '\n') {
+      for (int j = last_wrap_c_idx; j < i; j++) {
+        map_C_to_Wnew[j] = static_cast<int>(wrapped_str.length());
+        wrapped_str += clean_str[j];
+      }
+      if (i < clean_len) {
+        map_C_to_Wnew[i] = static_cast<int>(wrapped_str.length());
+        wrapped_str += '\n';
+      }
+      last_wrap_c_idx = i + 1;
+      last_space_c_idx = -1;
+      continue;
+    }
+
+    if (clean_str[i] == ' ') {
+      last_space_c_idx = i;
+    }
+
+    float width = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f,
+                                      &clean_str[last_wrap_c_idx],
+                                      &clean_str[i] + 1).x;
+
+    if (width > g_editor_wrap_width) {
+      if (last_space_c_idx != -1 && last_space_c_idx > last_wrap_c_idx) {
+        for (int j = last_wrap_c_idx; j <= last_space_c_idx; j++) {
+          map_C_to_Wnew[j] = static_cast<int>(wrapped_str.length());
+          wrapped_str += clean_str[j];
+        }
+        wrapped_str += "\n";
+
+        last_wrap_c_idx = last_space_c_idx + 1;
+        i = last_wrap_c_idx - 1;
+        last_space_c_idx = -1;
+      } else if (i > last_wrap_c_idx) {
+        // Character wrap
+        for (int j = last_wrap_c_idx; j < i; j++) {
+          map_C_to_Wnew[j] = static_cast<int>(wrapped_str.length());
+          wrapped_str += clean_str[j];
+        }
+        wrapped_str += "-\n";
+
+        last_wrap_c_idx = i;
+        i = last_wrap_c_idx - 1;
+        last_space_c_idx = -1;
+      }
+    }
+  }
+  map_C_to_Wnew[clean_len] = static_cast<int>(wrapped_str.length());
+
+  // Map cursor & selection positions
+  auto MapOldToNew = [&](int old_pos) -> int {
+    if (old_pos < 0) return 0;
+    if (old_pos > data->BufTextLen) old_pos = data->BufTextLen;
+    int clean_pos = map_W_to_C[old_pos];
+    return map_C_to_Wnew[clean_pos];
+  };
+
+  int new_cursor = MapOldToNew(data->CursorPos);
+  int new_sel_start = MapOldToNew(data->SelectionStart);
+  int new_sel_end = MapOldToNew(data->SelectionEnd);
+
+  if (wrapped_str != data->Buf) {
+    data->DeleteChars(0, data->BufTextLen);
+    data->InsertChars(0, wrapped_str.c_str(), wrapped_str.c_str() + wrapped_str.length());
+    data->CursorPos = new_cursor;
+    data->SelectionStart = new_sel_start;
+    data->SelectionEnd = new_sel_end;
+  }
+}
+
+void WrapGlobalBuffer() {
+  if (strlen(g_edit_buffer) == 0) return;
+
+  // 1. Clean soft wrap sequences from g_edit_buffer
+  std::string clean_str;
+  int len = static_cast<int>(strlen(g_edit_buffer));
+  for (int i = 0; i < len; ) {
+    if (i + 1 < len && g_edit_buffer[i] == ' ' && g_edit_buffer[i+1] == '\n') {
+      clean_str += ' ';
+      i += 2;
+    } else if (i + 1 < len && g_edit_buffer[i] == '-' && g_edit_buffer[i+1] == '\n') {
+      i += 2;
+    } else {
+      clean_str += g_edit_buffer[i];
+      i++;
+    }
+  }
+
+  // 2. Wrap clean string
+  ImFont* font = g_fonts_editor[g_zoom_idx];
+  std::string wrapped_str;
+
+  int clean_len = static_cast<int>(clean_str.length());
+  int last_wrap_c_idx = 0;
+  int last_space_c_idx = -1;
+
+  for (int i = 0; i <= clean_len; i++) {
+    if (i == clean_len || clean_str[i] == '\n') {
+      for (int j = last_wrap_c_idx; j < i; j++) {
+        wrapped_str += clean_str[j];
+      }
+      if (i < clean_len) {
+        wrapped_str += '\n';
+      }
+      last_wrap_c_idx = i + 1;
+      last_space_c_idx = -1;
+      continue;
+    }
+
+    if (clean_str[i] == ' ') {
+      last_space_c_idx = i;
+    }
+
+    float width = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f,
+                                      &clean_str[last_wrap_c_idx],
+                                      &clean_str[i] + 1).x;
+
+    if (width > g_editor_wrap_width) {
+      if (last_space_c_idx != -1 && last_space_c_idx > last_wrap_c_idx) {
+        for (int j = last_wrap_c_idx; j <= last_space_c_idx; j++) {
+          wrapped_str += clean_str[j];
+        }
+        wrapped_str += "\n";
+
+        last_wrap_c_idx = last_space_c_idx + 1;
+        i = last_wrap_c_idx - 1;
+        last_space_c_idx = -1;
+      } else if (i > last_wrap_c_idx) {
+        // Character wrap
+        for (int j = last_wrap_c_idx; j < i; j++) {
+          wrapped_str += clean_str[j];
+        }
+        wrapped_str += "-\n";
+
+        last_wrap_c_idx = i;
+        i = last_wrap_c_idx - 1;
+        last_space_c_idx = -1;
+      }
+    }
+  }
+
+  // 3. Write back to g_edit_buffer
+  strncpy_s(g_edit_buffer, sizeof(g_edit_buffer), wrapped_str.c_str(), _TRUNCATE);
 }
 
 int FormatCallback(ImGuiInputTextCallbackData* data) {
@@ -263,6 +480,9 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
       }
     }
   }
+
+  // Automatically wrap the editor's buffer text based on Zoom and Window width
+  ProcessWordWrap(data);
 
   // Record selection state while editor is active/focused
   g_saved_selection_start = data->SelectionStart;
@@ -547,7 +767,7 @@ void RenderNotesWindow(bool* p_open) {
   for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
 
   float avail_x = ImGui::GetContentRegionAvail().x;
-  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 132.0f : 92.0f);
+  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 138.0f : 108.0f);
   if (right_align_start > ImGui::GetCursorPosX()) ImGui::SameLine(right_align_start);
   else ImGui::SameLine();
 
@@ -576,6 +796,7 @@ void RenderNotesWindow(bool* p_open) {
 
   ImGui::PopStyleColor(3); // Pop main flat button styles
 
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
   ImGui::Separator();
 
   // ---- Main Layout: Sidebar + Content ----
@@ -584,6 +805,19 @@ void RenderNotesWindow(bool* p_open) {
   const float sb_w     = g_sidebar_visible ? g_sidebar_width : 0.0f;
   const float split_w  = g_sidebar_visible ? 5.0f   : 0.0f;
   const float cont_w   = win_w - sb_w - split_w;
+  g_editor_wrap_width  = cont_w - 48.0f; // 24px padding on each side
+  if (g_editor_wrap_width < 100.0f) g_editor_wrap_width = 100.0f;
+
+  static float s_last_rendered_wrap_width = 0.0f;
+  static int s_last_rendered_zoom_idx = -1;
+
+  if (g_view_mode == 0) {
+    if (g_editor_wrap_width != s_last_rendered_wrap_width || g_zoom_idx != s_last_rendered_zoom_idx) {
+      WrapGlobalBuffer();
+      s_last_rendered_wrap_width = g_editor_wrap_width;
+      s_last_rendered_zoom_idx = g_zoom_idx;
+    }
+  }
 
   // ---- SIDEBAR (plain list, no collapsible header) ----
   if (g_sidebar_visible) {
@@ -651,6 +885,7 @@ void RenderNotesWindow(bool* p_open) {
   if (notes.empty()) {
     ImGui::TextDisabled("No notes. Click \"+ New Note\" to get started.");
     ImGui::EndChild();
+    ImGui::PopStyleVar();
     ImGui::End();
     return;
   }
@@ -681,7 +916,7 @@ void RenderNotesWindow(bool* p_open) {
         g_force_focus_frames--;
     }
 
-    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
+    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways | ImGuiInputTextFlags_NoHorizontalScroll;
     
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
     bool changed = ImGui::InputTextMultiline(
@@ -694,7 +929,23 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::PopFont();
 
     if (changed) {
-      notes[g_selected_note_idx].is_dirty = true;
+      // Smart dirty check: only mark dirty if the actual non-wrapped content has changed
+      std::string clean_content;
+      int len = static_cast<int>(strlen(g_edit_buffer));
+      for (int i = 0; i < len; ) {
+        if (i + 1 < len && g_edit_buffer[i] == ' ' && g_edit_buffer[i+1] == '\n') {
+          clean_content += ' ';
+          i += 2;
+        } else if (i + 1 < len && g_edit_buffer[i] == '-' && g_edit_buffer[i+1] == '\n') {
+          i += 2;
+        } else {
+          clean_content += g_edit_buffer[i];
+          i++;
+        }
+      }
+      if (notes[g_selected_note_idx].content != clean_content) {
+        notes[g_selected_note_idx].is_dirty = true;
+      }
     }
 
   } else {
@@ -736,6 +987,7 @@ void RenderNotesWindow(bool* p_open) {
   }
 
   ImGui::EndChild(); // End NoteContent
+  ImGui::PopStyleVar();
 
   // Render Floating Edit/Read Toggle Button on the Foreground Draw List (always on top, 100% clickable)
   if (show_float_btn) {
