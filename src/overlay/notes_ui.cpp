@@ -104,6 +104,40 @@ struct DoverMarkdownRenderer : public imgui_md {
     }
   }
 
+  void BLOCK_H(const MD_BLOCK_H_DETAIL* d, bool e) override {
+    if (e) {
+      m_hlevel = d->level;
+      ImGui::Dummy(ImVec2(0.0f, 10.0f)); // Small gap before heading
+    } else {
+      m_hlevel = 0;
+      ImGui::Dummy(ImVec2(0.0f, 4.0f)); // Tiny gap after heading
+    }
+    if (e) {
+      ImGui::PushFont(get_font());
+    } else {
+      ImGui::PopFont();
+    }
+  }
+
+  int m_list_level = 0;
+
+  void BLOCK_UL(const MD_BLOCK_UL_DETAIL* d, bool e) override {
+    if (e) m_list_level++; else m_list_level--;
+    imgui_md::BLOCK_UL(d, e);
+  }
+  
+  void BLOCK_OL(const MD_BLOCK_OL_DETAIL* d, bool e) override {
+    if (e) m_list_level++; else m_list_level--;
+    imgui_md::BLOCK_OL(d, e);
+  }
+
+  void BLOCK_P(bool e) override {
+    if (m_list_level > 0) return;
+    if (e) {
+      ImGui::Dummy(ImVec2(0.0f, 6.0f));
+    }
+  }
+
   void open_url() const override {}
   bool get_image(image_info&) const override { return false; }
 };
@@ -510,7 +544,7 @@ void RenderNotesWindow(bool* p_open) {
   for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
 
   float avail_x = ImGui::GetContentRegionAvail().x;
-  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 100.0f : 60.0f);
+  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 120.0f : 80.0f);
   if (right_align_start > ImGui::GetCursorPosX()) ImGui::SameLine(right_align_start);
   else ImGui::SameLine();
 
@@ -605,9 +639,11 @@ void RenderNotesWindow(bool* p_open) {
   }
 
   // ---- CONTENT PANEL ----
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 24.0f));
   ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
   ImGui::PopStyleVar();
+  ImGui::PopStyleColor();
 
   if (notes.empty()) {
     ImGui::TextDisabled("No notes. Click \"+ New Note\" to get started.");
@@ -643,12 +679,14 @@ void RenderNotesWindow(bool* p_open) {
     }
 
     ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
-
+    
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
     bool changed = ImGui::InputTextMultiline(
         "##ed", g_edit_buffer, sizeof(g_edit_buffer),
         ImVec2(-FLT_MIN, content_h),
         input_flags,
         FormatCallback);
+    ImGui::PopStyleColor();
 
     ImGui::PopFont();
 
