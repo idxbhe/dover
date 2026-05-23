@@ -219,61 +219,6 @@ void RenderNotesWindow(bool* p_open) {
 
   ImGui::TextDisabled("|"); ImGui::SameLine();
 
-  if (g_view_mode == 0) {
-    ImGui::TextDisabled("|"); ImGui::SameLine();
-
-    auto LayoutApplyFormat = [&](const char* prefix, const char* suffix) {
-      ApplyToolbarFormat(prefix, suffix, g_edit_buffer, sizeof(g_edit_buffer));
-      auto& ns = GetNotes();
-      if (g_selected_note_idx >= 0 && g_selected_note_idx < static_cast<int>(ns.size())) {
-          ns[g_selected_note_idx].is_dirty = true;
-      }
-      g_force_focus_frames = 3;
-    };
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_BOLD)) LayoutApplyFormat("**", "**");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Bold (Ctrl+B)"); ImGui::SameLine();
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_ITALIC)) LayoutApplyFormat("*", "*");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Italic (Ctrl+I)"); ImGui::SameLine();
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_STRIKETHROUGH)) LayoutApplyFormat("~~", "~~");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Strikethrough (Ctrl+Shift+X)"); ImGui::SameLine();
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_CODE)) LayoutApplyFormat("`", "`");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code (Ctrl+`)"); ImGui::SameLine();
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_CODE_BLOCK)) LayoutApplyFormat("\n```\n", "\n```\n");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code Block"); ImGui::SameLine();
-
-    ImGui::SetNextItemWidth(35.0f);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
-    if (ImGui::BeginCombo("##h", ICON_TEXT_FORMAT_HEADINGS, ImGuiComboFlags_NoArrowButton)) {
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_ONE " Heading 1")) LayoutApplyFormat("# ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_TWO " Heading 2")) LayoutApplyFormat("## ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_THREE " Heading 3")) LayoutApplyFormat("### ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FOUR " Heading 4")) LayoutApplyFormat("#### ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FIVE " Heading 5")) LayoutApplyFormat("##### ", "");
-      ImGui::EndCombo();
-    }
-    ImGui::PopStyleColor(2);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Headings");
-    ImGui::SameLine();
-
-    ImGui::SetNextItemWidth(35.0f);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
-    if (ImGui::BeginCombo("##l", ICON_TEXT_FORMAT_LISTS, ImGuiComboFlags_NoArrowButton)) {
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_BULLETS " Bullet List")) LayoutApplyFormat("- ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_NUMBERS " Numbered List")) LayoutApplyFormat("1. ", "");
-      ImGui::EndCombo();
-    }
-    ImGui::PopStyleColor(2);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lists");
-    ImGui::SameLine();
-  }
-
   // Size Button behave like Combo
   float orig_size_y = ImGui::GetCursorPosY();
   ImGui::SetCursorPosY(orig_size_y - 2.0f);
@@ -369,6 +314,61 @@ void RenderNotesWindow(bool* p_open) {
 
   ImGui::TextDisabled("%.0f%%", g_bg_alpha * 100.0f);
   ImGui::SameLine();
+
+  if (g_view_mode == 0) {
+    ImGui::TextDisabled("|"); ImGui::SameLine();
+
+    auto LayoutApplyFormat = [&](const char* prefix, const char* suffix) {
+      ApplyToolbarFormat(prefix, suffix, g_edit_buffer, sizeof(g_edit_buffer));
+      auto& ns = GetNotes();
+      if (g_selected_note_idx >= 0 && g_selected_note_idx < static_cast<int>(ns.size())) {
+          ns[g_selected_note_idx].is_dirty = true;
+      }
+      g_force_focus_frames = 3;
+    };
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_BOLD)) LayoutApplyFormat("**", "**");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Bold (Ctrl+B)"); ImGui::SameLine();
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_ITALIC)) LayoutApplyFormat("*", "*");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Italic (Ctrl+I)"); ImGui::SameLine();
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_STRIKETHROUGH)) LayoutApplyFormat("~~", "~~");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Strikethrough (Ctrl+Shift+X)"); ImGui::SameLine();
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_CODE)) LayoutApplyFormat("`", "`");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code (Ctrl+`)"); ImGui::SameLine();
+
+    if (ImGui::Button(ICON_TEXT_FORMAT_CODE_BLOCK)) LayoutApplyFormat("\n```\n", "\n```\n");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code Block"); ImGui::SameLine();
+
+    ImGui::SetNextItemWidth(35.0f);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+    if (ImGui::BeginCombo("##h", ICON_TEXT_FORMAT_HEADINGS, ImGuiComboFlags_NoArrowButton)) {
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_ONE " Heading 1")) LayoutApplyFormat("# ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_TWO " Heading 2")) LayoutApplyFormat("## ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_THREE " Heading 3")) LayoutApplyFormat("### ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FOUR " Heading 4")) LayoutApplyFormat("#### ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FIVE " Heading 5")) LayoutApplyFormat("##### ", "");
+      ImGui::EndCombo();
+    }
+    ImGui::PopStyleColor(2);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Headings");
+    ImGui::SameLine();
+
+    ImGui::SetNextItemWidth(35.0f);
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+    if (ImGui::BeginCombo("##l", ICON_TEXT_FORMAT_LISTS, ImGuiComboFlags_NoArrowButton)) {
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_BULLETS " Bullet List")) LayoutApplyFormat("- ", "");
+      if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_NUMBERS " Numbered List")) LayoutApplyFormat("1. ", "");
+      ImGui::EndCombo();
+    }
+    ImGui::PopStyleColor(2);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lists");
+    ImGui::SameLine();
+  }
 
   // --- 3. RIGHT CONTROLS (Save Status, Maximize, Close) ---
   bool any_dirty = false;
