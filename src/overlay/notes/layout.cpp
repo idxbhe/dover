@@ -636,27 +636,6 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::PopStyleVar(3);
   }
 
-  // Delete confirmation modal popup
-  if (ImGui::BeginPopupModal("Delete Note?", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-    ImGui::Text("Are you sure you want to delete this note?");
-    ImGui::Separator();
-    
-    if (ImGui::Button("OK", ImVec2(120, 0))) {
-      DeleteNote(static_cast<size_t>(g_selected_note_idx));
-      auto& ns = GetNotes();
-      if (g_selected_note_idx >= static_cast<int>(ns.size()))
-        g_selected_note_idx = static_cast<int>(ns.size()) - 1;
-      SyncEditBufferFromNote(g_selected_note_idx);
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::SetItemDefaultFocus();
-    ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(120, 0))) {
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::EndPopup();
-  }
-
   ImGui::EndChild(); // End NoteContent
   ImGui::PopStyleVar();
 
@@ -741,6 +720,87 @@ void RenderNotesWindow(bool* p_open) {
       ImGui::OpenPopup("Delete Note?");
     }
   }
+
+  // Delete confirmation modal popup (Parent Window ID stack context)
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 20.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f); // Matched with notes frame rounding
+  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 8.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 16.0f));
+
+  ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.10f, 0.11f, 0.14f, 1.00f));
+  ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.22f, 0.24f, 0.30f, 0.80f));
+  ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.88f, 0.92f, 1.00f));
+
+  if (ImGui::BeginPopupModal("Delete Note?", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar)) {
+    // Centering the header title
+    ImGui::PushFont(g_font_gui);
+    ImVec2 icon_size = ImGui::CalcTextSize(ICON_DELETE);
+    ImGui::PopFont();
+    
+    ImGui::PushFont(g_fonts_preview_bold[2]);
+    ImVec2 label_size = ImGui::CalcTextSize(" Delete Note");
+    ImGui::PopFont();
+    
+    float total_header_w = icon_size.x + label_size.x;
+    float header_offset = (ImGui::GetContentRegionAvail().x - total_header_w) * 0.5f;
+    if (header_offset > 0.0f) {
+      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + header_offset);
+    }
+    
+    // Render icon with g_font_gui and text with preview bold
+    ImGui::PushFont(g_font_gui);
+    ImGui::TextColored(ImVec4(0.90f, 0.40f, 0.40f, 1.00f), ICON_DELETE);
+    ImGui::PopFont();
+    ImGui::SameLine(0.0f, 0.0f);
+    
+    ImGui::PushFont(g_fonts_preview_bold[2]);
+    ImGui::TextColored(ImVec4(0.90f, 0.40f, 0.40f, 1.00f), " Delete Note");
+    ImGui::PopFont();
+    
+    ImGui::Dummy(ImVec2(0.0f, 2.0f));
+    ImGui::Text("Are you sure you want to permanently delete this note?\nThis action cannot be undone.");
+    ImGui::Dummy(ImVec2(0.0f, 4.0f));
+
+    // Centering Cancel and Delete buttons
+    float popup_avail_x = ImGui::GetContentRegionAvail().x;
+    float total_btn_width = 110.0f + ImGui::GetStyle().ItemSpacing.x + 110.0f;
+    float offset_x = (popup_avail_x - total_btn_width) * 0.5f;
+    if (offset_x > 0.0f) {
+      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset_x);
+    }
+
+    // Cancel Button (Left, Slate neutral)
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.20f, 0.25f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.24f, 0.27f, 0.33f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.14f, 0.16f, 0.20f, 1.00f));
+    if (ImGui::Button("Cancel", ImVec2(110.0f, 32.0f))) {
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::SameLine();
+
+    // Delete Button (Right, Soft danger red)
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.70f, 0.20f, 0.20f, 0.90f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.85f, 0.25f, 0.25f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.60f, 0.15f, 0.15f, 1.00f));
+    if (ImGui::Button("Delete", ImVec2(110.0f, 32.0f))) {
+      DeleteNote(static_cast<size_t>(g_selected_note_idx));
+      auto& ns = GetNotes();
+      if (g_selected_note_idx >= static_cast<int>(ns.size()))
+        g_selected_note_idx = static_cast<int>(ns.size()) - 1;
+      SyncEditBufferFromNote(g_selected_note_idx);
+      ImGui::CloseCurrentPopup();
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::EndPopup();
+  }
+
+  ImGui::PopStyleColor(3);
+  ImGui::PopStyleVar(6);
 
   ImGui::End();
 }
