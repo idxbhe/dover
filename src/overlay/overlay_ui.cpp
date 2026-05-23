@@ -407,13 +407,21 @@ void SetupImGuiTheme() {
 
   ImGuiStyle& style = ImGui::GetStyle();
   style.WindowRounding = 8.0f;
-  style.FrameRounding = 4.0f;
+  style.FrameRounding = 2.0f; // Minimal round corners for all boxes
+  style.ItemSpacing.y = 4.0f; // Reduce vertical spacing globally
   style.Colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.06f, 0.08f, 0.85f);
   style.Colors[ImGuiCol_TitleBg] = ImVec4(0.12f, 0.12f, 0.16f, 0.90f);
   style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.16f, 0.16f, 0.22f, 0.95f);
-  style.Colors[ImGuiCol_Button] = ImVec4(0.20f, 0.25f, 0.35f, 0.70f);
-  style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.28f, 0.35f, 0.50f, 0.85f);
-  style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.35f, 0.45f, 0.65f, 1.00f);
+  
+  // Dodger Blue accents (#4badfb -> 0.294, 0.678, 0.984)
+  style.Colors[ImGuiCol_Button] = ImVec4(0.18f, 0.22f, 0.28f, 0.70f);
+  style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.25f, 0.58f, 0.88f, 0.85f);
+  style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.29f, 0.68f, 0.98f, 1.00f);
+  style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.25f, 0.58f, 0.88f, 0.85f);
+  style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.29f, 0.68f, 0.98f, 1.00f);
+  style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.29f, 0.68f, 0.98f, 1.00f);
+  style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.35f, 0.75f, 1.00f, 1.00f);
+  
   style.Colors[ImGuiCol_FrameBg] = ImVec4(0.10f, 0.10f, 0.14f, 0.60f);
 }
 

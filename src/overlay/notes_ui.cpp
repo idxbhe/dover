@@ -294,9 +294,12 @@ void RenderNotesWindow(bool* p_open) {
   }
 
   // Push window styling (No rounding, and no border when maximized)
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, g_maximized ? 0.0f : 2.0f);
   if (g_maximized) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+  } else {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.12f, 0.15f, 0.22f, 1.00f));
   }
 
   // Set dynamic background opacity for overlay feel
@@ -307,7 +310,8 @@ void RenderNotesWindow(bool* p_open) {
   if (g_maximized) {
     ImGui::PopStyleVar(2);
   } else {
-    ImGui::PopStyleVar(1);
+    ImGui::PopStyleColor(1);
+    ImGui::PopStyleVar(2);
   }
 
   if (!begin_ok) {
@@ -343,16 +347,6 @@ void RenderNotesWindow(bool* p_open) {
   }
   if (ImGui::IsItemHovered()) ImGui::SetTooltip("Create New Note");
   ImGui::SameLine();
-
-  if (!notes.empty()) {
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 0.30f, 0.30f, 1.00f)); // Red delete icon
-    if (ImGui::Button(ICON_DELETE)) {
-      ImGui::OpenPopup("Delete Note?");
-    }
-    ImGui::PopStyleColor(1);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Delete Selected Note");
-    ImGui::SameLine();
-  }
 
   ImGui::TextDisabled("|"); ImGui::SameLine();
 
@@ -444,7 +438,7 @@ void RenderNotesWindow(bool* p_open) {
   ImGui::AlignTextToFramePadding();
   ImGui::TextDisabled("Size:"); ImGui::SameLine();
   
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f); // Sharp corners for embossed look
+  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f); // Minimal round corners
   ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f); // Make box stand out with a border
   
   ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0.15f, 0.18f, 0.26f, 1.00f)); // Solid steel blue bg
@@ -516,7 +510,7 @@ void RenderNotesWindow(bool* p_open) {
   for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
 
   float avail_x = ImGui::GetContentRegionAvail().x;
-  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 140.0f : 120.0f);
+  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 100.0f : 60.0f);
   if (right_align_start > ImGui::GetCursorPosX()) ImGui::SameLine(right_align_start);
   else ImGui::SameLine();
 
@@ -597,9 +591,9 @@ void RenderNotesWindow(bool* p_open) {
 
     // Splitter bar
     ImGui::SameLine(0.0f, 0.0f);
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14f, 0.14f, 0.18f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.25f, 0.25f, 0.30f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
     ImGui::Button("##spl", ImVec2(split_w, win_h));
     if (ImGui::IsItemActive()) {
       g_sidebar_width += io.MouseDelta.x;
@@ -611,7 +605,9 @@ void RenderNotesWindow(bool* p_open) {
   }
 
   // ---- CONTENT PANEL ----
-  ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 24.0f));
+  ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
+  ImGui::PopStyleVar();
 
   if (notes.empty()) {
     ImGui::TextDisabled("No notes. Click \"+ New Note\" to get started.");
@@ -620,12 +616,16 @@ void RenderNotesWindow(bool* p_open) {
     return;
   }
 
+  ImVec2 delete_btn_pos;
+  bool show_delete_btn = false;
   // Calculate floating button screen position
   {
     ImVec2 content_pos = ImGui::GetWindowPos();
     ImVec2 content_size = ImGui::GetWindowSize();
     float_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 10.0f);
+    delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + content_size.y - 45.0f);
     show_float_btn = true;
+    show_delete_btn = true;
   }
 
   float content_h = ImGui::GetContentRegionAvail().y;
@@ -654,15 +654,6 @@ void RenderNotesWindow(bool* p_open) {
 
     if (changed) {
       notes[g_selected_note_idx].is_dirty = true;
-    }
-
-    bool click_outside = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
-                         ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
-                         !ImGui::IsAnyItemHovered();
-
-    if (click_outside) {
-      FlushEditBufferToNote();
-      g_view_mode = 1;
     }
 
   } else {
@@ -756,6 +747,43 @@ void RenderNotesWindow(bool* p_open) {
       } else {
         SwitchToEditor();
       }
+    }
+  }
+
+  // Render Floating Delete Button
+  if (show_delete_btn) {
+    ImVec2 min_p = delete_btn_pos;
+    ImVec2 max_p = ImVec2(delete_btn_pos.x + 30.0f, delete_btn_pos.y + 30.0f);
+    ImVec2 center = ImVec2(delete_btn_pos.x + 15.0f, delete_btn_pos.y + 15.0f);
+    
+    bool hovered = ImGui::IsMouseHoveringRect(min_p, max_p);
+    bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    
+    ImVec4 bg_color = ImVec4(0.10f, 0.14f, 0.22f, 0.85f);
+    if (active) bg_color = ImVec4(0.50f, 0.20f, 0.20f, 1.00f);
+    else if (hovered) bg_color = ImVec4(0.35f, 0.15f, 0.15f, 0.95f);
+    
+    ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
+    ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.65f, 0.35f, 0.35f, 0.60f));
+    ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.9f, 0.4f, 0.4f, 1.0f));
+    
+    ImGui::GetForegroundDrawList()->AddCircleFilled(center, 15.0f, bg_col32, 32);
+    ImGui::GetForegroundDrawList()->AddCircle(center, 15.0f, border_col32, 32, 1.0f);
+    
+    ImGui::PushFont(g_font_gui);
+    ImVec2 text_size = ImGui::CalcTextSize(ICON_DELETE);
+    ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
+    ImGui::GetForegroundDrawList()->AddText(text_pos, text_col32, ICON_DELETE);
+    ImGui::PopFont();
+    
+    if (hovered) {
+      ImGui::SetTooltip("Delete Note");
+      ImGui::GetIO().WantCaptureMouse = true;
+    }
+    
+    if (clicked) {
+      ImGui::OpenPopup("Delete Note?");
     }
   }
 
