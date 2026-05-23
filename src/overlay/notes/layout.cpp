@@ -434,7 +434,7 @@ void RenderNotesWindow(bool* p_open) {
                       ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 3.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 8.0f));
 
     for (int i = 0; i < static_cast<int>(notes.size()); ++i) {
@@ -446,7 +446,11 @@ void RenderNotesWindow(bool* p_open) {
       } else {
         title = ExtractTitleFromContent(notes[i].content);
       }
-      if (title.size() > 20) title = title.substr(0, 18) + "..";
+      int max_chars = static_cast<int>((sb_w - 24.0f) / 7.0f);
+      if (max_chars < 8) max_chars = 8;
+      if (static_cast<int>(title.size()) > max_chars) {
+        title = title.substr(0, max_chars - 2) + "..";
+      }
       if (notes[i].is_dirty) title = "* " + title;
 
       if (is_sel) {
@@ -525,7 +529,7 @@ void RenderNotesWindow(bool* p_open) {
 
   // ---- CONTENT PANEL ----
   ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 24.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 24.0f));
   ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
   ImGui::PopStyleVar();
   ImGui::PopStyleColor();
@@ -572,11 +576,13 @@ void RenderNotesWindow(bool* p_open) {
     SetFormatterContext(g_editor_wrap_width, g_fonts_editor[g_zoom_idx]);
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+    ImGui::Indent(24.0f);
     bool changed = ImGui::InputTextMultiline(
         "##ed", g_edit_buffer, sizeof(g_edit_buffer),
-        ImVec2(-FLT_MIN, content_h),
+        ImVec2(-24.0f, content_h),
         input_flags,
         FormatCallback);
+    ImGui::Unindent(24.0f);
     ImGui::PopStyleColor();
 
     // Check if formatter requested a focus spam (e.g. from toolbar interaction inside callback)
@@ -610,13 +616,24 @@ void RenderNotesWindow(bool* p_open) {
     // ---- PREVIEW MODE ----
     content_h = ImGui::GetContentRegionAvail().y;
 
-    ImGui::BeginChild("MDPreview", ImVec2(-FLT_MIN, content_h), false,
-                      ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, ImVec4(1.0f, 1.0f, 1.0f, 0.15f));
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.30f));
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, ImVec4(1.0f, 1.0f, 1.0f, 0.45f));
+
+    ImGui::BeginChild("MDPreview", ImVec2(-6.0f, content_h), false,
+                      ImGuiWindowFlags_AlwaysUseWindowPadding);
     const auto& content = notes[g_selected_note_idx].content;
     if (!content.empty()) {
       RenderMarkdown(content, g_zoom_idx);
     }
     ImGui::EndChild();
+
+    ImGui::PopStyleColor(4);
+    ImGui::PopStyleVar(3);
   }
 
   // Delete confirmation modal popup

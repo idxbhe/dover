@@ -24,6 +24,37 @@ bool g_in_overlay_frame = false;
 WNDPROC g_original_wnd_proc = nullptr;
 const char* g_active_dx_version = "Unknown API";
 
+// ---- Accurate FPS counter using QPC (bypasses ImGui's inflated averaging) ----
+static LARGE_INTEGER g_fps_freq      = {};
+static double        g_fps_last_time = 0.0;
+static int           g_fps_frames    = 0;
+static float         g_fps_value     = 0.0f;
+static bool          g_fps_init      = false;
+
+static void TickFPS() {
+  if (!g_fps_init) {
+    QueryPerformanceFrequency(&g_fps_freq);
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    g_fps_last_time = static_cast<double>(now.QuadPart) / static_cast<double>(g_fps_freq.QuadPart);
+    g_fps_init = true;
+    return;
+  }
+
+  g_fps_frames++;
+
+  LARGE_INTEGER now;
+  QueryPerformanceCounter(&now);
+  double current_time = static_cast<double>(now.QuadPart) / static_cast<double>(g_fps_freq.QuadPart);
+  double elapsed = current_time - g_fps_last_time;
+
+  if (elapsed >= 0.5) { // Update every 0.5 seconds for perfect stability and responsiveness
+    g_fps_value = static_cast<float>(g_fps_frames / elapsed);
+    g_fps_frames = 0;
+    g_fps_last_time = current_time;
+  }
+}
+
 ImFont* g_font_gui = nullptr;
 ImFont* g_fonts_editor[5] = {};
 ImFont* g_fonts_preview[5] = {};
@@ -331,9 +362,9 @@ void SetupImGuiTheme() {
           // 2. Define 5 sizes for editor and preview styles
           float editor_sizes[5]  = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
           float preview_sizes[5] = { 13.0f, 15.0f, 18.0f, 22.0f, 26.0f };
-          float h3_sizes[5]      = { 15.0f, 17.0f, 20.0f, 24.0f, 28.0f };
-          float h2_sizes[5]      = { 17.0f, 19.0f, 23.0f, 27.0f, 32.0f };
-          float h1_sizes[5]      = { 20.0f, 23.0f, 27.0f, 32.0f, 38.0f };
+          float h3_sizes[5]      = { 15.0f, 18.0f, 21.0f, 26.0f, 30.0f };
+          float h2_sizes[5]      = { 18.0f, 21.0f, 25.0f, 31.0f, 36.0f };
+          float h1_sizes[5]      = { 23.0f, 26.0f, 32.0f, 39.0f, 46.0f };
 
           for (int i = 0; i < 5; ++i) {
             // Editor Font (JetBrainsMono - Monospace for code/typing)
@@ -414,17 +445,20 @@ void SetupImGuiTheme() {
 void RenderImGuiUI() {
   // 1. Draw Pinned Info Window (transparent corner overlay)
   ImGui::SetNextWindowPos(ImVec2(12.0f, 10.0f), ImGuiCond_Always);
-  ImGui::SetNextWindowBgAlpha(0.65f);
+  ImGui::SetNextWindowBgAlpha(0.0f);
   ImGui::Begin("Info Window", nullptr,
                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-               ImGuiWindowFlags_NoNav);
+               ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground);
+
+  TickFPS();
 
   SYSTEMTIME time{};
   GetLocalTime(&time);
-  ImGui::TextColored(ImVec4(0.20f, 1.00f, 0.70f, 1.00f), "Time: %02u:%02u:%02u", time.wHour, time.wMinute, time.wSecond);
-  ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", ImGui::GetIO().Framerate);
-  ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", g_active_dx_version);
+  ImGui::TextColored(ImVec4(0.20f, 1.00f, 0.70f, 1.00f), "%02u:%02u:%02u", time.wHour, time.wMinute, time.wSecond);
+  ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", g_fps_value);
+  // Pinned API info hidden as requested:
+  // ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", g_active_dx_version);
   ImGui::End();
 
   // 2. Draw Steam-style Interactive Navigation and floating windows if visible
