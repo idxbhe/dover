@@ -19,6 +19,7 @@ namespace dover::overlay::notes {
 struct DoverMarkdownRenderer : public imgui_md {
   int m_zoom_idx = 2;
   int m_list_level = 0;
+  int m_li_indent_level = 0;
 
   ImFont* get_font() const override {
     if (m_is_code) return g_fonts_editor[m_zoom_idx];
@@ -86,11 +87,31 @@ struct DoverMarkdownRenderer : public imgui_md {
     imgui_md::BLOCK_OL(d, e);
   }
 
+  void BLOCK_LI(const MD_BLOCK_LI_DETAIL* d, bool e) override {
+    if (e) {
+      m_li_indent_level++;
+      imgui_md::BLOCK_LI(d, e);
+    } else {
+      if (m_li_indent_level > 0) {
+        m_li_indent_level--;
+        imgui_md::BLOCK_LI(d, e);
+      }
+    }
+  }
+
   void BLOCK_P(bool e) override {
     if (m_list_level > 0) return;
     if (e) {
       ImGui::Dummy(ImVec2(0.0f, 6.0f));
     }
+  }
+
+  void soft_break() override {
+    if (m_li_indent_level > 0) {
+      ImGui::Unindent();
+      m_li_indent_level--;
+    }
+    ImGui::NewLine();
   }
 
   void open_url() const override {}
