@@ -1,4 +1,4 @@
-#include "overlay/notes_manager.h"
+#include "overlay/notes/manager.h"
 
 #include <windows.h>
 #include <psapi.h>
@@ -13,7 +13,7 @@
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
-namespace dover::overlay {
+namespace dover::overlay::notes {
 
 namespace {
 std::vector<NoteFile> g_notes;
@@ -210,4 +210,4 @@ void TickAutosave() {
   }
 }
 
-} // namespace dover::overlay
+} // namespace dover::overlay::notes

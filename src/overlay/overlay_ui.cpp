@@ -1,7 +1,7 @@
 #include "overlay/overlay_ui.h"
 #include "overlay/hook_utils.h"
-#include "overlay/notes_manager.h"
-#include "overlay/notes_ui.h"
+#include "overlay/notes/layout.h"
+#include "overlay/notes/manager.h"
 #include "overlay/icons.h"
 
 #include <windows.h>
@@ -401,8 +401,8 @@ void SetupImGuiTheme() {
     // Determine game name from the current process executable
     char exe_name[MAX_PATH] = {};
     GetModuleBaseNameA(GetCurrentProcess(), nullptr, exe_name, MAX_PATH);
-    InitializeNotesManager(std::wstring(local_app_data), std::string(exe_name));
-    InitializeNotesUI();
+    notes::InitializeNotesManager(std::wstring(local_app_data), std::string(exe_name));
+    notes::InitializeNotesUI();
   }
 
   ImGuiStyle& style = ImGui::GetStyle();
@@ -515,7 +515,7 @@ void RenderImGuiUI() {
     
     // Notes Jendela (modular — handled by notes_ui module)
     if (show_notes) {
-      RenderNotesWindow(&show_notes);
+      notes::RenderNotesWindow(&show_notes);
     }
 
     // Settings Jendela

@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-namespace dover::overlay {
+namespace dover::overlay::notes {
 
 struct NoteFile {
   std::string filename;  // "strategy.md"
@@ -42,4 +42,4 @@ void AutoSaveAll();
 // Triggers a debounced autosave check (call every frame when overlay is open)
 void TickAutosave();
 
-} // namespace dover::overlay
+} // namespace dover::overlay::notes

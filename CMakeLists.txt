@@ -148,8 +148,10 @@ add_library(dover_overlay SHARED
   src/overlay/hook_utils.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
-  src/overlay/notes_manager.cpp
-  src/overlay/notes_ui.cpp
+  src/overlay/notes/manager.cpp
+  src/overlay/notes/layout.cpp
+  src/overlay/notes/formatter.cpp
+  src/overlay/notes/style.cpp
 )
 
 target_include_directories(dover_overlay PRIVATE
