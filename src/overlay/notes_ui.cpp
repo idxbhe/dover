@@ -327,8 +327,9 @@ void RenderNotesWindow(bool* p_open) {
     }
   }
 
-  // Push window styling (No rounding, and no border when maximized)
+  // Push window styling (No rounding, and no border when maximized, zero padding for full-bleed look)
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, g_maximized ? 0.0f : 2.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
   if (g_maximized) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   } else {
@@ -342,10 +343,10 @@ void RenderNotesWindow(bool* p_open) {
   bool begin_ok = ImGui::Begin("Notes", p_open, win_flags);
 
   if (g_maximized) {
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(3);
   } else {
     ImGui::PopStyleColor(1);
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(3);
   }
 
   if (!begin_ok) {
@@ -354,6 +355,8 @@ void RenderNotesWindow(bool* p_open) {
   }
 
   // ---- Premium Custom Toolbar / Header Row ----
+  ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8.0f);
+  ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
   ImGui::AlignTextToFramePadding();
 
   // Push flat style for toolbar buttons
@@ -544,7 +547,7 @@ void RenderNotesWindow(bool* p_open) {
   for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
 
   float avail_x = ImGui::GetContentRegionAvail().x;
-  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 120.0f : 80.0f);
+  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 132.0f : 92.0f);
   if (right_align_start > ImGui::GetCursorPosX()) ImGui::SameLine(right_align_start);
   else ImGui::SameLine();
 
