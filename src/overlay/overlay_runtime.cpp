@@ -1,5 +1,6 @@
 #include "overlay/dx9_hook.h"
 #include "overlay/dx11_hook.h"
+#include "overlay/input_hook.h"
 #include "overlay/hook_utils.h"
 #include "overlay/overlay_ui.h"
 #include "overlay/notes/manager.h"

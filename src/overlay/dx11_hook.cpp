@@ -1,5 +1,6 @@
 #include "overlay/dx11_hook.h"
 #include "overlay/overlay_ui.h"
+#include "overlay/theme.h"
 #include "overlay/hook_utils.h"
 #include "shared/log.h"
 

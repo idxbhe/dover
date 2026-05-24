@@ -1,4 +1,10 @@
 {
+    "window-pinned": {
+        "macro": "ICON_WINDOW_PINNED",
+        "codepoint_dec": 62964,
+        "codepoint_hex": "U+F5F4",
+        "utf8_cpp": "\\xef\\x97\\xb4"
+    },
     "window-windowed": {
         "macro": "ICON_WINDOW_WINDOWED",
         "codepoint_dec": 64425,

@@ -146,6 +146,8 @@ add_library(dover_overlay SHARED
   src/overlay/dx9_hook.cpp
   src/overlay/dx11_hook.cpp
   src/overlay/hook_utils.cpp
+  src/overlay/input_hook.cpp
+  src/overlay/theme.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
   src/overlay/notes/manager.cpp
