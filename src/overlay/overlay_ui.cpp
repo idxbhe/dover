@@ -56,6 +56,7 @@ static void TickFPS() {
 }
 
 ImFont* g_font_gui = nullptr;
+ImFont* g_font_panel = nullptr;
 ImFont* g_fonts_editor[5] = {};
 ImFont* g_fonts_preview[5] = {};
 ImFont* g_fonts_preview_bold[5] = {};
@@ -358,6 +359,23 @@ void SetupImGuiTheme() {
             icons_config.GlyphOffset.y = 3.0f; // Vertically align slightly larger icons with Mona Sans CapHeight
             io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 19.5f, &icons_config, icon_ranges);
           }
+
+          // 1b. GUI Font - Panel (Crisp, native larger sizes)
+          g_font_panel = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, 20.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (g_font_panel) {
+            static const ImWchar icon_ranges[] = { 0xf000, 0xffff, 0 };
+            ImFontConfig icons_config;
+            icons_config.FontDataOwnedByAtlas = false;
+            icons_config.MergeMode = true;
+            icons_config.PixelSnapH = true;
+            icons_config.OversampleH = 3;
+            icons_config.OversampleV = 2;
+            icons_config.GlyphOffset.x = 0.0f;
+            icons_config.GlyphOffset.y = 2.0f; // Vertically align for larger 20.0f font
+            io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 28.0f, &icons_config, icon_ranges);
+          } else {
+            g_font_panel = g_font_gui;
+          }
           
           // 2. Define 5 sizes for editor and preview styles
           float editor_sizes[5]  = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
@@ -474,10 +492,10 @@ void RenderImGuiUI() {
     static bool show_settings = false;
 
     // A. Top Navigation Bar (Fixed persistent toolbar at the top)
-    const float bar_height = 42.0f;
+    const float bar_height = 40.0f;
     const float bar_padding_x = 14.0f;
-    const float button_width = 92.0f;
-    const float button_height = 24.0f;
+    const float button_width = 28.0f;
+    const float button_height = 28.0f;
     const float button_spacing = 8.0f;
     ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(display_size.x, bar_height), ImGuiCond_Always);
@@ -485,6 +503,7 @@ void RenderImGuiUI() {
     
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
     bool nav_bar_ok = ImGui::Begin("Top Navigation Bar", nullptr,
@@ -492,19 +511,44 @@ void RenderImGuiUI() {
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
                  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleColor();
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(3);
 
     if (nav_bar_ok) {
       ImVec2 min_p = ImGui::GetWindowPos();
-      ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
-      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.122f, 0.137f, 0.169f, 0.92f)); // #1f232b (Cool slate bar top-left)
-      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.102f, 0.114f, 0.141f, 0.92f)); // #1a1d24
-      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.090f, 0.102f, 0.130f, 0.92f)); // #171a21
-      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.110f, 0.125f, 0.161f, 0.92f)); // #1c2029
-      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
+      
+      // Gorgeous slanted tag for the DOVER OVERLAY brand section
+      const float rect_w = 155.0f;
+      const float slant_w = 25.0f;
+      
+      ImVec2 rect_max = ImVec2(min_p.x + rect_w, min_p.y + bar_height);
+      
+      // FLAT SUBTLE DARK GRADIENT (Sleek Slate/Charcoal)
+      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.13f, 0.15f, 0.19f, 0.95f)); // #212630
+      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.09f, 0.11f, 0.14f, 0.95f)); // #171c24
+      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.07f, 0.08f, 0.11f, 0.95f)); // #12141c
+      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.11f, 0.13f, 0.16f, 0.95f)); // #1c2129
+      
+      // 1. Draw the gradient tag body up to x = 155.0f
+      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, rect_max, col_tl, col_tr, col_br, col_bl);
+      
+      // 2. Draw the elegant slanted edge (/) from x = 155.0f to x = 180.0f
+      ImVec2 tri_a = ImVec2(min_p.x + rect_w, min_p.y);
+      ImVec2 tri_b = ImVec2(min_p.x + rect_w, min_p.y + bar_height);
+      ImVec2 tri_c = ImVec2(min_p.x + rect_w + slant_w, min_p.y);
+      ImGui::GetWindowDrawList()->AddTriangleFilled(tri_a, tri_b, tri_c, col_tr);
+      
+      // 3. Draw a very subtle, flat dark gray under-border (no neon glow!)
+      ImU32 border_dark = ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.24f, 0.30f, 0.40f)); // Flat Slate Gray
+      ImGui::GetWindowDrawList()->PathLineTo(ImVec2(min_p.x, min_p.y + bar_height));
+      ImGui::GetWindowDrawList()->PathLineTo(ImVec2(min_p.x + rect_w, min_p.y + bar_height));
+      ImGui::GetWindowDrawList()->PathLineTo(ImVec2(min_p.x + rect_w + slant_w, min_p.y));
+      ImGui::GetWindowDrawList()->PathStroke(border_dark, false, 1.0f);
     }
 
-    const float button_group_width = (button_width * 3.0f) + (button_spacing * 2.0f);
+    ImGui::PushFont(g_font_panel);
+
+    const float icon_btn_width = 34.0f;
+    const float button_group_width = (icon_btn_width * 2.0f) + button_spacing; // Group of 2 icon buttons
     const float brand_y = (bar_height - ImGui::GetTextLineHeight()) * 0.5f;
     const float button_y = (bar_height - button_height) * 0.5f;
 
@@ -514,35 +558,134 @@ void RenderImGuiUI() {
     const float center_start_x = (display_size.x - button_group_width) * 0.5f;
     const float close_button_x = display_size.x - bar_padding_x - button_width;
 
+    // Use completely transparent button styles so our custom drawing is shown
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 0.0f)); // Make original text transparent
+
+    // A. Notes Button Rendering (Boxless, Dynamic 3D Raised White Gradient)
     ImGui::SetCursorPos(ImVec2(center_start_x, button_y));
-    if (show_notes) {
-      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.45f, 0.65f, 1.00f));
+    {
+      ImVec2 pos = ImGui::GetCursorScreenPos();
+      ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + button_height);
+      bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
+      
+      ImVec2 glyph_size = ImGui::CalcTextSize(ICON_PANEL_NOTES);
+      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (button_height - glyph_size.y) * 0.5f);
+      
+      ImVec4 main_color, shadow_color, highlight_color;
+      if (show_notes) {
+        // Selected: Brilliant pure white with cyan-blue shadow for 3D raised depth
+        main_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
+        shadow_color    = ImVec4(0.00f, 0.45f, 0.85f, 0.85f);
+      } else if (hovered) {
+        // Hovered: Bright white with subtle slate shadow
+        main_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
+        shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
+      } else {
+        // Idle: Soft slate-white with dark charcoal shadow
+        main_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
+        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
+        shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
+      }
+      
+      // Draw 3D layers directly to the glyph (shadow, highlight, main)
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), ICON_PANEL_NOTES);
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), ICON_PANEL_NOTES);
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(main_color), ICON_PANEL_NOTES);
     }
-    if (ImGui::Button("Notes", ImVec2(button_width, button_height))) {
+    if (ImGui::Button(ICON_PANEL_NOTES, ImVec2(icon_btn_width, button_height))) {
       show_notes = !show_notes;
     }
-    if (show_notes) {
-      ImGui::PopStyleColor();
-    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Notes");
 
+    // B. Settings Button Rendering (Boxless, Dynamic 3D Raised White Gradient)
     ImGui::SameLine(0.0f, button_spacing);
-    if (show_settings) {
-      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.45f, 0.65f, 1.00f));
+    {
+      ImVec2 pos = ImGui::GetCursorScreenPos();
+      ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + button_height);
+      bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
+      
+      ImVec2 glyph_size = ImGui::CalcTextSize(ICON_PANEL_SETTINGS);
+      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (button_height - glyph_size.y) * 0.5f);
+      
+      ImVec4 main_color, shadow_color, highlight_color;
+      if (show_settings) {
+        // Selected: Brilliant pure white with purple shadow for 3D raised depth
+        main_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
+        shadow_color    = ImVec4(0.55f, 0.30f, 0.90f, 0.85f);
+      } else if (hovered) {
+        // Hovered: Bright white with subtle slate shadow
+        main_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
+        shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
+      } else {
+        // Idle: Soft slate-white with dark charcoal shadow
+        main_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
+        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
+        shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
+      }
+      
+      // Draw 3D layers directly to the glyph (shadow, highlight, main)
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), ICON_PANEL_SETTINGS);
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), ICON_PANEL_SETTINGS);
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(main_color), ICON_PANEL_SETTINGS);
     }
-    if (ImGui::Button("Settings", ImVec2(button_width, button_height))) {
+    if (ImGui::Button(ICON_PANEL_SETTINGS, ImVec2(icon_btn_width, button_height))) {
       show_settings = !show_settings;
     }
-    if (show_settings) {
-      ImGui::PopStyleColor();
-    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Settings");
 
-    ImGui::SameLine(0.0f, button_spacing);
+    ImGui::PopStyleColor(4);
+
+    // C. Close Button Rendering (Flat, Dark Slate with subtle Red hovered accent)
     ImGui::SetCursorPos(ImVec2(close_button_x, button_y));
-    if (ImGui::Button("Close", ImVec2(button_width, button_height))) {
+    {
+      ImVec2 p_min = ImGui::GetCursorScreenPos();
+      ImVec2 p_max = ImVec2(p_min.x + button_width, p_min.y + button_height);
+      bool hovered = ImGui::IsMouseHoveringRect(p_min, p_max);
+      
+      ImVec4 c_tl, c_tr, c_br, c_bl;
+      if (hovered) {
+        // Hovered: Subtle dark red/crimson
+        c_tl = ImVec4(0.38f, 0.12f, 0.12f, 0.95f);
+        c_tr = ImVec4(0.30f, 0.08f, 0.08f, 0.95f);
+        c_br = ImVec4(0.24f, 0.06f, 0.06f, 0.95f);
+        c_bl = ImVec4(0.34f, 0.10f, 0.10f, 0.95f);
+      } else {
+        // Idle: Deep flat slate
+        c_tl = ImVec4(0.13f, 0.15f, 0.19f, 0.95f);
+        c_tr = ImVec4(0.09f, 0.11f, 0.14f, 0.95f);
+        c_br = ImVec4(0.07f, 0.08f, 0.11f, 0.95f);
+        c_bl = ImVec4(0.11f, 0.13f, 0.16f, 0.95f);
+      }
+      
+      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(
+          p_min, p_max,
+          ImGui::ColorConvertFloat4ToU32(c_tl),
+          ImGui::ColorConvertFloat4ToU32(c_tr),
+          ImGui::ColorConvertFloat4ToU32(c_br),
+          ImGui::ColorConvertFloat4ToU32(c_bl)
+      );
+      
+      ImU32 border_color = ImGui::ColorConvertFloat4ToU32(
+          hovered ? ImVec4(0.55f, 0.20f, 0.20f, 0.70f) : ImVec4(0.18f, 0.20f, 0.25f, 0.40f)
+      );
+      ImGui::GetWindowDrawList()->AddRect(p_min, p_max, border_color, 4.0f, ImDrawFlags_None, 1.0f);
+    }
+    if (ImGui::Button(ICON_WINDOW_CLOSE, ImVec2(button_width, button_height))) {
       g_show_overlay = false;
       ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
     }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Close");
 
+    ImGui::PopStyleColor(3);
+
+    ImGui::PopFont();
     ImGui::End();
 
     // B. Floating Feature Jendela (Modular, bebas geser, mengingat posisi via dover/imgui.ini)
