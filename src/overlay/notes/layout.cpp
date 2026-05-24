@@ -78,19 +78,15 @@ void FlushEditBufferToNote() {
       static_cast<size_t>(g_synced_note_idx) >= notes.size()) return;
   auto& note = notes[g_synced_note_idx];
 
-  // Clean soft-wrapped characters before saving/comparing
+  // Normalize text by completely dropping carriage returns (\r)
+  // Ensures compatibility with files edited externally in Notepad (\r\n)
   std::string clean_content;
   const char* buf = g_edit_buffer;
   int len = static_cast<int>(strlen(buf));
-  for (int i = 0; i < len; ) {
-    if (i + 1 < len && buf[i] == ' ' && buf[i+1] == '\n') {
-      clean_content += ' ';
-      i += 2;
-    } else if (i + 1 < len && buf[i] == '-' && buf[i+1] == '\n') {
-      i += 2;
-    } else {
+  clean_content.reserve(len);
+  for (int i = 0; i < len; ++i) {
+    if (buf[i] != '\r') {
       clean_content += buf[i];
-      i++;
     }
   }
 
@@ -446,16 +442,7 @@ void RenderNotesWindow(bool* p_open) {
   g_editor_wrap_width  = cont_w - 48.0f;
   if (g_editor_wrap_width < 100.0f) g_editor_wrap_width = 100.0f;
 
-  static float s_last_rendered_wrap_width = 0.0f;
-  static int s_last_rendered_zoom_idx = -1;
-
-  if (g_view_mode == 0) {
-    if (g_editor_wrap_width != s_last_rendered_wrap_width || g_zoom_idx != s_last_rendered_zoom_idx) {
-      WrapGlobalBuffer(g_edit_buffer, sizeof(g_edit_buffer), g_editor_wrap_width, g_fonts_editor[g_zoom_idx]);
-      s_last_rendered_wrap_width = g_editor_wrap_width;
-      s_last_rendered_zoom_idx = g_zoom_idx;
-    }
-  }
+  // ImGui natively handles horizontal word wrapping via ImGuiInputTextFlags_NoHorizontalScroll
 
   // ---- SIDEBAR ----
   if (g_sidebar_visible) {
@@ -645,18 +632,13 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::PopFont();
 
     if (changed) {
-      // Smart dirty check: only mark dirty if the actual non-wrapped content has changed
+      // Normalize text by dropping \r to prevent dirty loops with external files
       std::string clean_content;
       int len = static_cast<int>(strlen(g_edit_buffer));
-      for (int i = 0; i < len; ) {
-        if (i + 1 < len && g_edit_buffer[i] == ' ' && g_edit_buffer[i+1] == '\n') {
-          clean_content += ' ';
-          i += 2;
-        } else if (i + 1 < len && g_edit_buffer[i] == '-' && g_edit_buffer[i+1] == '\n') {
-          i += 2;
-        } else {
+      clean_content.reserve(len);
+      for (int i = 0; i < len; ++i) {
+        if (g_edit_buffer[i] != '\r') {
           clean_content += g_edit_buffer[i];
-          i++;
         }
       }
       if (notes[g_selected_note_idx].content != clean_content) {
