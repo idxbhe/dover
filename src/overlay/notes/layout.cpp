@@ -173,13 +173,25 @@ void RenderNotesWindow(bool* p_open) {
 
   ImGui::SetNextWindowBgAlpha(g_bg_alpha);
 
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
   bool begin_ok = ImGui::Begin("Notes", p_open, win_flags);
+  ImGui::PopStyleColor();
 
   if (g_maximized) {
     ImGui::PopStyleVar(3);
   } else {
     ImGui::PopStyleColor(1);
     ImGui::PopStyleVar(3);
+  }
+
+  if (begin_ok) {
+    ImVec2 min_p = ImGui::GetWindowPos();
+    ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
+    ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.110f, 0.125f, 0.161f, g_bg_alpha)); // #1c2029 (Cool slate-blue)
+    ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.090f, 0.102f, 0.130f, g_bg_alpha)); // #171a21 (Base main content)
+    ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.071f, 0.082f, 0.106f, g_bg_alpha)); // #12151b (Darker slate-blue)
+    ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.094f, 0.106f, 0.137f, g_bg_alpha)); // #181b23
+    ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
   }
 
   if (!begin_ok) {
@@ -429,10 +441,23 @@ void RenderNotesWindow(bool* p_open) {
 
   // ---- SIDEBAR ----
   if (g_sidebar_visible) {
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::BeginChild("Sidebar", ImVec2(sb_w, win_h), false,
                       ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+
+    // Draw Sidebar gradient background (Steam Slate-Blue Darkest Layer - #101216 - Ultra-subtle flat gradient)
+    {
+      ImVec2 min_p = ImGui::GetWindowPos();
+      ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
+      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.063f, 0.071f, 0.086f, g_bg_alpha)); // #101216 (Base darkest)
+      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.059f, 0.067f, 0.082f, g_bg_alpha)); // #0f1115 (Micro-shading)
+      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.055f, 0.063f, 0.078f, g_bg_alpha)); // #0e1014
+      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.063f, 0.071f, 0.086f, g_bg_alpha)); // #101216
+      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
+    }
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 3.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 8.0f));
@@ -527,12 +552,21 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::SameLine(0.0f, 0.0f);
   }
 
-  // ---- CONTENT PANEL ----
-  ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
+  // ---- CONTENT PANEL (Solid Cod Gray #111111 with Concave Top Shadow) ----
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.067f, 0.067f, 0.067f, g_bg_alpha));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 24.0f));
-  ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
+  bool content_ok = ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
   ImGui::PopStyleVar();
   ImGui::PopStyleColor();
+
+  if (content_ok) {
+    // Draw top concave/sunken inner shadow gradient
+    ImVec2 min_p = ImGui::GetWindowPos();
+    ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + 6.0f);
+    ImU32 col_top = ImGui::ColorConvertFloat4ToU32(ImVec4(0.020f, 0.024f, 0.031f, g_bg_alpha * 0.85f)); // Dark slate-black concave shadow
+    ImU32 col_bot = ImGui::ColorConvertFloat4ToU32(ImVec4(0.067f, 0.067f, 0.067f, g_bg_alpha)); // Blend seamlessly to #111111
+    ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_top, col_top, col_bot, col_bot);
+  }
 
   if (notes.empty()) {
     ImGui::TextDisabled("No notes. Click \"+ New Note\" to get started.");
@@ -549,7 +583,7 @@ void RenderNotesWindow(bool* p_open) {
     ImVec2 content_pos = ImGui::GetWindowPos();
     ImVec2 content_size = ImGui::GetWindowSize();
     // Edit/Read toggle shifted to the left
-    float_btn_pos = ImVec2(content_pos.x + content_size.x - 85.0f, content_pos.y + 10.0f);
+    float_btn_pos = ImVec2(content_pos.x + content_size.x - 80.0f, content_pos.y + 10.0f);
     // Delete button placed to the right of the Edit/Read toggle
     delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 10.0f);
     show_float_btn = true;
@@ -650,16 +684,35 @@ void RenderNotesWindow(bool* p_open) {
     bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     
-    ImVec4 bg_color = ImVec4(0.10f, 0.14f, 0.22f, 0.85f);
-    if (active) bg_color = ImVec4(0.28f, 0.35f, 0.50f, 1.00f);
-    else if (hovered) bg_color = ImVec4(0.20f, 0.25f, 0.35f, 0.95f);
+    ImVec4 bg_color = ImVec4(0.118f, 0.478f, 0.812f, 0.90f); // 1. Elevated Dodger Blue base
+    ImVec4 border_color = ImVec4(0.200f, 0.569f, 0.902f, 0.35f); // 2. Subtle "Satu Tingkat Lebih Terang" border (35% alpha)
+    
+    if (active) {
+      bg_color = ImVec4(0.000f, 0.384f, 0.722f, 1.00f);
+      border_color = ImVec4(0.100f, 0.486f, 0.847f, 0.50f); // 50% alpha active border
+    } else if (hovered) {
+      bg_color = ImVec4(0.200f, 0.639f, 1.000f, 0.98f); // 3. "Solid State" instant high-contrast hover color
+      border_color = ImVec4(0.360f, 0.710f, 1.000f, 0.45f); // 45% alpha hover border
+    }
     
     ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
-    ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.35f, 0.45f, 0.65f, 0.60f));
-    ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_Text]);
+    ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
+    ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.960f, 0.965f, 0.973f, 1.00f)); // Crisp clean white
     
-    ImGui::GetForegroundDrawList()->AddCircleFilled(center, 15.0f, bg_col32, 32);
-    ImGui::GetForegroundDrawList()->AddCircle(center, 15.0f, border_col32, 32, 1.0f);
+    // Main background solid elevated base color
+    ImGui::GetForegroundDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f); // 2px rounded squircle box
+    
+    // 1. Micro-Gradient Vertikal (Sangat Tipis - Subtle 3% upper light reflection)
+    {
+      ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
+      ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f)); // Ultra-subtle 3% vertical blend
+      ImGui::GetForegroundDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+    }
+
+    // 2. Pembatas Border Warna "Satu Tingkat Lebih Terang" keliling tombol
+    {
+      ImGui::GetForegroundDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+    }
     
     const char* icon = (g_view_mode == 0) ? ICON_TOGGLE_READ : ICON_TOGGLE_EDIT;
     
@@ -694,20 +747,39 @@ void RenderNotesWindow(bool* p_open) {
     bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     
-    ImVec4 bg_color = ImVec4(0.10f, 0.14f, 0.22f, 0.85f);
-    if (active) bg_color = ImVec4(0.50f, 0.20f, 0.20f, 1.00f);
-    else if (hovered) bg_color = ImVec4(0.35f, 0.15f, 0.15f, 0.95f);
+    ImVec4 bg_color = ImVec4(0.851f, 0.220f, 0.220f, 0.90f); // 1. Elevated Red base
+    ImVec4 border_color = ImVec4(0.910f, 0.318f, 0.318f, 0.35f); // 2. Subtle "Satu Tingkat Lebih Terang" border (35% alpha)
+    
+    if (active) {
+      bg_color = ImVec4(0.722f, 0.114f, 0.114f, 1.00f);
+      border_color = ImVec4(0.800f, 0.169f, 0.169f, 0.50f); // 50% alpha active border
+    } else if (hovered) {
+      bg_color = ImVec4(1.000f, 0.322f, 0.322f, 0.98f); // 3. "Solid State" instant high-contrast hover color
+      border_color = ImVec4(1.000f, 0.471f, 0.471f, 0.45f); // 45% alpha hover border
+    }
     
     ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
-    ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.65f, 0.35f, 0.35f, 0.60f));
-    ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.9f, 0.4f, 0.4f, 1.0f));
+    ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
+    ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.960f, 0.965f, 0.973f, 1.00f)); // Crisp clean white
     
-    ImGui::GetForegroundDrawList()->AddCircleFilled(center, 15.0f, bg_col32, 32);
-    ImGui::GetForegroundDrawList()->AddCircle(center, 15.0f, border_col32, 32, 1.0f);
+    // Main background solid elevated base color
+    ImGui::GetForegroundDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f); // 2px rounded squircle box
+    
+    // 1. Micro-Gradient Vertikal (Sangat Tipis - Subtle 3% upper light reflection)
+    {
+      ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
+      ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f)); // Ultra-subtle 3% vertical blend
+      ImGui::GetForegroundDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+    }
+
+    // 2. Pembatas Border Warna "Satu Tingkat Lebih Terang" keliling tombol
+    {
+      ImGui::GetForegroundDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+    }
     
     ImGui::PushFont(g_font_gui);
     ImVec2 text_size = ImGui::CalcTextSize(ICON_DELETE);
-    ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
+    ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f + 1.0f, center.y - text_size.y * 0.5f + 1.0f);
     ImGui::GetForegroundDrawList()->AddText(text_pos, text_col32, ICON_DELETE);
     ImGui::PopFont();
     

@@ -426,20 +426,23 @@ void SetupImGuiTheme() {
   style.WindowRounding = 8.0f;
   style.FrameRounding = 2.0f; // Minimal round corners for all boxes
   style.ItemSpacing.y = 4.0f; // Reduce vertical spacing globally
-  style.Colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.06f, 0.08f, 0.85f);
-  style.Colors[ImGuiCol_TitleBg] = ImVec4(0.12f, 0.12f, 0.16f, 0.90f);
-  style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.16f, 0.16f, 0.22f, 0.95f);
+  style.Colors[ImGuiCol_Text] = ImVec4(0.960f, 0.965f, 0.973f, 1.0f); // #f5f6f7 dominant crisp white
+  style.Colors[ImGuiCol_WindowBg] = ImVec4(0.090f, 0.102f, 0.130f, 1.0f); // #171a21
+  style.Colors[ImGuiCol_TitleBg] = ImVec4(0.110f, 0.125f, 0.161f, 0.90f); // #1c2029 (Cool slate-blue)
+  style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.133f, 0.153f, 0.196f, 0.95f); // #222732
   
-  // Dodger Blue accents (#4badfb -> 0.294, 0.678, 0.984)
-  style.Colors[ImGuiCol_Button] = ImVec4(0.18f, 0.22f, 0.28f, 0.70f);
-  style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.25f, 0.58f, 0.88f, 0.85f);
-  style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.29f, 0.68f, 0.98f, 1.00f);
-  style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.25f, 0.58f, 0.88f, 0.85f);
-  style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.29f, 0.68f, 0.98f, 1.00f);
-  style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.29f, 0.68f, 0.98f, 1.00f);
-  style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.35f, 0.75f, 1.00f, 1.00f);
+  // Steam Slate-Blue cool accents
+  style.Colors[ImGuiCol_Button] = ImVec4(0.227f, 0.267f, 0.329f, 0.70f); // #3a4454
+  style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.290f, 0.380f, 0.520f, 0.85f); // #4a6185
+  style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.350f, 0.460f, 0.630f, 1.00f);
+  style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.290f, 0.380f, 0.520f, 0.85f);
+  style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.350f, 0.460f, 0.630f, 1.00f);
+  style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.290f, 0.380f, 0.520f, 1.00f);
+  style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.350f, 0.460f, 0.630f, 1.00f);
   
-  style.Colors[ImGuiCol_FrameBg] = ImVec4(0.10f, 0.10f, 0.14f, 0.60f);
+  style.Colors[ImGuiCol_FrameBg] = ImVec4(0.090f, 0.102f, 0.130f, 0.60f); // #171a21 (Middle Layer)
+  style.Colors[ImGuiCol_PopupBg] = ImVec4(0.063f, 0.071f, 0.086f, 0.98f); // #101216 (Darkest Layer)
+  style.Colors[ImGuiCol_Border] = ImVec4(0.150f, 0.170f, 0.220f, 0.80f); // Cool border
 }
 
 void RenderImGuiUI() {
@@ -483,12 +486,23 @@ void RenderImGuiUI() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     
-    ImGui::Begin("Top Navigation Bar", nullptr,
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+    bool nav_bar_ok = ImGui::Begin("Top Navigation Bar", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                  ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings |
                  ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-                 
+    ImGui::PopStyleColor();
     ImGui::PopStyleVar(2);
+
+    if (nav_bar_ok) {
+      ImVec2 min_p = ImGui::GetWindowPos();
+      ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
+      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.122f, 0.137f, 0.169f, 0.92f)); // #1f232b (Cool slate bar top-left)
+      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.102f, 0.114f, 0.141f, 0.92f)); // #1a1d24
+      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.090f, 0.102f, 0.130f, 0.92f)); // #171a21
+      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.110f, 0.125f, 0.161f, 0.92f)); // #1c2029
+      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
+    }
 
     const float button_group_width = (button_width * 3.0f) + (button_spacing * 2.0f);
     const float brand_y = (bar_height - ImGui::GetTextLineHeight()) * 0.5f;
@@ -541,7 +555,19 @@ void RenderImGuiUI() {
     // Settings Jendela
     if (show_settings) {
       ImGui::SetNextWindowSize(ImVec2(320.0f, 200.0f), ImGuiCond_FirstUseEver);
-      if (ImGui::Begin("Settings", &show_settings, ImGuiWindowFlags_NoCollapse)) {
+      ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+      bool settings_ok = ImGui::Begin("Settings", &show_settings, ImGuiWindowFlags_NoCollapse);
+      ImGui::PopStyleColor();
+      if (settings_ok) {
+        ImVec2 min_p = ImGui::GetWindowPos();
+        ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
+        float alpha = ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w;
+        ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.110f, 0.125f, 0.161f, alpha)); // #1c2029 (Cool slate settings)
+        ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.090f, 0.102f, 0.130f, alpha)); // #171a21
+        ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.071f, 0.082f, 0.106f, alpha)); // #12151b
+        ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.094f, 0.106f, 0.137f, alpha)); // #181b23
+        ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
+
         ImGui::Text("Configurations:");
         ImGui::Separator();
         static bool vsync = true;
