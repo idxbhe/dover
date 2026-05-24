@@ -1,4 +1,5 @@
 #include "overlay/notes/manager.h"
+#include "overlay/notes/layout.h"
 
 #include <windows.h>
 #include <psapi.h>
@@ -20,9 +21,10 @@ std::vector<NoteFile> g_notes;
 std::string g_game_name;
 fs::path g_notes_dir;
 
-// Autosave debounce: save 2s after last dirty change
+// Autosave debounce: save 3s after last dirty change
 Clock::time_point g_last_dirty_time{};
 bool g_has_pending_save = false;
+Clock::time_point g_save_status_show_until{};
 
 std::string NormalizeGameName(const std::string& exe_name) {
   std::string name = exe_name;
@@ -174,7 +176,10 @@ bool SaveNote(size_t index) {
   if (index >= g_notes.size()) return false;
   fs::create_directories(g_notes_dir);
   bool ok = WriteFileContent(g_notes_dir / g_notes[index].filename, g_notes[index].content);
-  if (ok) g_notes[index].is_dirty = false;
+  if (ok) {
+    g_notes[index].is_dirty = false;
+    g_save_status_show_until = Clock::now() + std::chrono::seconds(3); // Tampilkan status Saved selama 3 detik
+  }
   return ok;
 }
 
@@ -188,26 +193,23 @@ void AutoSaveAll() {
 }
 
 void TickAutosave() {
-  bool any_dirty = false;
-  for (const auto& n : g_notes) {
-    if (n.is_dirty) { any_dirty = true; break; }
-  }
-
-  if (any_dirty) {
+  if (g_has_pending_save) {
     auto now = Clock::now();
-    if (!g_has_pending_save) {
-      g_last_dirty_time = now;
-      g_has_pending_save = true;
-    } else {
-      // Steam-like: save 500ms after last change
-      auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_last_dirty_time).count();
-      if (elapsed_ms >= 500) {
-        AutoSaveAll();
-      }
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_last_dirty_time).count();
+    if (elapsed_ms >= 3000) { // Menunggu 3 detik sunyi (tidak mengetik) baru autosave
+      FlushNotesEditBuffer(); // Salin teks aktif dari buffer edit ImGui ke data note
+      AutoSaveAll();
     }
-  } else {
-    g_has_pending_save = false;
   }
+}
+
+void MarkNoteChanged() {
+  g_last_dirty_time = Clock::now();
+  g_has_pending_save = true;
+}
+
+bool ShouldShowSavedStatus() {
+  return Clock::now() < g_save_status_show_until;
 }
 
 } // namespace dover::overlay::notes

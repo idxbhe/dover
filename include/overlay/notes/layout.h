@@ -11,4 +11,7 @@ void RenderNotesWindow(bool* p_open);
 // Releases any cached render state
 void ShutdownNotesUI();
 
+// Flushes the current GUI edit buffer to the active note content
+void FlushNotesEditBuffer();
+
 } // namespace dover::overlay::notes

@@ -42,4 +42,10 @@ void AutoSaveAll();
 // Triggers a debounced autosave check (call every frame when overlay is open)
 void TickAutosave();
 
+// Marks that a note was actively changed by the user (resets debounce timer)
+void MarkNoteChanged();
+
+// Returns true if the "Saved" status indicator should currently be visible in the UI
+bool ShouldShowSavedStatus();
+
 } // namespace dover::overlay::notes

@@ -115,6 +115,10 @@ void SwitchToEditor() {
 
 // ---------- Public API ----------
 
+void FlushNotesEditBuffer() {
+  FlushEditBufferToNote();
+}
+
 void InitializeNotesUI() {
   g_selected_note_idx = 0;
   g_view_mode         = 1;
@@ -335,6 +339,7 @@ void RenderNotesWindow(bool* p_open) {
       auto& ns = GetNotes();
       if (g_selected_note_idx >= 0 && g_selected_note_idx < static_cast<int>(ns.size())) {
           ns[g_selected_note_idx].is_dirty = true;
+          MarkNoteChanged();
       }
       g_force_focus_frames = 3;
     };
@@ -385,18 +390,28 @@ void RenderNotesWindow(bool* p_open) {
   // --- 3. RIGHT CONTROLS (Save Status, Maximize, Close) ---
   bool any_dirty = false;
   for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
+  bool show_saved = !any_dirty && ShouldShowSavedStatus();
 
   float avail_x = ImGui::GetContentRegionAvail().x;
-  float right_align_start = ImGui::GetCursorPosX() + avail_x - (any_dirty ? 158.0f : 128.0f);
-  if (right_align_start > ImGui::GetCursorPosX()) ImGui::SameLine(right_align_start);
-  else ImGui::SameLine();
+  float right_boundary = ImGui::GetCursorPosX() + avail_x;
 
-  if (any_dirty) {
-    ImGui::TextColored(ImVec4(0.85f, 0.65f, 0.20f, 1.00f), "Saving...");
-  } else {
-    ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.40f, 1.00f), "Saved");
+  // Render status text at its own absolute safe zone (168px from right edge)
+  if (any_dirty || show_saved) {
+    float status_start = right_boundary - 168.0f;
+    if (status_start > ImGui::GetCursorPosX()) ImGui::SameLine(status_start);
+    else ImGui::SameLine();
+    
+    if (any_dirty) {
+      ImGui::TextColored(ImVec4(0.85f, 0.65f, 0.20f, 1.00f), "Saving...");
+    } else {
+      ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.40f, 1.00f), "Saved");
+    }
   }
-  ImGui::SameLine();
+
+  // Render window decoration buttons at a locked absolute position (68px from right edge)
+  float buttons_start = right_boundary - 68.0f;
+  if (buttons_start > ImGui::GetCursorPosX()) ImGui::SameLine(buttons_start);
+  else ImGui::SameLine();
 
   if (ImGui::Button(g_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_FULL)) {
     if (!g_maximized) {
@@ -407,7 +422,10 @@ void RenderNotesWindow(bool* p_open) {
     g_maximized = !g_maximized;
   }
   if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_maximized ? "Restore Window Size" : "Maximize Window");
-  ImGui::SameLine();
+  
+  float close_btn_start = right_boundary - 38.0f;
+  if (close_btn_start > ImGui::GetCursorPosX()) ImGui::SameLine(close_btn_start);
+  else ImGui::SameLine();
 
   ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.15f, 0.15f, 0.90f));
   ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
@@ -643,6 +661,7 @@ void RenderNotesWindow(bool* p_open) {
       }
       if (notes[g_selected_note_idx].content != clean_content) {
         notes[g_selected_note_idx].is_dirty = true;
+        MarkNoteChanged();
       }
     }
 
