@@ -59,23 +59,25 @@ static void TickFPS() {
 
 
 void RenderImGuiUI() {
-  // 1. Draw Pinned Info Window (transparent corner overlay)
-  ImGui::SetNextWindowPos(ImVec2(12.0f, 10.0f), ImGuiCond_Always);
-  ImGui::SetNextWindowBgAlpha(0.0f);
-  ImGui::Begin("Info Window", nullptr,
-               ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-               ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-               ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground);
+  // 1. Draw Pinned Info Window (transparent corner overlay) - Hidden when interactive overlay is active
+  if (!g_show_overlay) {
+    ImGui::SetNextWindowPos(ImVec2(12.0f, 10.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::Begin("Info Window", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                 ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground);
 
-  TickFPS();
+    TickFPS();
 
-  SYSTEMTIME time{};
-  GetLocalTime(&time);
-  ImGui::TextColored(ImVec4(0.20f, 1.00f, 0.70f, 1.00f), "%02u:%02u:%02u", time.wHour, time.wMinute, time.wSecond);
-  ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", g_fps_value);
-  // Pinned API info hidden as requested:
-  // ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", g_active_dx_version);
-  ImGui::End();
+    SYSTEMTIME time{};
+    GetLocalTime(&time);
+    ImGui::TextColored(ImVec4(0.20f, 1.00f, 0.70f, 1.00f), "%02u:%02u:%02u", time.wHour, time.wMinute, time.wSecond);
+    ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", g_fps_value);
+    // Pinned API info hidden as requested:
+    // ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", g_active_dx_version);
+    ImGui::End();
+  }
 
   // 2. Draw Steam-style Interactive Navigation and floating windows if visible
   if (g_show_overlay) {

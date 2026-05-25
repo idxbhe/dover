@@ -224,7 +224,9 @@ void RenderNotesWindow(bool* p_open) {
     bool show_size = win_w >= 320.0f;
     bool show_add_new = win_w >= 170.0f;
 
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 3.0f)); // Tighter padding for shorter toolbar height
+
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4.0f); // More compact vertical placement
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
     ImGui::AlignTextToFramePadding();
 
@@ -448,6 +450,7 @@ void RenderNotesWindow(bool* p_open) {
   ImGui::PopStyleColor(2);
 
   ImGui::PopStyleColor(3);
+  ImGui::PopStyleVar(); // Pop ImGuiStyleVar_FramePadding pushed for toolbar
   }
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
   if (interactive) ImGui::Separator();
