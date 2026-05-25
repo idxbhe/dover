@@ -224,7 +224,7 @@ void NotesWindow::RenderToolbar(bool interactive) {
       ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
       
       ImGui::PopStyleColor(5);
-      ImGui::PopStyleVar(1);
+      ImGui::PopStyleVar(3);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Opacity (Ctrl+Click to type exact float value)");
       ImGui::SameLine();
 
@@ -445,8 +445,6 @@ void NotesWindow::RenderContent(bool interactive) {
   ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.067f, 0.067f, 0.067f, m_bg_alpha));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 24.0f));
   bool content_ok = ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
-  ImGui::PopStyleVar();
-  ImGui::PopStyleColor();
 
   if (content_ok) {
     ImVec2 min_p = ImGui::GetWindowPos();
@@ -529,6 +527,8 @@ void NotesWindow::RenderContent(bool interactive) {
   }
 
   ImGui::EndChild(); // End NoteContent
+  ImGui::PopStyleVar();
+  ImGui::PopStyleColor();
 }
 
 void NotesWindow::PostRender(bool interactive) {

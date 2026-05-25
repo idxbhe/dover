@@ -107,12 +107,10 @@ void BaseWindow::Render(bool interactive) {
 
     if (!begin_ok) {
         ImGui::End();
-        ImGui::PopStyleVar(3);
         return;
     }
 
     ImGui::End();
-    ImGui::PopStyleVar(3);
 }
 
 void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary) {
