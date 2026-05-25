@@ -203,7 +203,7 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
     }
   }
 
-  // ProcessWordWrap(data) was removed because ImGui handles visual word wrapping natively
+  // ProcessWordWrap(data);
 
   g_formatter_state.saved_selection_start = data->SelectionStart;
   g_formatter_state.saved_selection_end   = data->SelectionEnd;

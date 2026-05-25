@@ -1,0 +1,22 @@
+# BaseWindow Architecture Migration Walkthrough
+
+Proses migrasi jendela ImGui dari model primitif (*C-style functions*) ke struktur berorientasi objek (*Object-Oriented*) yang modular layaknya cetakan LEGO telah berhasil diimplementasikan dan dikompilasi dengan sempurna.
+
+## Arsitektur Modular `BaseWindow`
+Pusat dari perombakan ini berada di komponen baru `ui::BaseWindow` (`base_window.cpp` & `base_window.h`). Komponen ini mengadopsi prinsip **Don't Repeat Yourself (DRY)** dan **Single Responsibility Principle (SRP)** dengan menampung seluruh *boilerplate* kerangka jendela, meliputi:
+
+1. **State & Geometri:** Pencatatan dan komputasi ukuran jendela dinamis, pemusatan posisi, animasi *Maximize* layar penuh, serta pembatasan *resizing*.
+2. **Tema Seragam:** Integrasi pemulasan warna kanvas dasar Slate-Blue (*cool slate-blue gradient*) yang digambar secara presisi di lapisan latar belakang setiap jendela.
+3. **Dekorasi Berbasis Flag (Lego):** Implementasi `enum class WindowFeature` yang mendefinisikan flag bitwise (misal: `Pin | Maximize | Close`). Hal ini memungkinkan kontrol deklaratif (*Lego-style*) atas tombol jendela apa saja yang aktif tanpa menulis ulang tata letaknya.
+
+> [!TIP]
+> Di masa mendatang, untuk merakit panel *Settings* tanpa fitur semat layar (pin), Anda cukup mendeklarasikannya melalui `ui::BaseWindow("Settings", ui::WindowFeature::NoPin);`!
+
+## Refactoring Modul Notes
+Modul Notes kini telah "naik kelas" menjadi `class NotesWindow : public ui::BaseWindow`. Perubahan struktural internal mencakup:
+- Transisi semua *state* global statis (misal `g_zoom_idx`, `g_bg_alpha`, `g_sidebar_width`, `g_edit_buffer`) menjadi properti enkapsulasi kelas (`m_zoom_idx`, dsb).
+- Eksekusi rendering disalurkan secara elegan melalui penerapan pola *Template Method Pattern* yang diwajibkan oleh `BaseWindow`, yakni `RenderToolbar()`, `RenderContent()`, dan `PostRender()` (untuk tombol aksi melayang seperti Switch Mode & Hapus).
+
+## Integritas Sistem & Integrasi (*System Integrity*)
+- Modul antarmuka utama (`overlay_ui.cpp`), serta alur daur hidup (*lifecycle*) inisialisasi/shutdown (`overlay_runtime.cpp` dan `theme.cpp`), telah diselaraskan agar mengeksekusi referensi singleton `notes::GetNotesWindow()`.
+- **Pengujian Biner Ganda (x64 & x86):** Pembangunan ulang proyek (`build.bat`) telah sukses total pada dua arsitektur (*32-bit* dan *64-bit*). Seluruh tautan *shared library* dan kompilasi *C++ Virtual Methods* beroperasi tanpa kebocoran referensi, siap dipasangkan pada target proses apapun.

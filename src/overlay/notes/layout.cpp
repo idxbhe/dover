@@ -18,34 +18,6 @@ namespace dover::overlay {
 namespace dover::overlay::notes {
 
 namespace {
-
-constexpr float kNavBarHeight = 42.0f;
-
-// ---- UI Window States ----
-static bool g_maximized = false;
-static float g_sidebar_width = 240.0f;
-static ImVec2 g_prev_pos(0.0f, 0.0f);
-static ImVec2 g_prev_size(0.0f, 0.0f);
-static bool g_was_maximized = false;
-static bool g_is_pinned = false;
-static bool g_notes_focused = false;
-
-// ---- Editor States ----
-static int  g_selected_note_idx = 0;
-static bool g_sidebar_visible   = true;
-static int  g_view_mode         = 1;   // 0=editor, 1=preview
-static int  g_zoom_idx          = 2;   // 0=Tiny, 1=Small, 2=Medium, 3=Large, 4=Huge
-static int  g_force_focus_frames = 0;
-
-static char g_edit_buffer[65536] = {};
-static int  g_synced_note_idx   = -1;
-static float g_editor_wrap_width = 400.0f;
-
-// ---- Background Opacity ----
-static float g_bg_alpha = 0.95f;
-
-// ---------- Helpers ----------
-
 std::string ExtractTitleFromContent(const std::string& content) {
   if (content.empty()) return "(empty)";
   std::istringstream ss(content);
@@ -55,7 +27,6 @@ std::string ExtractTitleFromContent(const std::string& content) {
     if (start == std::string::npos) continue;
     line = line.substr(start);
     if (line.empty()) continue;
-    // Strip leading Markdown heading markers
     size_t hash_end = line.find_first_not_of('#');
     if (hash_end != std::string::npos && hash_end > 0) {
       line = line.substr(hash_end);
@@ -66,25 +37,30 @@ std::string ExtractTitleFromContent(const std::string& content) {
   }
   return "(empty)";
 }
+} // namespace
 
-void SyncEditBufferFromNote(int idx) {
-  auto& notes = GetNotes();
-  if (idx < 0 || static_cast<size_t>(idx) >= notes.size()) return;
-  strncpy_s(g_edit_buffer, sizeof(g_edit_buffer),
-            notes[idx].content.c_str(), _TRUNCATE);
-  g_synced_note_idx = idx;
+static NotesWindow g_notes_window;
+
+NotesWindow& GetNotesWindow() {
+    return g_notes_window;
 }
 
-void FlushEditBufferToNote() {
+void NotesWindow::SyncEditBufferFromNote(int idx) {
   auto& notes = GetNotes();
-  if (g_synced_note_idx < 0 ||
-      static_cast<size_t>(g_synced_note_idx) >= notes.size()) return;
-  auto& note = notes[g_synced_note_idx];
+  if (idx < 0 || static_cast<size_t>(idx) >= notes.size()) return;
+  strncpy_s(m_edit_buffer, sizeof(m_edit_buffer),
+            notes[idx].content.c_str(), _TRUNCATE);
+  m_synced_note_idx = idx;
+}
 
-  // Normalize text by completely dropping carriage returns (\r)
-  // Ensures compatibility with files edited externally in Notepad (\r\n)
+void NotesWindow::FlushEditBufferToNote() {
+  auto& notes = GetNotes();
+  if (m_synced_note_idx < 0 ||
+      static_cast<size_t>(m_synced_note_idx) >= notes.size()) return;
+  auto& note = notes[m_synced_note_idx];
+
   std::string clean_content;
-  const char* buf = g_edit_buffer;
+  const char* buf = m_edit_buffer;
   int len = static_cast<int>(strlen(buf));
   clean_content.reserve(len);
   for (int i = 0; i < len; ++i) {
@@ -99,134 +75,44 @@ void FlushEditBufferToNote() {
   }
 }
 
-void SelectNote(int idx) {
+void NotesWindow::SelectNote(int idx) {
   FlushEditBufferToNote();
-  g_selected_note_idx = idx;
+  m_selected_note_idx = idx;
   SyncEditBufferFromNote(idx);
-  g_view_mode = 1;
+  m_view_mode = 1;
 }
 
-void SwitchToEditor() {
-  g_view_mode = 0;
+void NotesWindow::SwitchToEditor() {
+  m_view_mode = 0;
 }
 
-} // namespace
-
-// ---------- Public API ----------
-
-void FlushNotesEditBuffer() {
+void NotesWindow::FlushEditBuffer() {
   FlushEditBufferToNote();
 }
 
-bool IsNotesFocused() { return g_notes_focused; }
-
-bool IsNotesPinned() { return g_is_pinned; }
-
-void InitializeNotesUI() {
-  g_selected_note_idx = 0;
-  g_view_mode         = 1;
-  g_sidebar_visible   = true;
-  g_maximized         = false;
+void NotesWindow::Initialize() {
+  m_selected_note_idx = 0;
+  m_view_mode         = 1;
+  m_sidebar_visible   = true;
+  m_is_maximized      = false;
   SyncEditBufferFromNote(0);
 }
 
-void ShutdownNotesUI() {
+void NotesWindow::Shutdown() {
   FlushEditBufferToNote();
 }
 
-void RenderNotesWindow(bool* p_open) {
-  auto& notes = GetNotes();
-  ImGuiIO& io = ImGui::GetIO();
-  const ImVec2 display_size = io.DisplaySize;
-
-  ImVec2 float_btn_pos(0, 0);
-  bool show_float_btn = false;
-
-  // Clamp selected index
-  if (!notes.empty() &&
-      g_selected_note_idx >= static_cast<int>(notes.size())) {
-    g_selected_note_idx = static_cast<int>(notes.size()) - 1;
-  }
-  if (g_synced_note_idx != g_selected_note_idx) {
-    SyncEditBufferFromNote(g_selected_note_idx);
-  }
-
-  TickAutosave();
-
-  // ---- Setup window position, size, and style ----
-  bool interactive = g_show_overlay;
-  if (!interactive && g_is_pinned) { g_view_mode = 1; }
-  ImGuiWindowFlags win_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
-  
-  if (!interactive) {
-    win_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
-  }
-  
-  if (g_maximized) {
-    ImGui::SetNextWindowPos( ImVec2(0.0f, kNavBarHeight), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(display_size.x, display_size.y - kNavBarHeight), ImGuiCond_Always);
-    win_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
-  } else {
-    if (g_was_maximized) {
-      ImGui::SetNextWindowPos(g_prev_pos, ImGuiCond_Always);
-      ImGui::SetNextWindowSize(g_prev_size, ImGuiCond_Always);
-      g_was_maximized = false;
-    } else {
-      ImGui::SetNextWindowSize(ImVec2(800.0f, 500.0f), ImGuiCond_FirstUseEver);
-    }
-  }
-
-  bool no_border = g_maximized || !interactive;
-  ImGui::SetNextWindowSizeConstraints(ImVec2(150.0f, 150.0f), ImVec2(FLT_MAX, FLT_MAX));
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, g_maximized ? 0.0f : 2.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-  if (no_border) {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-  } else {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.12f, 0.15f, 0.22f, 1.00f));
-  }
-
-  ImGui::SetNextWindowBgAlpha(g_bg_alpha);
-
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
-  bool begin_ok = ImGui::Begin("Notes", p_open, win_flags);
-  ImGui::PopStyleColor();
-
-  if (no_border) {
-    ImGui::PopStyleVar(3);
-  } else {
-    ImGui::PopStyleColor(1);
-    ImGui::PopStyleVar(3);
-  }
-
-  if (begin_ok) {
-    g_notes_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
-    ImVec2 min_p = ImGui::GetWindowPos();
-    ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
-    ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.110f, 0.125f, 0.161f, g_bg_alpha)); // #1c2029 (Cool slate-blue)
-    ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.090f, 0.102f, 0.130f, g_bg_alpha)); // #171a21 (Base main content)
-    ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.071f, 0.082f, 0.106f, g_bg_alpha)); // #12151b (Darker slate-blue)
-    ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.094f, 0.106f, 0.137f, g_bg_alpha)); // #181b23
-    ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
-  }
-
-  if (!begin_ok) {
-    ImGui::End();
-    return;
-  }
-
-// ---- Premium Custom Toolbar / Header Row ----
-  if (interactive) {
+void NotesWindow::RenderToolbar(bool interactive) {
+    auto& notes = GetNotes();
     float win_w = ImGui::GetWindowWidth();
     bool show_format_buttons = win_w >= 550.0f;
     bool show_opacity = win_w >= 470.0f;
     bool show_size = win_w >= 320.0f;
     bool show_add_new = win_w >= 170.0f;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 3.0f)); // Tighter padding for shorter toolbar height
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 3.0f));
 
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4.0f); // More compact vertical placement
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4.0f);
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
     ImGui::AlignTextToFramePadding();
 
@@ -234,12 +120,11 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
 
-    // --- 1. LEFT CONTROLS (Sidebar, New, Size, Opacity, Formats) ---
-    const char* sidebar_lbl = g_sidebar_visible ? ICON_TOGGLE_HIDE_SIDEBAR : ICON_TOGGLE_SHOW_SIDEBAR;
+    const char* sidebar_lbl = m_sidebar_visible ? ICON_TOGGLE_HIDE_SIDEBAR : ICON_TOGGLE_SHOW_SIDEBAR;
     if (ImGui::Button(sidebar_lbl)) {
-      g_sidebar_visible = !g_sidebar_visible;
+      m_sidebar_visible = !m_sidebar_visible;
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_sidebar_visible ? "Hide Sidebar" : "Show Sidebar");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip(m_sidebar_visible ? "Hide Sidebar" : "Show Sidebar");
     ImGui::SameLine();
 
     if (show_add_new) {
@@ -277,7 +162,7 @@ void RenderNotesWindow(bool* p_open) {
       
       const char* size_items[] = { "Tiny", "Small", "Medium", "Large", "Huge" };
       
-      if (ImGui::Button(size_items[g_zoom_idx], ImVec2(80.0f, 0))) {
+      if (ImGui::Button(size_items[m_zoom_idx], ImVec2(80.0f, 0))) {
         ImGui::OpenPopup("##zoom_popup");
       }
       
@@ -289,9 +174,9 @@ void RenderNotesWindow(bool* p_open) {
       
       if (ImGui::BeginPopup("##zoom_popup")) {
         for (int i = 0; i < IM_ARRAYSIZE(size_items); i++) {
-          bool is_selected = (g_zoom_idx == i);
+          bool is_selected = (m_zoom_idx == i);
           if (ImGui::Selectable(size_items[i], is_selected)) {
-            g_zoom_idx = i;
+            m_zoom_idx = i;
           }
           if (is_selected) ImGui::SetItemDefaultFocus();
         }
@@ -324,9 +209,9 @@ void RenderNotesWindow(bool* p_open) {
       float frame_height = ImGui::GetFrameHeight();
       ImVec2 slider_pos = ImGui::GetCursorScreenPos();
       ImGui::SetNextItemWidth(slider_width);
-      ImGui::SliderFloat("##opacity", &g_bg_alpha, 0.00f, 1.00f, "");
+      ImGui::SliderFloat("##opacity", &m_bg_alpha, 0.00f, 1.00f, "");
       
-      float grab_center_x = slider_pos.x + g_bg_alpha * slider_width;
+      float grab_center_x = slider_pos.x + m_bg_alpha * slider_width;
       float grab_center_y = slider_pos.y + frame_height * 0.5f;
       
       ImVec4 grab_color = ImVec4(1.00f, 1.00f, 1.00f, 0.90f);
@@ -339,25 +224,25 @@ void RenderNotesWindow(bool* p_open) {
       ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
       
       ImGui::PopStyleColor(5);
-      ImGui::PopStyleVar(3);
+      ImGui::PopStyleVar(1);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Opacity (Ctrl+Click to type exact float value)");
       ImGui::SameLine();
 
-      ImGui::TextDisabled("%.0f%%", g_bg_alpha * 100.0f);
+      ImGui::TextDisabled("%.0f%%", m_bg_alpha * 100.0f);
       ImGui::SameLine();
     }
 
-    if (show_format_buttons && g_view_mode == 0) {
+    if (show_format_buttons && m_view_mode == 0) {
       ImGui::TextDisabled("|"); ImGui::SameLine();
 
       auto LayoutApplyFormat = [&](const char* prefix, const char* suffix) {
-        ApplyToolbarFormat(prefix, suffix, g_edit_buffer, sizeof(g_edit_buffer));
+        ApplyToolbarFormat(prefix, suffix, m_edit_buffer, sizeof(m_edit_buffer));
         auto& ns = GetNotes();
-        if (g_selected_note_idx >= 0 && g_selected_note_idx < static_cast<int>(ns.size())) {
-            ns[g_selected_note_idx].is_dirty = true;
+        if (m_selected_note_idx >= 0 && m_selected_note_idx < static_cast<int>(ns.size())) {
+            ns[m_selected_note_idx].is_dirty = true;
             MarkNoteChanged();
         }
-        g_force_focus_frames = 3;
+        m_force_focus_frames = 3;
       };
 
       if (ImGui::Button(ICON_TEXT_FORMAT_BOLD)) LayoutApplyFormat("**", "**");
@@ -402,87 +287,66 @@ void RenderNotesWindow(bool* p_open) {
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lists");
       ImGui::SameLine();
     }
-  }
-  // --- 3. RIGHT CONTROLS (Save Status, Maximize, Close) ---
-  bool any_dirty = false;
-  for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
-  bool show_saved = !any_dirty && ShouldShowSavedStatus();
-
-  float avail_x = ImGui::GetContentRegionAvail().x;
-  float right_boundary = ImGui::GetCursorPosX() + avail_x;
-
-  // Render status text at its own absolute safe zone (168px from right edge)
-  if (interactive && (any_dirty || show_saved)) {
-    float status_start = right_boundary - 168.0f;
-    if (status_start > ImGui::GetCursorPosX()) ImGui::SameLine(status_start);
-    else ImGui::SameLine();
     
-    if (any_dirty) {
-      ImGui::TextColored(ImVec4(0.85f, 0.65f, 0.20f, 1.00f), "Saving...");
-    } else {
-      ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.40f, 1.00f), "Saved");
+    // Save status text
+    bool any_dirty = false;
+    for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
+    bool show_saved = !any_dirty && ShouldShowSavedStatus();
+
+    float avail_x = ImGui::GetContentRegionAvail().x;
+    float right_boundary = ImGui::GetCursorPosX() + avail_x;
+
+    if (any_dirty || show_saved) {
+      float status_start = right_boundary - 168.0f;
+      if (status_start > ImGui::GetCursorPosX()) ImGui::SameLine(status_start);
+      else ImGui::SameLine();
+      
+      if (any_dirty) {
+        ImGui::TextColored(ImVec4(0.85f, 0.65f, 0.20f, 1.00f), "Saving...");
+      } else {
+        ImGui::TextColored(ImVec4(0.40f, 0.75f, 0.40f, 1.00f), "Saved");
+      }
     }
+    
+    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar(); // Pop ImGuiStyleVar_FramePadding pushed for toolbar
+}
+
+void NotesWindow::RenderContent(bool interactive) {
+  auto& notes = GetNotes();
+  ImGuiIO& io = ImGui::GetIO();
+
+  if (!notes.empty() && m_selected_note_idx >= static_cast<int>(notes.size())) {
+    m_selected_note_idx = static_cast<int>(notes.size()) - 1;
+  }
+  if (m_synced_note_idx != m_selected_note_idx) {
+    SyncEditBufferFromNote(m_selected_note_idx);
   }
 
-  if (interactive) {
-  // Render window decoration buttons at absolute locked positions to prevent wrapping under any size
-  ImGui::SameLine(right_boundary - 86.0f);
-  if (g_is_pinned) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.20f, 0.80f, 0.20f, 1.00f));
-  if (ImGui::Button(ICON_WINDOW_PINNED)) g_is_pinned = !g_is_pinned;
-  if (g_is_pinned) ImGui::PopStyleColor();
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_is_pinned ? "Unpin from screen" : "Pin to screen");
+  TickAutosave();
 
-  ImGui::SameLine(right_boundary - 60.0f);
-  if (ImGui::Button(g_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_FULL)) {
-    if (!g_maximized) {
-      g_prev_pos = ImGui::GetWindowPos();
-      g_prev_size = ImGui::GetWindowSize();
-      g_was_maximized = true;
-    }
-    g_maximized = !g_maximized;
-  }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_maximized ? "Restore Window Size" : "Maximize Window");
-  
-  ImGui::SameLine(right_boundary - 34.0f);
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.15f, 0.15f, 0.90f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
-  if (ImGui::Button(ICON_WINDOW_CLOSE)) *p_open = false;
-  ImGui::PopStyleColor(2);
-
-  ImGui::PopStyleColor(3);
-  ImGui::PopStyleVar(); // Pop ImGuiStyleVar_FramePadding pushed for toolbar
-  }
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-  if (interactive) ImGui::Separator();
-
-  // ---- Main Layout: Sidebar + Content ----
   const float win_w    = ImGui::GetContentRegionAvail().x;
   const float win_h    = ImGui::GetContentRegionAvail().y;
-  const float sb_w     = (interactive && g_sidebar_visible) ? g_sidebar_width : 0.0f;
-  const float split_w  = (interactive && g_sidebar_visible) ? 5.0f   : 0.0f;
+  const float sb_w     = (interactive && m_sidebar_visible) ? m_sidebar_width : 0.0f;
+  const float split_w  = (interactive && m_sidebar_visible) ? 5.0f   : 0.0f;
   const float cont_w   = win_w - sb_w - split_w;
-  g_editor_wrap_width  = cont_w - 48.0f;
-  if (g_editor_wrap_width < 100.0f) g_editor_wrap_width = 100.0f;
+  m_editor_wrap_width  = cont_w - 48.0f;
+  if (m_editor_wrap_width < 100.0f) m_editor_wrap_width = 100.0f;
 
-  // ImGui natively handles horizontal word wrapping via ImGuiInputTextFlags_NoHorizontalScroll
-
-  // ---- SIDEBAR ----
-  if (interactive && g_sidebar_visible) {
+  if (interactive && m_sidebar_visible) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-    ImGui::BeginChild("Sidebar", ImVec2(sb_w, win_h), false,
-                      ImGuiWindowFlags_NoScrollbar);
+    ImGui::BeginChild("Sidebar", ImVec2(sb_w, win_h), false, ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
     ImGui::PopStyleColor();
 
-    // Draw Sidebar gradient background (Steam Slate-Blue Darkest Layer - #101216 - Ultra-subtle flat gradient)
     {
       ImVec2 min_p = ImGui::GetWindowPos();
       ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
-      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.063f, 0.071f, 0.086f, g_bg_alpha)); // #101216 (Base darkest)
-      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.059f, 0.067f, 0.082f, g_bg_alpha)); // #0f1115 (Micro-shading)
-      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.055f, 0.063f, 0.078f, g_bg_alpha)); // #0e1014
-      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.063f, 0.071f, 0.086f, g_bg_alpha)); // #101216
+      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.063f, 0.071f, 0.086f, m_bg_alpha));
+      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.059f, 0.067f, 0.082f, m_bg_alpha));
+      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.055f, 0.063f, 0.078f, m_bg_alpha));
+      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.063f, 0.071f, 0.086f, m_bg_alpha));
       ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
     }
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10.0f);
@@ -490,11 +354,11 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 8.0f));
 
     for (int i = 0; i < static_cast<int>(notes.size()); ++i) {
-      bool is_sel = (i == g_selected_note_idx);
+      bool is_sel = (i == m_selected_note_idx);
 
       std::string title;
-      if (is_sel && g_view_mode == 0) {
-        title = ExtractTitleFromContent(g_edit_buffer);
+      if (is_sel && m_view_mode == 0) {
+        title = ExtractTitleFromContent(m_edit_buffer);
       } else {
         title = ExtractTitleFromContent(notes[i].content);
       }
@@ -561,7 +425,6 @@ void RenderNotesWindow(bool* p_open) {
     ImGui::PopStyleVar(2);
     ImGui::EndChild();
 
-    // Splitter bar
     ImGui::SameLine(0.0f, 0.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
@@ -571,113 +434,80 @@ void RenderNotesWindow(bool* p_open) {
       ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
     }
     if (ImGui::IsItemActive()) {
-      g_sidebar_width += io.MouseDelta.x;
-      if (g_sidebar_width < 100.0f) g_sidebar_width = 100.0f;
-      if (g_sidebar_width > 300.0f) g_sidebar_width = 300.0f;
+      m_sidebar_width += io.MouseDelta.x;
+      if (m_sidebar_width < 100.0f) m_sidebar_width = 100.0f;
+      if (m_sidebar_width > 300.0f) m_sidebar_width = 300.0f;
     }
     ImGui::PopStyleColor(3);
     ImGui::SameLine(0.0f, 0.0f);
   }
 
-  // ---- CONTENT PANEL (Solid Cod Gray #111111 with Concave Top Shadow) ----
-  ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.067f, 0.067f, 0.067f, g_bg_alpha));
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.067f, 0.067f, 0.067f, m_bg_alpha));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 24.0f));
   bool content_ok = ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
   ImGui::PopStyleVar();
   ImGui::PopStyleColor();
 
   if (content_ok) {
-    // Draw top concave/sunken inner shadow gradient
     ImVec2 min_p = ImGui::GetWindowPos();
     ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + 6.0f);
-    ImU32 col_top = ImGui::ColorConvertFloat4ToU32(ImVec4(0.020f, 0.024f, 0.031f, g_bg_alpha * 0.85f)); // Dark slate-black concave shadow
-    ImU32 col_bot = ImGui::ColorConvertFloat4ToU32(ImVec4(0.067f, 0.067f, 0.067f, g_bg_alpha)); // Blend seamlessly to #111111
+    ImU32 col_top = ImGui::ColorConvertFloat4ToU32(ImVec4(0.020f, 0.024f, 0.031f, m_bg_alpha * 0.85f));
+    ImU32 col_bot = ImGui::ColorConvertFloat4ToU32(ImVec4(0.067f, 0.067f, 0.067f, m_bg_alpha));
     ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_top, col_top, col_bot, col_bot);
   }
 
   if (notes.empty()) {
     ImGui::TextDisabled("No notes. Click \"+ New Note\" to get started.");
     ImGui::EndChild();
-    ImGui::PopStyleVar();
-    ImGui::End();
     return;
-  }
-
-  ImVec2 delete_btn_pos;
-  bool show_delete_btn = false;
-  if (interactive) {
-  // Calculate floating button screen position
-  {
-    ImVec2 content_pos = ImGui::GetWindowPos();
-    ImVec2 content_size = ImGui::GetWindowSize();
-    // Edit/Read toggle shifted to the left
-    float_btn_pos = ImVec2(content_pos.x + content_size.x - 80.0f, content_pos.y + 10.0f);
-    // Delete button placed to the right of the Edit/Read toggle
-    delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 10.0f);
-    show_float_btn = true;
-    show_delete_btn = true;
-  }
-  } else {
-    show_float_btn = false;
-    show_delete_btn = false;
   }
 
   float content_h = ImGui::GetContentRegionAvail().y;
 
-  if (g_view_mode == 0) {
-    // ---- EDITOR MODE ----
-    content_h = ImGui::GetContentRegionAvail().y;
+  if (m_view_mode == 0) {
+    ImGui::PushFont(g_fonts_editor[m_zoom_idx]);
 
-    ImGui::PushFont(g_fonts_editor[g_zoom_idx]);
-
-    if (g_force_focus_frames > 0) {
+    if (m_force_focus_frames > 0) {
         ImGui::SetKeyboardFocusHere(0);
-        g_force_focus_frames--;
-        // Update formatter state as well if needed, or it handles its own.
+        m_force_focus_frames--;
     }
 
     ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways | ImGuiInputTextFlags_NoHorizontalScroll;
     
-    // Provide formatter with active context parameters
-    SetFormatterContext(g_editor_wrap_width, g_fonts_editor[g_zoom_idx]);
+    SetFormatterContext(m_editor_wrap_width, g_fonts_editor[m_zoom_idx]);
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
     ImGui::Indent(24.0f);
     bool changed = ImGui::InputTextMultiline(
-        "##ed", g_edit_buffer, sizeof(g_edit_buffer),
+        "##ed", m_edit_buffer, sizeof(m_edit_buffer),
         ImVec2(-24.0f, content_h),
         input_flags,
         FormatCallback);
     ImGui::Unindent(24.0f);
     ImGui::PopStyleColor();
 
-    // Check if formatter requested a focus spam (e.g. from toolbar interaction inside callback)
     if (GetFormatterState().focus_editor_restore_frames > 0) {
-        g_force_focus_frames = GetFormatterState().focus_editor_restore_frames;
+        m_force_focus_frames = GetFormatterState().focus_editor_restore_frames;
     }
 
     ImGui::PopFont();
 
     if (changed) {
-      // Normalize text by dropping \r to prevent dirty loops with external files
       std::string clean_content;
-      int len = static_cast<int>(strlen(g_edit_buffer));
+      int len = static_cast<int>(strlen(m_edit_buffer));
       clean_content.reserve(len);
       for (int i = 0; i < len; ++i) {
-        if (g_edit_buffer[i] != '\r') {
-          clean_content += g_edit_buffer[i];
+        if (m_edit_buffer[i] != '\r') {
+          clean_content += m_edit_buffer[i];
         }
       }
-      if (notes[g_selected_note_idx].content != clean_content) {
-        notes[g_selected_note_idx].is_dirty = true;
+      if (notes[m_selected_note_idx].content != clean_content) {
+        notes[m_selected_note_idx].is_dirty = true;
         MarkNoteChanged();
       }
     }
 
   } else {
-    // ---- PREVIEW MODE ----
-    content_h = ImGui::GetContentRegionAvail().y;
-
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 0.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
@@ -688,9 +518,9 @@ void RenderNotesWindow(bool* p_open) {
 
     ImGui::BeginChild("MDPreview", ImVec2(-6.0f, content_h), false,
                       ImGuiWindowFlags_AlwaysUseWindowPadding);
-    const auto& content = notes[g_selected_note_idx].content;
+    const auto& content = notes[m_selected_note_idx].content;
     if (!content.empty()) {
-      RenderMarkdown(content, g_zoom_idx);
+      RenderMarkdown(content, m_zoom_idx);
     }
     ImGui::EndChild();
 
@@ -699,210 +529,129 @@ void RenderNotesWindow(bool* p_open) {
   }
 
   ImGui::EndChild(); // End NoteContent
-  ImGui::PopStyleVar();
+}
 
-  // Render Floating Edit/Read Toggle Button on the Foreground Draw List (always on top, 100% clickable)
-  if (show_float_btn) {
-    ImVec2 min_p = float_btn_pos;
-    ImVec2 max_p = ImVec2(float_btn_pos.x + 30.0f, float_btn_pos.y + 30.0f);
-    ImVec2 center = ImVec2(float_btn_pos.x + 15.0f, float_btn_pos.y + 15.0f);
-    
-    // Check hover and click state globally
-    bool hovered = ImGui::IsMouseHoveringRect(min_p, max_p);
-    bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
-    bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-    
-    ImVec4 bg_color = ImVec4(0.118f, 0.478f, 0.812f, 0.90f); // 1. Elevated Dodger Blue base
-    ImVec4 border_color = ImVec4(0.200f, 0.569f, 0.902f, 0.35f); // 2. Subtle "Satu Tingkat Lebih Terang" border (35% alpha)
-    
-    if (active) {
-      bg_color = ImVec4(0.000f, 0.384f, 0.722f, 1.00f);
-      border_color = ImVec4(0.100f, 0.486f, 0.847f, 0.50f); // 50% alpha active border
-    } else if (hovered) {
-      bg_color = ImVec4(0.200f, 0.639f, 1.000f, 0.98f); // 3. "Solid State" instant high-contrast hover color
-      border_color = ImVec4(0.360f, 0.710f, 1.000f, 0.45f); // 45% alpha hover border
-    }
-    
-    ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
-    ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
-    ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.960f, 0.965f, 0.973f, 1.00f)); // Crisp clean white
-    
-    // Main background solid elevated base color
-    ImGui::GetForegroundDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f); // 2px rounded squircle box
-    
-    // 1. Micro-Gradient Vertikal (Sangat Tipis - Subtle 3% upper light reflection)
+void NotesWindow::PostRender(bool interactive) {
+    if (!interactive) return;
+
+    ImVec2 content_pos = ImGui::GetWindowPos();
+    ImVec2 content_size = ImGui::GetWindowSize();
+    ImVec2 float_btn_pos = ImVec2(content_pos.x + content_size.x - 80.0f, content_pos.y + 52.0f);
+    ImVec2 delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 52.0f);
+
     {
-      ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
-      ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f)); // Ultra-subtle 3% vertical blend
-      ImGui::GetForegroundDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+        ImVec2 min_p = float_btn_pos;
+        ImVec2 max_p = ImVec2(float_btn_pos.x + 30.0f, float_btn_pos.y + 30.0f);
+        ImVec2 center = ImVec2(float_btn_pos.x + 15.0f, float_btn_pos.y + 15.0f);
+        
+        bool hovered = ImGui::IsMouseHoveringRect(min_p, max_p);
+        bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        
+        ImVec4 bg_color = ImVec4(0.118f, 0.478f, 0.812f, 0.90f);
+        ImVec4 border_color = ImVec4(0.200f, 0.569f, 0.902f, 0.35f);
+        
+        if (active) {
+            bg_color = ImVec4(0.000f, 0.384f, 0.722f, 1.00f);
+            border_color = ImVec4(0.100f, 0.486f, 0.847f, 0.50f);
+        } else if (hovered) {
+            bg_color = ImVec4(0.200f, 0.639f, 1.000f, 0.98f);
+            border_color = ImVec4(0.360f, 0.710f, 1.000f, 0.45f);
+        }
+        
+        ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
+        ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
+        ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.960f, 0.965f, 0.973f, 1.00f));
+        
+        ImGui::GetForegroundDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f);
+        
+        ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
+        ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
+        ImGui::GetForegroundDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+        ImGui::GetForegroundDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+        
+        const char* icon = (m_view_mode == 0) ? ICON_TOGGLE_READ : ICON_TOGGLE_EDIT;
+        
+        ImGui::PushFont(g_font_gui);
+        ImVec2 text_size = ImGui::CalcTextSize(icon);
+        ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
+        ImGui::GetForegroundDrawList()->AddText(text_pos, text_col32, icon);
+        ImGui::PopFont();
+        
+        if (hovered) {
+            ImGui::SetTooltip(m_view_mode == 0 ? "Switch to Preview Mode" : "Switch to Editor Mode");
+            ImGui::GetIO().WantCaptureMouse = true;
+        }
+        
+        if (clicked) {
+            if (m_view_mode == 0) {
+                FlushEditBufferToNote();
+                m_view_mode = 1;
+            } else {
+                SwitchToEditor();
+            }
+        }
     }
 
-    // 2. Pembatas Border Warna "Satu Tingkat Lebih Terang" keliling tombol
     {
-      ImGui::GetForegroundDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+        ImVec2 min_p = delete_btn_pos;
+        ImVec2 max_p = ImVec2(delete_btn_pos.x + 30.0f, delete_btn_pos.y + 30.0f);
+        ImVec2 center = ImVec2(delete_btn_pos.x + 15.0f, delete_btn_pos.y + 15.0f);
+        
+        bool hovered = ImGui::IsMouseHoveringRect(min_p, max_p);
+        bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        
+        ImVec4 bg_color = ImVec4(0.851f, 0.220f, 0.220f, 0.90f);
+        ImVec4 border_color = ImVec4(0.910f, 0.318f, 0.318f, 0.35f);
+        
+        if (active) {
+            bg_color = ImVec4(0.722f, 0.114f, 0.114f, 1.00f);
+            border_color = ImVec4(0.800f, 0.169f, 0.169f, 0.50f);
+        } else if (hovered) {
+            bg_color = ImVec4(1.000f, 0.322f, 0.322f, 0.98f);
+            border_color = ImVec4(1.000f, 0.471f, 0.471f, 0.45f);
+        }
+        
+        ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
+        ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
+        ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.960f, 0.965f, 0.973f, 1.00f));
+        
+        ImGui::GetForegroundDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f);
+        
+        ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
+        ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
+        ImGui::GetForegroundDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+        ImGui::GetForegroundDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+        
+        ImGui::PushFont(g_font_gui);
+        ImVec2 text_size = ImGui::CalcTextSize(ICON_DELETE);
+        ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
+        ImGui::GetForegroundDrawList()->AddText(text_pos, text_col32, ICON_DELETE);
+        ImGui::PopFont();
+        
+        if (hovered) {
+            ImGui::SetTooltip("Delete Note");
+            ImGui::GetIO().WantCaptureMouse = true;
+        }
+        
+        if (clicked) {
+            auto& ns = GetNotes();
+            if (!ns.empty()) {
+                ns.erase(ns.begin() + m_selected_note_idx);
+                MarkNoteChanged();
+                if (m_selected_note_idx > 0) {
+                    m_selected_note_idx--;
+                }
+                if (!ns.empty()) {
+                    SyncEditBufferFromNote(m_selected_note_idx);
+                } else {
+                    m_edit_buffer[0] = '\0';
+                    m_synced_note_idx = -1;
+                }
+            }
+        }
     }
-    
-    const char* icon = (g_view_mode == 0) ? ICON_TOGGLE_READ : ICON_TOGGLE_EDIT;
-    
-    ImGui::PushFont(g_font_gui);
-    ImVec2 text_size = ImGui::CalcTextSize(icon);
-    ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
-    ImGui::GetForegroundDrawList()->AddText(text_pos, text_col32, icon);
-    ImGui::PopFont();
-    
-    if (hovered) {
-      ImGui::SetTooltip(g_view_mode == 0 ? "Switch to Preview Mode" : "Switch to Editor Mode");
-      ImGui::GetIO().WantCaptureMouse = true;
-    }
-    
-    if (clicked) {
-      if (g_view_mode == 0) {
-        FlushEditBufferToNote();
-        g_view_mode = 1;
-      } else {
-        SwitchToEditor();
-      }
-    }
-  }
-
-  // Render Floating Delete Button
-  if (show_delete_btn) {
-    ImVec2 min_p = delete_btn_pos;
-    ImVec2 max_p = ImVec2(delete_btn_pos.x + 30.0f, delete_btn_pos.y + 30.0f);
-    ImVec2 center = ImVec2(delete_btn_pos.x + 15.0f, delete_btn_pos.y + 15.0f);
-    
-    bool hovered = ImGui::IsMouseHoveringRect(min_p, max_p);
-    bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
-    bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-    
-    ImVec4 bg_color = ImVec4(0.851f, 0.220f, 0.220f, 0.90f); // 1. Elevated Red base
-    ImVec4 border_color = ImVec4(0.910f, 0.318f, 0.318f, 0.35f); // 2. Subtle "Satu Tingkat Lebih Terang" border (35% alpha)
-    
-    if (active) {
-      bg_color = ImVec4(0.722f, 0.114f, 0.114f, 1.00f);
-      border_color = ImVec4(0.800f, 0.169f, 0.169f, 0.50f); // 50% alpha active border
-    } else if (hovered) {
-      bg_color = ImVec4(1.000f, 0.322f, 0.322f, 0.98f); // 3. "Solid State" instant high-contrast hover color
-      border_color = ImVec4(1.000f, 0.471f, 0.471f, 0.45f); // 45% alpha hover border
-    }
-    
-    ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
-    ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
-    ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.960f, 0.965f, 0.973f, 1.00f)); // Crisp clean white
-    
-    // Main background solid elevated base color
-    ImGui::GetForegroundDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f); // 2px rounded squircle box
-    
-    // 1. Micro-Gradient Vertikal (Sangat Tipis - Subtle 3% upper light reflection)
-    {
-      ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
-      ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f)); // Ultra-subtle 3% vertical blend
-      ImGui::GetForegroundDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
-    }
-
-    // 2. Pembatas Border Warna "Satu Tingkat Lebih Terang" keliling tombol
-    {
-      ImGui::GetForegroundDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
-    }
-    
-    ImGui::PushFont(g_font_gui);
-    ImVec2 text_size = ImGui::CalcTextSize(ICON_DELETE);
-    ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f + 1.0f, center.y - text_size.y * 0.5f + 1.0f);
-    ImGui::GetForegroundDrawList()->AddText(text_pos, text_col32, ICON_DELETE);
-    ImGui::PopFont();
-    
-    if (hovered) {
-      ImGui::SetTooltip("Delete Note");
-      ImGui::GetIO().WantCaptureMouse = true;
-    }
-    
-    if (clicked) {
-      ImGui::OpenPopup("Delete Note?");
-    }
-  }
-
-  // Delete confirmation modal popup (Parent Window ID stack context)
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 20.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f); // Matched with notes frame rounding
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 8.0f));
-  ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 16.0f));
-
-  ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.10f, 0.11f, 0.14f, 1.00f));
-  ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.22f, 0.24f, 0.30f, 0.80f));
-  ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.88f, 0.92f, 1.00f));
-
-  if (ImGui::BeginPopupModal("Delete Note?", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar)) {
-    // Centering the header title
-    ImGui::PushFont(g_font_gui);
-    ImVec2 icon_size = ImGui::CalcTextSize(ICON_DELETE);
-    ImGui::PopFont();
-    
-    ImGui::PushFont(g_fonts_preview_bold[2]);
-    ImVec2 label_size = ImGui::CalcTextSize(" Delete Note");
-    ImGui::PopFont();
-    
-    float total_header_w = icon_size.x + label_size.x;
-    float header_offset = (ImGui::GetContentRegionAvail().x - total_header_w) * 0.5f;
-    if (header_offset > 0.0f) {
-      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + header_offset);
-    }
-    
-    // Render icon with g_font_gui and text with preview bold
-    ImGui::PushFont(g_font_gui);
-    ImGui::TextColored(ImVec4(0.90f, 0.40f, 0.40f, 1.00f), ICON_DELETE);
-    ImGui::PopFont();
-    ImGui::SameLine(0.0f, 0.0f);
-    
-    ImGui::PushFont(g_fonts_preview_bold[2]);
-    ImGui::TextColored(ImVec4(0.90f, 0.40f, 0.40f, 1.00f), " Delete Note");
-    ImGui::PopFont();
-    
-    ImGui::Dummy(ImVec2(0.0f, 2.0f));
-    ImGui::Text("Are you sure you want to permanently delete this note?\nThis action cannot be undone.");
-    ImGui::Dummy(ImVec2(0.0f, 4.0f));
-
-    // Centering Cancel and Delete buttons
-    float popup_avail_x = ImGui::GetContentRegionAvail().x;
-    float total_btn_width = 110.0f + ImGui::GetStyle().ItemSpacing.x + 110.0f;
-    float offset_x = (popup_avail_x - total_btn_width) * 0.5f;
-    if (offset_x > 0.0f) {
-      ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset_x);
-    }
-
-    // Cancel Button (Left, Slate neutral)
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.20f, 0.25f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.24f, 0.27f, 0.33f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.14f, 0.16f, 0.20f, 1.00f));
-    if (ImGui::Button("Cancel", ImVec2(110.0f, 32.0f))) {
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::PopStyleColor(3);
-
-    ImGui::SameLine();
-
-    // Delete Button (Right, Soft danger red)
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.70f, 0.20f, 0.20f, 0.90f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.85f, 0.25f, 0.25f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.60f, 0.15f, 0.15f, 1.00f));
-    if (ImGui::Button("Delete", ImVec2(110.0f, 32.0f))) {
-      DeleteNote(static_cast<size_t>(g_selected_note_idx));
-      auto& ns = GetNotes();
-      if (g_selected_note_idx >= static_cast<int>(ns.size()))
-        g_selected_note_idx = static_cast<int>(ns.size()) - 1;
-      SyncEditBufferFromNote(g_selected_note_idx);
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::PopStyleColor(3);
-
-    ImGui::EndPopup();
-  }
-
-  ImGui::PopStyleColor(3);
-  ImGui::PopStyleVar(6);
-
-  ImGui::End();
 }
 
 } // namespace dover::overlay::notes

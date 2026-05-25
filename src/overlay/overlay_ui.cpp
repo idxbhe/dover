@@ -85,7 +85,7 @@ void RenderImGuiUI() {
     ImVec2 display_size = ImGui::GetIO().DisplaySize;
     ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, 160));
 
-    static bool show_notes = true;
+    bool show_notes = notes::GetNotesWindow().IsOpen();
     static bool show_settings = false;
 
     // A. Top Navigation Bar (Fixed persistent toolbar at the top)
@@ -169,7 +169,7 @@ void RenderImGuiUI() {
       ImVec2 pos = ImGui::GetCursorScreenPos();
       ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + icon_box_height);
       bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
-      bool notes_focused = show_notes && notes::IsNotesFocused();
+      bool notes_focused = show_notes && notes::GetNotesWindow().IsFocused();
       
       ImVec2 glyph_size = ImGui::CalcTextSize(ICON_PANEL_NOTES);
       ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (icon_box_height - glyph_size.y) * 0.5f + 2.5f);
@@ -224,9 +224,9 @@ void RenderImGuiUI() {
     }
     if (ImGui::Button(ICON_PANEL_NOTES, ImVec2(icon_btn_width, icon_box_height))) {
       if (!show_notes) {
-        show_notes = true;
+        notes::GetNotesWindow().Open();
         ImGui::SetWindowFocus("Notes");
-      } else if (!notes::IsNotesFocused()) {
+      } else if (!notes::GetNotesWindow().IsFocused()) {
         ImGui::SetWindowFocus("Notes");
       }
     }
@@ -360,10 +360,7 @@ void RenderImGuiUI() {
 
     // B. Floating Feature Jendela (Modular, bebas geser, mengingat posisi via dover/imgui.ini)
     
-    // Notes Jendela (modular — handled by notes_ui module)
-    if (show_notes) {
-      notes::RenderNotesWindow(&show_notes);
-    }
+
 
     // Settings Jendela
     if (show_settings) {
@@ -392,12 +389,11 @@ void RenderImGuiUI() {
       }
       ImGui::End();
     }
-  } else {
-    if (notes::IsNotesPinned()) {
-      bool dummy = true;
-      notes::RenderNotesWindow(&dummy);
-    }
   }
+  
+  // Render modular windows universally. BaseWindow handles visibility/pin logic internally.
+  notes::GetNotesWindow().Render(g_show_overlay);
+
 }
 
 } // namespace dover::overlay

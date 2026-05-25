@@ -160,7 +160,7 @@ void SetupImGuiTheme() {
     char exe_name[MAX_PATH] = {};
     GetModuleBaseNameA(GetCurrentProcess(), nullptr, exe_name, MAX_PATH);
     notes::InitializeNotesManager(std::wstring(local_app_data), std::string(exe_name));
-    notes::InitializeNotesUI();
+    notes::GetNotesWindow().Initialize();
   }
 
   ImGuiStyle& style = ImGui::GetStyle();

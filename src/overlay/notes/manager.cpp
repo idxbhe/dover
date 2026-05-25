@@ -197,7 +197,7 @@ void TickAutosave() {
     auto now = Clock::now();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_last_dirty_time).count();
     if (elapsed_ms >= 3000) { // Menunggu 3 detik sunyi (tidak mengetik) baru autosave
-      FlushNotesEditBuffer(); // Salin teks aktif dari buffer edit ImGui ke data note
+      GetNotesWindow().FlushEditBuffer(); // Salin teks aktif dari buffer edit ImGui ke data note
       AutoSaveAll();
     }
   }

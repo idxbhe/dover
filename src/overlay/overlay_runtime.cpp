@@ -73,7 +73,7 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
     }
   }
 
-  notes::ShutdownNotesUI();
+  notes::GetNotesWindow().Shutdown();
   notes::AutoSaveAll();
   ShutdownInputHooks();
   ShutdownDx9Hook();

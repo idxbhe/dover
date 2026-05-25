@@ -150,6 +150,7 @@ add_library(dover_overlay SHARED
   src/overlay/theme.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
+  src/overlay/ui/components/base_window.cpp
   src/overlay/notes/manager.cpp
   src/overlay/notes/layout.cpp
   src/overlay/notes/formatter.cpp
