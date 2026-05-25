@@ -1,7 +1,9 @@
 #include "overlay/settings/settings_window.h"
 #include "overlay/icons.h"
 #include <imgui.h>
-
+#include "overlay/overlay_ui.h"
+#include "overlay/notes/manager.h"
+#include "overlay/notes/layout.h"
 namespace dover::overlay {
     extern ImFont* g_font_gui;
     extern ImFont* g_fonts_preview_bold[5];
@@ -174,7 +176,18 @@ void SettingsWindow::RenderContent(bool interactive) {
                 ImGui::Spacing();
                 ImGui::Text("Current Theme: Steam Slate Blue");
                 ImGui::Spacing();
-                ImGui::SliderFloat("Background Alpha", &m_bg_alpha, 0.10f, 1.00f, "%.2f");
+                
+                float pct_window = g_global_window_alpha * 100.0f;
+                if (ImGui::SliderFloat("Window Opacity", &pct_window, 0.0f, 100.0f, "%.0f%%")) {
+                    g_global_window_alpha = pct_window / 100.0f;
+                    m_bg_alpha = g_global_window_alpha;
+                    notes::GetNotesWindow().SetBgAlpha(g_global_window_alpha);
+                }
+                
+                float pct_overlay = g_overlay_bg_alpha * 100.0f;
+                if (ImGui::SliderFloat("Overlay Opacity", &pct_overlay, 0.0f, 100.0f, "%.0f%%")) {
+                    g_overlay_bg_alpha = pct_overlay / 100.0f;
+                }
                 break;
             }
             case 3: { // About

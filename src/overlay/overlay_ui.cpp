@@ -25,6 +25,8 @@ bool g_show_overlay = false;
 bool g_in_overlay_frame = false;
 WNDPROC g_original_wnd_proc = nullptr;
 const char* g_active_dx_version = "Unknown API";
+float g_overlay_bg_alpha = 0.63f;     // Approx 160/255
+float g_global_window_alpha = 0.95f;
 
 // ---- Accurate FPS counter using QPC (bypasses ImGui's inflated averaging) ----
 static LARGE_INTEGER g_fps_freq      = {};
@@ -83,7 +85,7 @@ void RenderImGuiUI() {
   if (g_show_overlay) {
     // Dim the underlying game frame for premium presentation
     ImVec2 display_size = ImGui::GetIO().DisplaySize;
-    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, 160));
+    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, (int)(g_overlay_bg_alpha * 255.0f)));
 
     bool show_notes = notes::GetNotesWindow().IsOpen();
 
