@@ -2,6 +2,10 @@
 #include "overlay/icons.h"
 #include <imgui.h>
 
+namespace dover::overlay {
+    extern ImFont* g_font_gui;
+}
+
 namespace dover::overlay::ui {
 
 namespace {
@@ -40,7 +44,7 @@ void BaseWindow::Render(bool interactive) {
             ImGui::SetNextWindowSize(m_prev_size, ImGuiCond_Always);
             m_was_maximized = false;
         } else {
-            ImGui::SetNextWindowSize(ImVec2(800.0f, 500.0f), ImGuiCond_FirstUseEver);
+            ImGui::SetNextWindowSize(m_default_size, ImGuiCond_FirstUseEver);
         }
     }
 
@@ -86,16 +90,18 @@ void BaseWindow::Render(bool interactive) {
 
         // Standardized Header / Toolbar
         if (interactive) {
-            RenderToolbar(interactive);
-            
-            float avail_x = ImGui::GetContentRegionAvail().x;
-            float right_boundary = ImGui::GetCursorPosX() + avail_x;
-            
-            RenderWindowDecorations(interactive, right_boundary);
+            if (m_window_name != "Settings") {
+                RenderToolbar(interactive);
+                
+                float avail_x = ImGui::GetContentRegionAvail().x;
+                float right_boundary = ImGui::GetCursorPosX() + avail_x;
+                
+                RenderWindowDecorations(interactive, right_boundary);
 
-            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-            ImGui::Separator();
-            ImGui::PopStyleVar();
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+                ImGui::Separator();
+                ImGui::PopStyleVar();
+            }
         }
 
         // Main content area
@@ -116,19 +122,84 @@ void BaseWindow::Render(bool interactive) {
 void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary) {
     if (!interactive) return;
 
-    // Fixed absolute positions from right edge to prevent wrapping
+    auto DrawCustomButton = [&](const char* icon, float same_line_pos, const char* tooltip, bool* toggle_state = nullptr) -> bool {
+        ImGui::SameLine(same_line_pos);
+        if (m_window_name == "Settings") {
+            ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 6.0f);
+        }
+        
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0, 0, 0, 0));
+        
+        bool was_pinned = (toggle_state && *toggle_state);
+        
+        bool clicked = ImGui::Button(icon);
+        
+        ImGui::PopStyleColor(4);
+        
+        ImVec2 min_p = ImGui::GetItemRectMin();
+        ImVec2 max_p = ImGui::GetItemRectMax();
+        ImVec2 center = ImVec2(min_p.x + (max_p.x - min_p.x) * 0.5f, min_p.y + (max_p.y - min_p.y) * 0.5f);
+        
+        bool hovered = ImGui::IsItemHovered();
+        bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        
+        ImVec4 bg_color = ImVec4(0.170f, 0.200f, 0.246f, 1.00f);
+        ImVec4 border_color = ImVec4(0.120f, 0.141f, 0.174f, 1.00f);
+        
+        if (active) {
+            bg_color = ImVec4(0.280f, 0.370f, 0.500f, 1.00f);
+            border_color = ImVec4(0.210f, 0.280f, 0.380f, 1.00f);
+        } else if (hovered) {
+            bg_color = ImVec4(0.230f, 0.300f, 0.410f, 1.00f);
+            border_color = ImVec4(0.170f, 0.220f, 0.300f, 1.00f);
+        }
+        
+        ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
+        ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
+        
+        ImU32 text_col32;
+        if (was_pinned) {
+            text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.80f, 0.20f, 1.00f));
+        } else {
+            text_col32 = ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_Text]);
+        }
+        
+        ImGui::GetWindowDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f);
+        
+        ImVec2 mid_p = ImVec2(max_p.x, min_p.y + (max_p.y - min_p.y) * 0.5f);
+        ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
+        ImGui::GetWindowDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+        
+        ImGui::GetWindowDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+        
+        if (g_font_gui) ImGui::PushFont(g_font_gui);
+        ImVec2 text_size = ImGui::CalcTextSize(icon);
+        ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
+        ImGui::GetWindowDrawList()->AddText(text_pos, text_col32, icon);
+        if (g_font_gui) ImGui::PopFont();
+        
+        if (hovered && tooltip) {
+            ImGui::SetTooltip(tooltip);
+        }
+        
+        if (clicked && toggle_state) {
+            *toggle_state = !*toggle_state;
+        }
+        
+        return clicked;
+    };
+
     if (HasFeature(m_features, WindowFeature::Pin)) {
-        ImGui::SameLine(right_boundary - 86.0f);
-        bool was_pinned = m_is_pinned;
-        if (was_pinned) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.20f, 0.80f, 0.20f, 1.00f));
-        if (ImGui::Button(ICON_WINDOW_PINNED)) m_is_pinned = !m_is_pinned;
-        if (was_pinned) ImGui::PopStyleColor();
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip(m_is_pinned ? "Unpin from screen" : "Pin to screen");
+        DrawCustomButton(ICON_WINDOW_PINNED, right_boundary - 86.0f, m_is_pinned ? "Unpin from screen" : "Pin to screen", &m_is_pinned);
     }
 
     if (HasFeature(m_features, WindowFeature::Maximize)) {
-        ImGui::SameLine(right_boundary - 60.0f);
-        if (ImGui::Button(m_is_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_FULL)) {
+        const char* icon = m_is_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_FULL;
+        const char* tooltip = m_is_maximized ? "Restore Window Size" : "Maximize Window";
+        if (DrawCustomButton(icon, right_boundary - 60.0f, tooltip)) {
             if (!m_is_maximized) {
                 m_prev_pos = ImGui::GetWindowPos();
                 m_prev_size = ImGui::GetWindowSize();
@@ -136,15 +207,12 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary)
             }
             m_is_maximized = !m_is_maximized;
         }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip(m_is_maximized ? "Restore Window Size" : "Maximize Window");
     }
 
     if (HasFeature(m_features, WindowFeature::Close)) {
-        ImGui::SameLine(right_boundary - 34.0f);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.15f, 0.15f, 0.90f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
-        if (ImGui::Button(ICON_WINDOW_CLOSE)) Close();
-        ImGui::PopStyleColor(2);
+        if (DrawCustomButton(ICON_WINDOW_CLOSE, right_boundary - 34.0f, "Close")) {
+            Close();
+        }
     }
 }
 

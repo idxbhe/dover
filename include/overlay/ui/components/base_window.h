@@ -37,13 +37,14 @@ protected:
     
     ImVec2 m_prev_pos{0.0f, 0.0f};
     ImVec2 m_prev_size{0.0f, 0.0f};
+    ImVec2 m_default_size{800.0f, 500.0f};
 
     // Appearance State
     float m_bg_alpha = 0.95f;
 
 public:
-    BaseWindow(const std::string& name, WindowFeature features = WindowFeature::Default)
-        : m_window_name(name), m_features(features) {}
+    BaseWindow(const std::string& name, WindowFeature features = WindowFeature::Default, ImVec2 default_size = ImVec2(800.0f, 500.0f))
+        : m_window_name(name), m_features(features), m_default_size(default_size) {}
     
     virtual ~BaseWindow() = default;
 
@@ -79,8 +80,7 @@ protected:
     // Render after content (floating buttons, popups)
     virtual void PostRender(bool interactive) {}
 
-private:
-    // Internal rendering logic
+    // Internal rendering logic made available to child window classes
     void RenderWindowDecorations(bool interactive, float right_boundary);
 };
 

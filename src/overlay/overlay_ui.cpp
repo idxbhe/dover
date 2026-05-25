@@ -2,6 +2,7 @@
 #include "overlay/hook_utils.h"
 #include "overlay/notes/layout.h"
 #include "overlay/notes/manager.h"
+#include "overlay/settings/settings_window.h"
 #include "overlay/icons.h"
 #include "overlay/fonts.h"
 #include "overlay/theme.h"
@@ -20,7 +21,6 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 
 namespace dover::overlay {
 
-static bool g_settings_focused = false;
 bool g_show_overlay = false;
 bool g_in_overlay_frame = false;
 WNDPROC g_original_wnd_proc = nullptr;
@@ -86,7 +86,6 @@ void RenderImGuiUI() {
     ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, 160));
 
     bool show_notes = notes::GetNotesWindow().IsOpen();
-    static bool show_settings = false;
 
     // A. Top Navigation Bar (Fixed persistent toolbar at the top)
     const float bar_height = 40.0f;
@@ -243,7 +242,10 @@ void RenderImGuiUI() {
       ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (icon_box_height - glyph_size.y) * 0.5f + 2.5f);
       
       ImVec4 text_color, shadow_color, highlight_color, border_color;
-      if (show_settings) {
+      bool is_settings_open = settings::GetSettingsWindow().IsOpen();
+      bool is_settings_focused = settings::GetSettingsWindow().IsFocused();
+
+      if (is_settings_open) {
         text_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
         shadow_color    = ImVec4(0.55f, 0.30f, 0.90f, 0.85f);
@@ -278,9 +280,9 @@ void RenderImGuiUI() {
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), ICON_PANEL_SETTINGS);
 
       // Draw active indicator (Long line if focused, small dot if open but not focused)
-      if (show_settings) {
+      if (is_settings_open) {
         float indicator_y = pos.y + icon_box_height + 2.0f;
-        if (g_settings_focused) {
+        if (is_settings_focused) {
           ImVec2 l_start(pos.x + 6.0f, indicator_y);
           ImVec2 l_end(pos.x + icon_btn_width - 6.0f, indicator_y + 2.0f);
           ImGui::GetWindowDrawList()->AddRectFilled(l_start, l_end, ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.65f, 1.00f, 1.00f)), 1.0f);
@@ -291,10 +293,10 @@ void RenderImGuiUI() {
       }
     }
     if (ImGui::Button(ICON_PANEL_SETTINGS, ImVec2(icon_btn_width, icon_box_height))) {
-      if (!show_settings) {
-        show_settings = true;
+      if (!settings::GetSettingsWindow().IsOpen()) {
+        settings::GetSettingsWindow().Open();
         ImGui::SetWindowFocus("Settings");
-      } else if (!g_settings_focused) {
+      } else if (!settings::GetSettingsWindow().IsFocused()) {
         ImGui::SetWindowFocus("Settings");
       }
     }
@@ -362,37 +364,11 @@ void RenderImGuiUI() {
     
 
 
-    // Settings Jendela
-    if (show_settings) {
-      ImGui::SetNextWindowSize(ImVec2(320.0f, 200.0f), ImGuiCond_FirstUseEver);
-      ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
-      bool settings_ok = ImGui::Begin("Settings", &show_settings, ImGuiWindowFlags_NoCollapse);
-      ImGui::PopStyleColor();
-      if (settings_ok) {
-        g_settings_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
-        ImVec2 min_p = ImGui::GetWindowPos();
-        ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
-        float alpha = ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w;
-        ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.110f, 0.125f, 0.161f, alpha)); // #1c2029 (Cool slate settings)
-        ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.090f, 0.102f, 0.130f, alpha)); // #171a21
-        ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.071f, 0.082f, 0.106f, alpha)); // #12151b
-        ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.094f, 0.106f, 0.137f, alpha)); // #181b23
-        ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
-
-        ImGui::Text("Configurations:");
-        ImGui::Separator();
-        static bool vsync = true;
-        ImGui::Checkbox("Enable VSync Simulation", &vsync);
-        ImGui::Spacing();
-        ImGui::TextDisabled("Future game-specific saving:");
-        ImGui::TextDisabled("dover/imgui_<game>.ini");
-      }
-      ImGui::End();
-    }
   }
   
   // Render modular windows universally. BaseWindow handles visibility/pin logic internally.
   notes::GetNotesWindow().Render(g_show_overlay);
+  settings::GetSettingsWindow().Render(g_show_overlay);
 
 }
 

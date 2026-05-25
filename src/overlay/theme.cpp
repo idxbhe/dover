@@ -72,7 +72,7 @@ void SetupImGuiTheme() {
           if (!g_font_gui) {
             g_font_gui = io.Fonts->AddFontDefault();
           } else {
-            static const ImWchar icon_ranges[] = { 0xf000, 0xffff, 0 };
+            static const ImWchar icon_ranges[] = { 0xf000, 0xffff, 0x10000, 0x100ff, 0 };
             ImFontConfig icons_config;
             icons_config.FontDataOwnedByAtlas = false;
             icons_config.MergeMode = true;
@@ -86,7 +86,7 @@ void SetupImGuiTheme() {
           // 1b. GUI Font - Panel (Crisp, native larger sizes)
           g_font_panel = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, 20.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
           if (g_font_panel) {
-            static const ImWchar icon_ranges[] = { 0xf000, 0xffff, 0 };
+            static const ImWchar icon_ranges[] = { 0xf000, 0xffff, 0x10000, 0x100ff, 0 };
             ImFontConfig icons_config;
             icons_config.FontDataOwnedByAtlas = false;
             icons_config.MergeMode = true;

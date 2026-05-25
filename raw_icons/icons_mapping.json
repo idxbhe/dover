@@ -1,4 +1,40 @@
 {
+    "toggle-off": {
+        "macro": "ICON_TOGGLE_OFF",
+        "codepoint_dec": 63203,
+        "codepoint_hex": "U+F6E3",
+        "utf8_cpp": "\\xef\\x9b\\xa3"
+    },
+    "toggle-on": {
+        "macro": "ICON_TOGGLE_ON",
+        "codepoint_dec": 64063,
+        "codepoint_hex": "U+FA3F",
+        "utf8_cpp": "\\xef\\xa8\\xbf"
+    },
+    "wiki-fandom": {
+        "macro": "ICON_WIKI_FANDOM",
+        "codepoint_dec": 62182,
+        "codepoint_hex": "U+F2E6",
+        "utf8_cpp": "\\xef\\x8b\\xa6"
+    },
+    "setting-keybinds": {
+        "macro": "ICON_SETTING_KEYBINDS",
+        "codepoint_dec": 62353,
+        "codepoint_hex": "U+F391",
+        "utf8_cpp": "\\xef\\x8e\\x91"
+    },
+    "setting-about": {
+        "macro": "ICON_SETTING_ABOUT",
+        "codepoint_dec": 65655,
+        "codepoint_hex": "U+10077",
+        "utf8_cpp": "\\xf0\\x90\\x81\\xb7"
+    },
+    "setting-theme": {
+        "macro": "ICON_SETTING_THEME",
+        "codepoint_dec": 64179,
+        "codepoint_hex": "U+FAB3",
+        "utf8_cpp": "\\xef\\xaa\\xb3"
+    },
     "window-pinned": {
         "macro": "ICON_WINDOW_PINNED",
         "codepoint_dec": 62964,

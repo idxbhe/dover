@@ -98,7 +98,7 @@ target_include_directories(imgui PUBLIC
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
 )
-target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_FREETYPE)
+target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_FREETYPE IMGUI_USE_WCHAR32)
 target_link_libraries(imgui PUBLIC freetype)
 
 if(MSVC)
@@ -155,6 +155,7 @@ add_library(dover_overlay SHARED
   src/overlay/notes/layout.cpp
   src/overlay/notes/formatter.cpp
   src/overlay/notes/style.cpp
+  src/overlay/settings/settings_window.cpp
 )
 
 target_include_directories(dover_overlay PRIVATE

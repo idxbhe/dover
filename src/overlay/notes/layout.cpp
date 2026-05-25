@@ -330,8 +330,6 @@ void NotesWindow::RenderContent(bool interactive) {
   const float sb_w     = (interactive && m_sidebar_visible) ? m_sidebar_width : 0.0f;
   const float split_w  = (interactive && m_sidebar_visible) ? 5.0f   : 0.0f;
   const float cont_w   = win_w - sb_w - split_w;
-  m_editor_wrap_width  = cont_w - 48.0f;
-  if (m_editor_wrap_width < 100.0f) m_editor_wrap_width = 100.0f;
 
   if (interactive && m_sidebar_visible) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
@@ -443,7 +441,15 @@ void NotesWindow::RenderContent(bool interactive) {
   }
 
   ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.067f, 0.067f, 0.067f, m_bg_alpha));
+  ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
+  ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, ImVec4(1.0f, 1.0f, 1.0f, 0.15f));
+  ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.30f));
+  ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, ImVec4(1.0f, 1.0f, 1.0f, 0.45f));
+  
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 24.0f));
+  ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
+  
   bool content_ok = ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
 
   if (content_ok) {
@@ -461,6 +467,15 @@ void NotesWindow::RenderContent(bool interactive) {
   }
 
   float content_h = ImGui::GetContentRegionAvail().y;
+  float avail_w = ImGui::GetContentRegionAvail().x;
+  m_editor_wrap_width = avail_w - 48.0f;
+  if (m_editor_wrap_width < 100.0f) m_editor_wrap_width = 100.0f;
+
+  static float s_last_wrap_width = 0.0f;
+  if (m_editor_wrap_width != s_last_wrap_width && m_view_mode == 0) {
+      WrapGlobalBuffer(m_edit_buffer, sizeof(m_edit_buffer), m_editor_wrap_width, g_fonts_editor[m_zoom_idx]);
+      s_last_wrap_width = m_editor_wrap_width;
+  }
 
   if (m_view_mode == 0) {
     ImGui::PushFont(g_fonts_editor[m_zoom_idx]);
@@ -478,7 +493,7 @@ void NotesWindow::RenderContent(bool interactive) {
     ImGui::Indent(24.0f);
     bool changed = ImGui::InputTextMultiline(
         "##ed", m_edit_buffer, sizeof(m_edit_buffer),
-        ImVec2(-24.0f, content_h),
+        ImVec2(-6.0f, content_h),
         input_flags,
         FormatCallback);
     ImGui::Unindent(24.0f);
@@ -507,13 +522,6 @@ void NotesWindow::RenderContent(bool interactive) {
 
   } else {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 0.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
-    ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, ImVec4(1.0f, 1.0f, 1.0f, 0.15f));
-    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.30f));
-    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, ImVec4(1.0f, 1.0f, 1.0f, 0.45f));
-
     ImGui::BeginChild("MDPreview", ImVec2(-6.0f, content_h), false,
                       ImGuiWindowFlags_AlwaysUseWindowPadding);
     const auto& content = notes[m_selected_note_idx].content;
@@ -521,14 +529,12 @@ void NotesWindow::RenderContent(bool interactive) {
       RenderMarkdown(content, m_zoom_idx);
     }
     ImGui::EndChild();
-
-    ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar(3);
+    ImGui::PopStyleVar();
   }
 
   ImGui::EndChild(); // End NoteContent
-  ImGui::PopStyleVar();
-  ImGui::PopStyleColor();
+  ImGui::PopStyleVar(3);
+  ImGui::PopStyleColor(5);
 }
 
 void NotesWindow::PostRender(bool interactive) {
@@ -536,8 +542,8 @@ void NotesWindow::PostRender(bool interactive) {
 
     ImVec2 content_pos = ImGui::GetWindowPos();
     ImVec2 content_size = ImGui::GetWindowSize();
-    ImVec2 float_btn_pos = ImVec2(content_pos.x + content_size.x - 80.0f, content_pos.y + 52.0f);
-    ImVec2 delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 52.0f);
+    ImVec2 float_btn_pos = ImVec2(content_pos.x + content_size.x - 80.0f, content_pos.y + 46.0f);
+    ImVec2 delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 46.0f);
 
     {
         ImVec2 min_p = float_btn_pos;
