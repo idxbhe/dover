@@ -184,7 +184,7 @@ void RenderImGuiUI() {
         shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
         border_color    = ImVec4(0.35f, 0.50f, 0.75f, 0.60f); // Subtle hovered border
       } else {
-        text_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
+        text_color      = ImVec4(0.95f, 0.96f, 0.98f, 1.00f); // High-visibility bright off-white (no fade)
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
         shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
         border_color    = ImVec4(0.18f, 0.20f, 0.25f, 0.40f); // Sleek dull border
@@ -252,7 +252,7 @@ void RenderImGuiUI() {
         shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
         border_color    = ImVec4(0.55f, 0.40f, 0.80f, 0.60f); // Subtle hovered border
       } else {
-        text_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
+        text_color      = ImVec4(0.95f, 0.96f, 0.98f, 1.00f); // High-visibility bright off-white (no fade)
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
         shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
         border_color    = ImVec4(0.18f, 0.20f, 0.25f, 0.40f); // Sleek dull border
