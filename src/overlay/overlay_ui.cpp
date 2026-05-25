@@ -160,39 +160,56 @@ void RenderImGuiUI() {
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 0.0f)); // Make original text transparent
 
     // A. Notes Button Rendering (Modern Dot / Line Indicator + Taskbar Clicking Mechanism)
-    ImGui::SetCursorPos(ImVec2(center_start_x, button_y));
+    const float icon_box_height = 30.0f;
+    const float icon_box_y = (bar_height - icon_box_height) * 0.5f;
+    ImGui::SetCursorPos(ImVec2(center_start_x, icon_box_y));
     {
       ImVec2 pos = ImGui::GetCursorScreenPos();
-      ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + button_height);
+      ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + icon_box_height);
       bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
       bool notes_focused = show_notes && notes::IsNotesFocused();
       
       ImVec2 glyph_size = ImGui::CalcTextSize(ICON_PANEL_NOTES);
-      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (button_height - glyph_size.y) * 0.5f);
+      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (icon_box_height - glyph_size.y) * 0.5f + 2.5f);
       
-      ImVec4 main_color, shadow_color, highlight_color;
+      ImVec4 text_color, shadow_color, highlight_color, border_color;
       if (show_notes) {
-        main_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+        text_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
         shadow_color    = ImVec4(0.00f, 0.45f, 0.85f, 0.85f);
+        border_color    = ImVec4(0.20f, 0.65f, 1.00f, 0.85f); // Vibrant blue active border
       } else if (hovered) {
-        main_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+        text_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
         shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
+        border_color    = ImVec4(0.35f, 0.50f, 0.75f, 0.60f); // Subtle hovered border
       } else {
-        main_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
+        text_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
         shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
+        border_color    = ImVec4(0.18f, 0.20f, 0.25f, 0.40f); // Sleek dull border
       }
-      
-      // Draw 3D double shadow
+
+      // Draw premium slate/charcoal gradient box background matching the brand label
+      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.13f, 0.15f, 0.19f, 0.95f)); // #212630
+      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.09f, 0.11f, 0.14f, 0.95f)); // #171c24
+      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.07f, 0.08f, 0.11f, 0.95f)); // #12141c
+      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.11f, 0.13f, 0.16f, 0.95f)); // #1c2129
+      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(pos, p_max, col_tl, col_tr, col_br, col_bl);
+
+      // Draw premium rounded border over the box to round off the sharp corners
+      ImGui::GetWindowDrawList()->AddRect(pos, p_max, ImGui::ColorConvertFloat4ToU32(border_color), 4.0f, ImDrawFlags_None, 1.0f);
+
+      // Draw 3D double shadow behind the text glyph
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), ICON_PANEL_NOTES);
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), ICON_PANEL_NOTES);
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(main_color), ICON_PANEL_NOTES);
+
+      // Draw the crisp main icon text inside the gradient box
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), ICON_PANEL_NOTES);
 
       // Draw active indicator (Long line if focused, small dot if open but not focused)
       if (show_notes) {
-        float indicator_y = pos.y + button_height + 2.0f;
+        float indicator_y = pos.y + icon_box_height + 2.0f;
         if (notes_focused) {
           ImVec2 l_start(pos.x + 6.0f, indicator_y);
           ImVec2 l_end(pos.x + icon_btn_width - 6.0f, indicator_y + 2.0f);
@@ -203,7 +220,7 @@ void RenderImGuiUI() {
         }
       }
     }
-    if (ImGui::Button(ICON_PANEL_NOTES, ImVec2(icon_btn_width, button_height))) {
+    if (ImGui::Button(ICON_PANEL_NOTES, ImVec2(icon_btn_width, icon_box_height))) {
       if (!show_notes) {
         show_notes = true;
         ImGui::SetWindowFocus("Notes");
@@ -217,35 +234,50 @@ void RenderImGuiUI() {
     ImGui::SameLine(0.0f, button_spacing);
     {
       ImVec2 pos = ImGui::GetCursorScreenPos();
-      ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + button_height);
+      ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + icon_box_height);
       bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
       
       ImVec2 glyph_size = ImGui::CalcTextSize(ICON_PANEL_SETTINGS);
-      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (button_height - glyph_size.y) * 0.5f);
+      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (icon_box_height - glyph_size.y) * 0.5f + 2.5f);
       
-      ImVec4 main_color, shadow_color, highlight_color;
+      ImVec4 text_color, shadow_color, highlight_color, border_color;
       if (show_settings) {
-        main_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+        text_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
         shadow_color    = ImVec4(0.55f, 0.30f, 0.90f, 0.85f);
+        border_color    = ImVec4(0.68f, 0.45f, 0.95f, 0.85f); // Vibrant purple active border
       } else if (hovered) {
-        main_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+        text_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
         shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
+        border_color    = ImVec4(0.55f, 0.40f, 0.80f, 0.60f); // Subtle hovered border
       } else {
-        main_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
+        text_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
         shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
+        border_color    = ImVec4(0.18f, 0.20f, 0.25f, 0.40f); // Sleek dull border
       }
       
-      // Draw 3D double shadow
+      // Draw premium slate/charcoal gradient box background matching the brand label
+      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.13f, 0.15f, 0.19f, 0.95f)); // #212630
+      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.09f, 0.11f, 0.14f, 0.95f)); // #171c24
+      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.07f, 0.08f, 0.11f, 0.95f)); // #12141c
+      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.11f, 0.13f, 0.16f, 0.95f)); // #1c2129
+      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(pos, p_max, col_tl, col_tr, col_br, col_bl);
+
+      // Draw premium rounded border over the box to round off the sharp corners
+      ImGui::GetWindowDrawList()->AddRect(pos, p_max, ImGui::ColorConvertFloat4ToU32(border_color), 4.0f, ImDrawFlags_None, 1.0f);
+
+      // Draw 3D double shadow behind the text glyph
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), ICON_PANEL_SETTINGS);
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), ICON_PANEL_SETTINGS);
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(main_color), ICON_PANEL_SETTINGS);
+
+      // Draw the crisp main icon text inside the gradient box
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), ICON_PANEL_SETTINGS);
 
       // Draw active indicator (Long line if focused, small dot if open but not focused)
       if (show_settings) {
-        float indicator_y = pos.y + button_height + 2.0f;
+        float indicator_y = pos.y + icon_box_height + 2.0f;
         if (g_settings_focused) {
           ImVec2 l_start(pos.x + 6.0f, indicator_y);
           ImVec2 l_end(pos.x + icon_btn_width - 6.0f, indicator_y + 2.0f);
@@ -256,7 +288,7 @@ void RenderImGuiUI() {
         }
       }
     }
-    if (ImGui::Button(ICON_PANEL_SETTINGS, ImVec2(icon_btn_width, button_height))) {
+    if (ImGui::Button(ICON_PANEL_SETTINGS, ImVec2(icon_btn_width, icon_box_height))) {
       if (!show_settings) {
         show_settings = true;
         ImGui::SetWindowFocus("Settings");
