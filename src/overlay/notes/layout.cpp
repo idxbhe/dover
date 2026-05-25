@@ -1,4 +1,5 @@
 #include "overlay/notes/layout.h"
+#include "overlay/overlay_ui.h"
 #include "overlay/notes/manager.h"
 #include "overlay/notes/formatter.h"
 #include "overlay/notes/style.h"
@@ -26,6 +27,8 @@ static float g_sidebar_width = 240.0f;
 static ImVec2 g_prev_pos(0.0f, 0.0f);
 static ImVec2 g_prev_size(0.0f, 0.0f);
 static bool g_was_maximized = false;
+static bool g_is_pinned = false;
+static bool g_notes_focused = false;
 
 // ---- Editor States ----
 static int  g_selected_note_idx = 0;
@@ -115,6 +118,10 @@ void FlushNotesEditBuffer() {
   FlushEditBufferToNote();
 }
 
+bool IsNotesFocused() { return g_notes_focused; }
+
+bool IsNotesPinned() { return g_is_pinned; }
+
 void InitializeNotesUI() {
   g_selected_note_idx = 0;
   g_view_mode         = 1;
@@ -147,7 +154,14 @@ void RenderNotesWindow(bool* p_open) {
   TickAutosave();
 
   // ---- Setup window position, size, and style ----
+  bool interactive = g_show_overlay;
+  if (!interactive && g_is_pinned) { g_view_mode = 1; }
   ImGuiWindowFlags win_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+  
+  if (!interactive) {
+    win_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
+  }
+  
   if (g_maximized) {
     ImGui::SetNextWindowPos( ImVec2(0.0f, kNavBarHeight), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(display_size.x, display_size.y - kNavBarHeight), ImGuiCond_Always);
@@ -162,9 +176,11 @@ void RenderNotesWindow(bool* p_open) {
     }
   }
 
+  bool no_border = g_maximized || !interactive;
+  ImGui::SetNextWindowSizeConstraints(ImVec2(150.0f, 150.0f), ImVec2(FLT_MAX, FLT_MAX));
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, g_maximized ? 0.0f : 2.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-  if (g_maximized) {
+  if (no_border) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
   } else {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
@@ -177,7 +193,7 @@ void RenderNotesWindow(bool* p_open) {
   bool begin_ok = ImGui::Begin("Notes", p_open, win_flags);
   ImGui::PopStyleColor();
 
-  if (g_maximized) {
+  if (no_border) {
     ImGui::PopStyleVar(3);
   } else {
     ImGui::PopStyleColor(1);
@@ -185,6 +201,7 @@ void RenderNotesWindow(bool* p_open) {
   }
 
   if (begin_ok) {
+    g_notes_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
     ImVec2 min_p = ImGui::GetWindowPos();
     ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
     ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.110f, 0.125f, 0.161f, g_bg_alpha)); // #1c2029 (Cool slate-blue)
@@ -199,190 +216,191 @@ void RenderNotesWindow(bool* p_open) {
     return;
   }
 
-  // ---- Premium Custom Toolbar / Header Row ----
-  ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8.0f);
-  ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
-  ImGui::AlignTextToFramePadding();
+// ---- Premium Custom Toolbar / Header Row ----
+  if (interactive) {
+    float win_w = ImGui::GetWindowWidth();
+    bool show_format_buttons = win_w >= 550.0f;
+    bool show_opacity = win_w >= 470.0f;
+    bool show_size = win_w >= 320.0f;
+    bool show_add_new = win_w >= 170.0f;
 
-  ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8.0f);
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 12.0f);
+    ImGui::AlignTextToFramePadding();
 
-  // --- 1. LEFT CONTROLS (Sidebar, New, Delete) ---
-  const char* sidebar_lbl = g_sidebar_visible ? ICON_TOGGLE_HIDE_SIDEBAR : ICON_TOGGLE_SHOW_SIDEBAR;
-  if (ImGui::Button(sidebar_lbl)) {
-    g_sidebar_visible = !g_sidebar_visible;
-  }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_sidebar_visible ? "Hide Sidebar" : "Show Sidebar");
-  ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.28f, 0.28f, 0.35f, 0.80f));
 
-  if (ImGui::Button(ICON_ADD_NEW)) {
-    std::string new_title = CreateAutoNote();
-    if (!new_title.empty()) {
-      auto& ns = GetNotes();
-      for (int i = 0; i < static_cast<int>(ns.size()); ++i) {
-        if (ns[i].title == new_title) { SelectNote(i); break; }
-      }
-      SwitchToEditor();
+    // --- 1. LEFT CONTROLS (Sidebar, New, Size, Opacity, Formats) ---
+    const char* sidebar_lbl = g_sidebar_visible ? ICON_TOGGLE_HIDE_SIDEBAR : ICON_TOGGLE_SHOW_SIDEBAR;
+    if (ImGui::Button(sidebar_lbl)) {
+      g_sidebar_visible = !g_sidebar_visible;
     }
-  }
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Create New Note");
-  ImGui::SameLine();
-
-  ImGui::TextDisabled("|"); ImGui::SameLine();
-
-  // Size Button behave like Combo
-  float orig_size_y = ImGui::GetCursorPosY();
-  ImGui::SetCursorPosY(orig_size_y - 2.0f);
-  ImGui::TextDisabled("Size:"); 
-  ImGui::SetCursorPosY(orig_size_y);
-  ImGui::SameLine();
-  
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-  ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.5f, 0.5f));
-  ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
-  
-  ImGui::PushStyleColor(ImGuiCol_Button,           ImVec4(0.15f, 0.18f, 0.26f, 1.00f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonHovered,    ImVec4(0.22f, 0.27f, 0.38f, 1.00f));
-  ImGui::PushStyleColor(ImGuiCol_ButtonActive,     ImVec4(0.28f, 0.35f, 0.50f, 1.00f));
-  ImGui::PushStyleColor(ImGuiCol_Border,           ImVec4(0.32f, 0.40f, 0.58f, 0.70f));
-  
-  const char* size_items[] = { "Tiny", "Small", "Medium", "Large", "Huge" };
-  
-  if (ImGui::Button(size_items[g_zoom_idx], ImVec2(80.0f, 0))) {
-    ImGui::OpenPopup("##zoom_popup");
-  }
-  
-  ImVec2 popup_pos = ImGui::GetItemRectMin();
-  popup_pos.y += ImGui::GetItemRectSize().y;
-  
-  ImGui::SetNextWindowPos(popup_pos);
-  ImGui::SetNextWindowSize(ImVec2(80.0f, 0.0f));
-  
-  if (ImGui::BeginPopup("##zoom_popup")) {
-    for (int i = 0; i < IM_ARRAYSIZE(size_items); i++) {
-      bool is_selected = (g_zoom_idx == i);
-      if (ImGui::Selectable(size_items[i], is_selected)) {
-        g_zoom_idx = i;
-      }
-      if (is_selected) ImGui::SetItemDefaultFocus();
-    }
-    ImGui::EndPopup();
-  }
-  ImGui::PopStyleColor(4);
-  ImGui::PopStyleVar(4);
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Change Text Size");
-  ImGui::SameLine();
-
-  // Opacity Control
-  float orig_y = ImGui::GetCursorPosY();
-  ImGui::SetCursorPosY(orig_y - 2.0f);
-  ImGui::TextDisabled("Opacity:"); 
-  ImGui::SetCursorPosY(orig_y);
-  ImGui::SameLine();
-  
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(0.0f, 0.0f));
-  ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f);
-  
-  float frame_height = ImGui::GetFrameHeight(); 
-  ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize,   frame_height);
-  ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding,  frame_height * 0.5f);
-  
-  ImVec2 slider_pos = ImGui::GetCursorScreenPos();
-  float slider_width = 80.0f;
-  
-  ImVec2 line_start = ImVec2(slider_pos.x, slider_pos.y + frame_height * 0.5f);
-  ImVec2 line_end   = ImVec2(slider_pos.x + slider_width, slider_pos.y + frame_height * 0.5f);
-  ImGui::GetWindowDrawList()->AddLine(line_start, line_end, ImGui::GetColorU32(ImVec4(1.00f, 1.00f, 1.00f, 0.35f)), 2.5f);
-  
-  ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0, 0, 0, 0));
-  ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0, 0, 0, 0));
-  ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0, 0, 0, 0));
-  ImGui::PushStyleColor(ImGuiCol_SliderGrab,       ImVec4(0, 0, 0, 0));
-  ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0, 0, 0, 0));
-  
-  ImGui::SetNextItemWidth(slider_width);
-  ImGui::SliderFloat("##opacity", &g_bg_alpha, 0.00f, 1.00f, "");
-  
-  // Draw custom perfect circle grab (slightly smaller, 11px diameter)
-  float grab_center_x = slider_pos.x + g_bg_alpha * slider_width;
-  float grab_center_y = slider_pos.y + frame_height * 0.5f;
-  
-  ImVec4 grab_color = ImVec4(1.00f, 1.00f, 1.00f, 0.90f);
-  if (ImGui::IsItemActive()) {
-    grab_color = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-  } else if (ImGui::IsItemHovered()) {
-    grab_color = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
-  }
-  
-  ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
-  
-  ImGui::PopStyleColor(5);
-  ImGui::PopStyleVar(3);
-
-  if (ImGui::IsItemHovered()) ImGui::SetTooltip("Opacity (Ctrl+Click to type exact float value)");
-  ImGui::SameLine();
-
-  ImGui::TextDisabled("%.0f%%", g_bg_alpha * 100.0f);
-  ImGui::SameLine();
-
-  if (g_view_mode == 0) {
-    ImGui::TextDisabled("|"); ImGui::SameLine();
-
-    auto LayoutApplyFormat = [&](const char* prefix, const char* suffix) {
-      ApplyToolbarFormat(prefix, suffix, g_edit_buffer, sizeof(g_edit_buffer));
-      auto& ns = GetNotes();
-      if (g_selected_note_idx >= 0 && g_selected_note_idx < static_cast<int>(ns.size())) {
-          ns[g_selected_note_idx].is_dirty = true;
-          MarkNoteChanged();
-      }
-      g_force_focus_frames = 3;
-    };
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_BOLD)) LayoutApplyFormat("**", "**");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Bold (Ctrl+B)"); ImGui::SameLine();
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_ITALIC)) LayoutApplyFormat("*", "*");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Italic (Ctrl+I)"); ImGui::SameLine();
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_STRIKETHROUGH)) LayoutApplyFormat("~~", "~~");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Strikethrough (Ctrl+Shift+X)"); ImGui::SameLine();
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_CODE)) LayoutApplyFormat("`", "`");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code (Ctrl+`)"); ImGui::SameLine();
-
-    if (ImGui::Button(ICON_TEXT_FORMAT_CODE_BLOCK)) LayoutApplyFormat("\n```\n", "\n```\n");
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code Block"); ImGui::SameLine();
-
-    ImGui::SetNextItemWidth(35.0f);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
-    if (ImGui::BeginCombo("##h", ICON_TEXT_FORMAT_HEADINGS, ImGuiComboFlags_NoArrowButton)) {
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_ONE " Heading 1")) LayoutApplyFormat("# ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_TWO " Heading 2")) LayoutApplyFormat("## ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_THREE " Heading 3")) LayoutApplyFormat("### ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FOUR " Heading 4")) LayoutApplyFormat("#### ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FIVE " Heading 5")) LayoutApplyFormat("##### ", "");
-      ImGui::EndCombo();
-    }
-    ImGui::PopStyleColor(2);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Headings");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_sidebar_visible ? "Hide Sidebar" : "Show Sidebar");
     ImGui::SameLine();
 
-    ImGui::SetNextItemWidth(35.0f);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
-    if (ImGui::BeginCombo("##l", ICON_TEXT_FORMAT_LISTS, ImGuiComboFlags_NoArrowButton)) {
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_BULLETS " Bullet List")) LayoutApplyFormat("- ", "");
-      if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_NUMBERS " Numbered List")) LayoutApplyFormat("1. ", "");
-      ImGui::EndCombo();
+    if (show_add_new) {
+      if (ImGui::Button(ICON_ADD_NEW)) {
+        std::string new_title = CreateAutoNote();
+        if (!new_title.empty()) {
+          auto& ns = GetNotes();
+          for (int i = 0; i < static_cast<int>(ns.size()); ++i) {
+            if (ns[i].title == new_title) { SelectNote(i); break; }
+          }
+          SwitchToEditor();
+        }
+      }
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Create New Note");
+      ImGui::SameLine();
+      ImGui::TextDisabled("|"); ImGui::SameLine();
     }
-    ImGui::PopStyleColor(2);
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lists");
-    ImGui::SameLine();
-  }
 
+    if (show_size) {
+      float orig_size_y = ImGui::GetCursorPosY();
+      ImGui::SetCursorPosY(orig_size_y - 2.0f);
+      ImGui::TextDisabled("Size:"); 
+      ImGui::SetCursorPosY(orig_size_y);
+      ImGui::SameLine();
+      
+      ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+      ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+      ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.5f, 0.5f));
+      ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
+      
+      ImGui::PushStyleColor(ImGuiCol_Button,           ImVec4(0.15f, 0.18f, 0.26f, 1.00f));
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered,    ImVec4(0.22f, 0.27f, 0.38f, 1.00f));
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive,     ImVec4(0.28f, 0.35f, 0.50f, 1.00f));
+      ImGui::PushStyleColor(ImGuiCol_Border,           ImVec4(0.32f, 0.40f, 0.58f, 0.70f));
+      
+      const char* size_items[] = { "Tiny", "Small", "Medium", "Large", "Huge" };
+      
+      if (ImGui::Button(size_items[g_zoom_idx], ImVec2(80.0f, 0))) {
+        ImGui::OpenPopup("##zoom_popup");
+      }
+      
+      ImVec2 popup_pos = ImGui::GetItemRectMin();
+      popup_pos.y += ImGui::GetItemRectSize().y;
+      
+      ImGui::SetNextWindowPos(popup_pos);
+      ImGui::SetNextWindowSize(ImVec2(80.0f, 0.0f));
+      
+      if (ImGui::BeginPopup("##zoom_popup")) {
+        for (int i = 0; i < IM_ARRAYSIZE(size_items); i++) {
+          bool is_selected = (g_zoom_idx == i);
+          if (ImGui::Selectable(size_items[i], is_selected)) {
+            g_zoom_idx = i;
+          }
+          if (is_selected) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndPopup();
+      }
+      ImGui::PopStyleColor(4);
+      ImGui::PopStyleVar(4);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Change Text Size");
+      ImGui::SameLine();
+      ImGui::TextDisabled("|"); ImGui::SameLine();
+    }
+
+    if (show_opacity) {
+      float orig_y = ImGui::GetCursorPosY();
+      ImGui::SetCursorPosY(orig_y - 2.0f);
+      ImGui::TextDisabled("Opacity:"); 
+      ImGui::SetCursorPosY(orig_y);
+      ImGui::SameLine();
+      
+      ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(0.0f, 0.0f));
+      ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f);
+      
+      ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(1.00f, 1.00f, 1.00f, 0.05f));
+      ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(1.00f, 1.00f, 1.00f, 0.05f));
+      ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(1.00f, 1.00f, 1.00f, 0.05f));
+      ImGui::PushStyleColor(ImGuiCol_SliderGrab,       ImVec4(0, 0, 0, 0));
+      ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0, 0, 0, 0));
+      
+      const float slider_width = 80.0f;
+      float frame_height = ImGui::GetFrameHeight();
+      ImVec2 slider_pos = ImGui::GetCursorScreenPos();
+      ImGui::SetNextItemWidth(slider_width);
+      ImGui::SliderFloat("##opacity", &g_bg_alpha, 0.00f, 1.00f, "");
+      
+      float grab_center_x = slider_pos.x + g_bg_alpha * slider_width;
+      float grab_center_y = slider_pos.y + frame_height * 0.5f;
+      
+      ImVec4 grab_color = ImVec4(1.00f, 1.00f, 1.00f, 0.90f);
+      if (ImGui::IsItemActive()) {
+        grab_color = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+      } else if (ImGui::IsItemHovered()) {
+        grab_color = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+      }
+      
+      ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
+      
+      ImGui::PopStyleColor(5);
+      ImGui::PopStyleVar(3);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Opacity (Ctrl+Click to type exact float value)");
+      ImGui::SameLine();
+
+      ImGui::TextDisabled("%.0f%%", g_bg_alpha * 100.0f);
+      ImGui::SameLine();
+    }
+
+    if (show_format_buttons && g_view_mode == 0) {
+      ImGui::TextDisabled("|"); ImGui::SameLine();
+
+      auto LayoutApplyFormat = [&](const char* prefix, const char* suffix) {
+        ApplyToolbarFormat(prefix, suffix, g_edit_buffer, sizeof(g_edit_buffer));
+        auto& ns = GetNotes();
+        if (g_selected_note_idx >= 0 && g_selected_note_idx < static_cast<int>(ns.size())) {
+            ns[g_selected_note_idx].is_dirty = true;
+            MarkNoteChanged();
+        }
+        g_force_focus_frames = 3;
+      };
+
+      if (ImGui::Button(ICON_TEXT_FORMAT_BOLD)) LayoutApplyFormat("**", "**");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Bold (Ctrl+B)"); ImGui::SameLine();
+
+      if (ImGui::Button(ICON_TEXT_FORMAT_ITALIC)) LayoutApplyFormat("*", "*");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Italic (Ctrl+I)"); ImGui::SameLine();
+
+      if (ImGui::Button(ICON_TEXT_FORMAT_STRIKETHROUGH)) LayoutApplyFormat("~~", "~~");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Strikethrough (Ctrl+Shift+X)"); ImGui::SameLine();
+
+      if (ImGui::Button(ICON_TEXT_FORMAT_CODE)) LayoutApplyFormat("`", "`");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code (Ctrl+`)"); ImGui::SameLine();
+
+      if (ImGui::Button(ICON_TEXT_FORMAT_CODE_BLOCK)) LayoutApplyFormat("\n```\n", "\n```\n");
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code Block"); ImGui::SameLine();
+
+      ImGui::SetNextItemWidth(35.0f);
+      ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+      ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+      if (ImGui::BeginCombo("##h", ICON_TEXT_FORMAT_HEADINGS, ImGuiComboFlags_NoArrowButton)) {
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_ONE " Heading 1")) LayoutApplyFormat("# ", "");
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_TWO " Heading 2")) LayoutApplyFormat("## ", "");
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_THREE " Heading 3")) LayoutApplyFormat("### ", "");
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FOUR " Heading 4")) LayoutApplyFormat("#### ", "");
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FIVE " Heading 5")) LayoutApplyFormat("##### ", "");
+        ImGui::EndCombo();
+      }
+      ImGui::PopStyleColor(2);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Headings");
+      ImGui::SameLine();
+
+      ImGui::SetNextItemWidth(35.0f);
+      ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+      ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+      if (ImGui::BeginCombo("##l", ICON_TEXT_FORMAT_LISTS, ImGuiComboFlags_NoArrowButton)) {
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_BULLETS " Bullet List")) LayoutApplyFormat("- ", "");
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_NUMBERS " Numbered List")) LayoutApplyFormat("1. ", "");
+        ImGui::EndCombo();
+      }
+      ImGui::PopStyleColor(2);
+      if (ImGui::IsItemHovered()) ImGui::SetTooltip("Lists");
+      ImGui::SameLine();
+    }
+  }
   // --- 3. RIGHT CONTROLS (Save Status, Maximize, Close) ---
   bool any_dirty = false;
   for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
@@ -392,7 +410,7 @@ void RenderNotesWindow(bool* p_open) {
   float right_boundary = ImGui::GetCursorPosX() + avail_x;
 
   // Render status text at its own absolute safe zone (168px from right edge)
-  if (any_dirty || show_saved) {
+  if (interactive && (any_dirty || show_saved)) {
     float status_start = right_boundary - 168.0f;
     if (status_start > ImGui::GetCursorPosX()) ImGui::SameLine(status_start);
     else ImGui::SameLine();
@@ -404,11 +422,15 @@ void RenderNotesWindow(bool* p_open) {
     }
   }
 
-  // Render window decoration buttons at a locked absolute position (68px from right edge)
-  float buttons_start = right_boundary - 68.0f;
-  if (buttons_start > ImGui::GetCursorPosX()) ImGui::SameLine(buttons_start);
-  else ImGui::SameLine();
+  if (interactive) {
+  // Render window decoration buttons at absolute locked positions to prevent wrapping under any size
+  ImGui::SameLine(right_boundary - 86.0f);
+  if (g_is_pinned) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.20f, 0.80f, 0.20f, 1.00f));
+  if (ImGui::Button(ICON_WINDOW_PINNED)) g_is_pinned = !g_is_pinned;
+  if (g_is_pinned) ImGui::PopStyleColor();
+  if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_is_pinned ? "Unpin from screen" : "Pin to screen");
 
+  ImGui::SameLine(right_boundary - 60.0f);
   if (ImGui::Button(g_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_FULL)) {
     if (!g_maximized) {
       g_prev_pos = ImGui::GetWindowPos();
@@ -419,25 +441,22 @@ void RenderNotesWindow(bool* p_open) {
   }
   if (ImGui::IsItemHovered()) ImGui::SetTooltip(g_maximized ? "Restore Window Size" : "Maximize Window");
   
-  float close_btn_start = right_boundary - 38.0f;
-  if (close_btn_start > ImGui::GetCursorPosX()) ImGui::SameLine(close_btn_start);
-  else ImGui::SameLine();
-
+  ImGui::SameLine(right_boundary - 34.0f);
   ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.15f, 0.15f, 0.90f));
   ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.90f, 0.20f, 0.20f, 1.00f));
   if (ImGui::Button(ICON_WINDOW_CLOSE)) *p_open = false;
   ImGui::PopStyleColor(2);
 
   ImGui::PopStyleColor(3);
-
+  }
   ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-  ImGui::Separator();
+  if (interactive) ImGui::Separator();
 
   // ---- Main Layout: Sidebar + Content ----
   const float win_w    = ImGui::GetContentRegionAvail().x;
   const float win_h    = ImGui::GetContentRegionAvail().y;
-  const float sb_w     = g_sidebar_visible ? g_sidebar_width : 0.0f;
-  const float split_w  = g_sidebar_visible ? 5.0f   : 0.0f;
+  const float sb_w     = (interactive && g_sidebar_visible) ? g_sidebar_width : 0.0f;
+  const float split_w  = (interactive && g_sidebar_visible) ? 5.0f   : 0.0f;
   const float cont_w   = win_w - sb_w - split_w;
   g_editor_wrap_width  = cont_w - 48.0f;
   if (g_editor_wrap_width < 100.0f) g_editor_wrap_width = 100.0f;
@@ -445,7 +464,7 @@ void RenderNotesWindow(bool* p_open) {
   // ImGui natively handles horizontal word wrapping via ImGuiInputTextFlags_NoHorizontalScroll
 
   // ---- SIDEBAR ----
-  if (g_sidebar_visible) {
+  if (interactive && g_sidebar_visible) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     ImGui::BeginChild("Sidebar", ImVec2(sb_w, win_h), false,
@@ -583,6 +602,7 @@ void RenderNotesWindow(bool* p_open) {
 
   ImVec2 delete_btn_pos;
   bool show_delete_btn = false;
+  if (interactive) {
   // Calculate floating button screen position
   {
     ImVec2 content_pos = ImGui::GetWindowPos();
@@ -593,6 +613,10 @@ void RenderNotesWindow(bool* p_open) {
     delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 10.0f);
     show_float_btn = true;
     show_delete_btn = true;
+  }
+  } else {
+    show_float_btn = false;
+    show_delete_btn = false;
   }
 
   float content_h = ImGui::GetContentRegionAvail().y;

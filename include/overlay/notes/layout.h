@@ -7,6 +7,8 @@ void InitializeNotesUI();
 
 // Renders the Notes floating window. Call every frame inside RenderImGuiUI.
 void RenderNotesWindow(bool* p_open);
+bool IsNotesPinned();
+bool IsNotesFocused();
 
 // Releases any cached render state
 void ShutdownNotesUI();

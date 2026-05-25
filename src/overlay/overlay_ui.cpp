@@ -20,6 +20,7 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 
 namespace dover::overlay {
 
+static bool g_settings_focused = false;
 bool g_show_overlay = false;
 bool g_in_overlay_frame = false;
 WNDPROC g_original_wnd_proc = nullptr;
@@ -158,45 +159,61 @@ void RenderImGuiUI() {
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.0f, 0.0f, 0.0f)); // Make original text transparent
 
-    // A. Notes Button Rendering (Boxless, Dynamic 3D Raised White Gradient)
+    // A. Notes Button Rendering (Modern Dot / Line Indicator + Taskbar Clicking Mechanism)
     ImGui::SetCursorPos(ImVec2(center_start_x, button_y));
     {
       ImVec2 pos = ImGui::GetCursorScreenPos();
       ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + button_height);
       bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
+      bool notes_focused = show_notes && notes::IsNotesFocused();
       
       ImVec2 glyph_size = ImGui::CalcTextSize(ICON_PANEL_NOTES);
       ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (button_height - glyph_size.y) * 0.5f);
       
       ImVec4 main_color, shadow_color, highlight_color;
       if (show_notes) {
-        // Selected: Brilliant pure white with cyan-blue shadow for 3D raised depth
         main_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
         shadow_color    = ImVec4(0.00f, 0.45f, 0.85f, 0.85f);
       } else if (hovered) {
-        // Hovered: Bright white with subtle slate shadow
         main_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
         shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
       } else {
-        // Idle: Soft slate-white with dark charcoal shadow
         main_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
         shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
       }
       
-      // Draw 3D layers directly to the glyph (shadow, highlight, main)
+      // Draw 3D double shadow
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), ICON_PANEL_NOTES);
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), ICON_PANEL_NOTES);
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(main_color), ICON_PANEL_NOTES);
+
+      // Draw active indicator (Long line if focused, small dot if open but not focused)
+      if (show_notes) {
+        float indicator_y = pos.y + button_height + 2.0f;
+        if (notes_focused) {
+          ImVec2 l_start(pos.x + 6.0f, indicator_y);
+          ImVec2 l_end(pos.x + icon_btn_width - 6.0f, indicator_y + 2.0f);
+          ImGui::GetWindowDrawList()->AddRectFilled(l_start, l_end, ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.65f, 1.00f, 1.00f)), 1.0f);
+        } else {
+          ImVec2 dot_center(pos.x + icon_btn_width * 0.5f, indicator_y + 1.0f);
+          ImGui::GetWindowDrawList()->AddCircleFilled(dot_center, 2.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(0.70f, 0.73f, 0.80f, 0.85f)), 16);
+        }
+      }
     }
     if (ImGui::Button(ICON_PANEL_NOTES, ImVec2(icon_btn_width, button_height))) {
-      show_notes = !show_notes;
+      if (!show_notes) {
+        show_notes = true;
+        ImGui::SetWindowFocus("Notes");
+      } else if (!notes::IsNotesFocused()) {
+        ImGui::SetWindowFocus("Notes");
+      }
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Notes");
 
-    // B. Settings Button Rendering (Boxless, Dynamic 3D Raised White Gradient)
+    // B. Settings Button Rendering (Modern Dot / Line Indicator + Taskbar Clicking Mechanism)
     ImGui::SameLine(0.0f, button_spacing);
     {
       ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -208,35 +225,49 @@ void RenderImGuiUI() {
       
       ImVec4 main_color, shadow_color, highlight_color;
       if (show_settings) {
-        // Selected: Brilliant pure white with purple shadow for 3D raised depth
         main_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
         shadow_color    = ImVec4(0.55f, 0.30f, 0.90f, 0.85f);
       } else if (hovered) {
-        // Hovered: Bright white with subtle slate shadow
         main_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
         shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
       } else {
-        // Idle: Soft slate-white with dark charcoal shadow
         main_color      = ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
         highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
         shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
       }
       
-      // Draw 3D layers directly to the glyph (shadow, highlight, main)
+      // Draw 3D double shadow
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), ICON_PANEL_SETTINGS);
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), ICON_PANEL_SETTINGS);
       ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(main_color), ICON_PANEL_SETTINGS);
+
+      // Draw active indicator (Long line if focused, small dot if open but not focused)
+      if (show_settings) {
+        float indicator_y = pos.y + button_height + 2.0f;
+        if (g_settings_focused) {
+          ImVec2 l_start(pos.x + 6.0f, indicator_y);
+          ImVec2 l_end(pos.x + icon_btn_width - 6.0f, indicator_y + 2.0f);
+          ImGui::GetWindowDrawList()->AddRectFilled(l_start, l_end, ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.65f, 1.00f, 1.00f)), 1.0f);
+        } else {
+          ImVec2 dot_center(pos.x + icon_btn_width * 0.5f, indicator_y + 1.0f);
+          ImGui::GetWindowDrawList()->AddCircleFilled(dot_center, 2.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(0.70f, 0.73f, 0.80f, 0.85f)), 16);
+        }
+      }
     }
     if (ImGui::Button(ICON_PANEL_SETTINGS, ImVec2(icon_btn_width, button_height))) {
-      show_settings = !show_settings;
+      if (!show_settings) {
+        show_settings = true;
+        ImGui::SetWindowFocus("Settings");
+      } else if (!g_settings_focused) {
+        ImGui::SetWindowFocus("Settings");
+      }
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Settings");
+    ImGui::PopStyleColor(); // Pop ImGuiCol_Text to restore icon text visibility
 
-    ImGui::PopStyleColor(4);
-
-    // C. Close Button Rendering (Flat, Dark Slate with subtle Red hovered accent)
+    // C. Close Button Rendering (Flat, Dark Slate with subtle Red hovered accent - Pixel Perfect Alignment)
     ImGui::SetCursorPos(ImVec2(close_button_x, button_y));
     {
       ImVec2 p_min = ImGui::GetCursorScreenPos();
@@ -270,8 +301,19 @@ void RenderImGuiUI() {
           hovered ? ImVec4(0.55f, 0.20f, 0.20f, 0.70f) : ImVec4(0.18f, 0.20f, 0.25f, 0.40f)
       );
       ImGui::GetWindowDrawList()->AddRect(p_min, p_max, border_color, 4.0f, ImDrawFlags_None, 1.0f);
+
+      // Pixel-perfect manual rendering of the close icon
+      ImVec2 glyph_size = ImGui::CalcTextSize(ICON_WINDOW_CLOSE);
+      // Centered with micro-offsets to perfectly center visual weight: -1.5px X (more left), +1.5px Y (more down)
+      ImVec2 text_pos = ImVec2(
+          p_min.x + (button_width - glyph_size.x) * 0.5f + 0.5f,
+          p_min.y + (button_height - glyph_size.y) * 0.5f + 3.2f
+      );
+      
+      ImVec4 text_color = hovered ? ImVec4(1.00f, 1.00f, 1.00f, 1.00f) : ImVec4(0.70f, 0.73f, 0.80f, 0.85f);
+      ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(text_color), ICON_WINDOW_CLOSE);
     }
-    if (ImGui::Button(ICON_WINDOW_CLOSE, ImVec2(button_width, button_height))) {
+    if (ImGui::Button("##close_nav", ImVec2(button_width, button_height))) {
       g_show_overlay = false;
       ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
     }
@@ -296,6 +338,7 @@ void RenderImGuiUI() {
       bool settings_ok = ImGui::Begin("Settings", &show_settings, ImGuiWindowFlags_NoCollapse);
       ImGui::PopStyleColor();
       if (settings_ok) {
+        g_settings_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
         ImVec2 min_p = ImGui::GetWindowPos();
         ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
         float alpha = ImGui::GetStyle().Colors[ImGuiCol_WindowBg].w;
@@ -315,9 +358,12 @@ void RenderImGuiUI() {
       }
       ImGui::End();
     }
+  } else {
+    if (notes::IsNotesPinned()) {
+      bool dummy = true;
+      notes::RenderNotesWindow(&dummy);
+    }
   }
 }
-
-
 
 } // namespace dover::overlay
