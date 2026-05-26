@@ -17,6 +17,25 @@
     padding: 5px 20px 20px;
 }
 
+@media (prefers-color-scheme: dark) {
+    :root.light ._demo_glyphs {
+        background: var(--background, #000);
+        color: #bababa;
+        --on2: #000;
+        --off4: currentColor;
+        --green: #5eba6e;
+    }
+}
+@media (prefers-color-scheme: light) {
+    :root.light ._demo_glyphs {
+        background: var(--background, #fff);
+        color: #454545;
+        --on2: #fff;
+        --off4: currentColor;
+        --green: #00a100;
+    }
+}
+
 ._demo_glyph {
     background: none;
     border: none;
@@ -78,7 +97,20 @@ button._demo_glyph._demo_copied {
     top: 0;
     width: 50%;
 }
-body {--glyph-size: 32px;}#size {width: 5em;}#test {display: block;margin: 3rem 0 2rem;}#test textarea {font-size: var(--glyph-size);}#copy_settings, #codes_wrapper {display: flex;flex-wrap: wrap;align-items: center;}#copy_settings p {width: 100%;}#codes_wrapper {gap: 5px;}._demo_code {display: none;}#codes {width: 16px;height: 16px;}:has(#codes:checked) ._demo_code {display: flex;align-items: center;margin: 10px 0 30px 8px;font-family: monospace !important;gap: 5px;width: 7em;color: var(--color);& input {width: 100%;}}</style>
+body {--glyph-size: 32px;}#size {width: 5em;}#test {display: block;margin: 3rem 0 2rem;}#test textarea {font-size: var(--glyph-size);}#copy_settings, #codes_wrapper {display: flex;flex-wrap: wrap;align-items: center;}#copy_settings p {width: 100%;}#codes_wrapper {gap: 5px;}._demo_code {display: none;}#codes {width: 16px;height: 16px;}:has(#codes:checked) ._demo_code {display: flex;align-items: center;margin: 10px 0 30px 8px;font-family: monospace !important;gap: 5px;width: 7em;color: var(--color);& input {width: 100%;}}
+        @media (prefers-color-scheme: dark) {
+            :root.light #test textarea {
+                background: var(--background, #000);
+                color: #bababa;
+            }
+        }
+        @media (prefers-color-scheme: light) {
+            :root.light #test textarea {
+                background: var(--background, #fff);
+                color: #454545;
+            }
+        }
+        </style>
     <style>._demo_glyph .icon {white-space: pre}</style>
 </head>
 <body>
@@ -112,7 +144,7 @@ body {--glyph-size: 32px;}#size {width: 5em;}#test {display: block;margin: 3rem 
             any text:
         </p>
         <div data-lang="HTML">
-        <pre>&lt;span <em>class="icon"</em>&gt;&#xf6e3;&lt;/span&gt;</pre>
+        <pre>&lt;span <em>class="icon"</em>&gt;&#xf000;&lt;/span&gt;</pre>
         </div>
         <p>
             You could change the size of the glyph using the
@@ -124,14 +156,32 @@ body {--glyph-size: 32px;}#size {width: 5em;}#test {display: block;margin: 3rem 
 }
 </pre></div>
         <div data-lang="HTML">
-        <pre>&lt;span class="icon <em>my-size</em>"&gt;&#xf6e3;&lt;/span&gt;</pre>
+        <pre>&lt;span class="icon <em>my-size</em>"&gt;&#xf000;&lt;/span&gt;</pre>
+        </div>
+        <p>You can specify which color palette to use like so:</p>
+        <div data-lang="HTML">
+        <pre>&lt;span class="icon <em>palette0</em>"&gt;&#xf000;&lt;/span&gt;</pre>
+        </div>
+        <p>You could also customize a palette in CSS:</p>
+<div data-lang="CSS"><pre>
+@font-palette-values <em>--custom</em> {
+    font-family: "icons";
+    base-palette: 0;
+    override-colors: 0 #f00, 1 blue, 2 #bada55;
+}
+<em>.custom</em> {
+    font-palette: <em>--custom</em>;
+}
+</pre></div>
+        <div data-lang="HTML">
+        <pre>&lt;span class="icon <em>custom</em>"&gt;&#xf000;&lt;/span&gt;</pre>
         </div>
     </details>
     <details open>
         <noscript>
             <p>Enable JavaScript for easier copying of codes to clipboard.</p>
         </noscript>
-        <summary>List of Glyphs <small>(35)</small></summary>
+        <summary>List of Glyphs <small>(70)</small></summary>
         <div id="copy_settings" style="display: none">
             <label>
                 Click/tap on each glyph to copy:
@@ -142,6 +192,12 @@ body {--glyph-size: 32px;}#size {width: 5em;}#test {display: block;margin: 3rem 
                 </select>
             </label>
             <br>
+            <label>
+                Color Palette:
+                <select id="palette">
+                    <option value="0">palette0</option>
+                </select>
+            </label>
             <label>
                 Size:
                 <input id="size" type="number" value="32" min="8" max="99999" />
@@ -156,6 +212,41 @@ body {--glyph-size: 32px;}#size {width: 5em;}#test {display: block;margin: 3rem 
             </p>
         </div>
         <div class="_demo_glyphs">
+            <div><div class="_demo_glyph"><span class="icon">&#xf000;</span> icon-gamepad-home</div><label class="_demo_code">U+ <input readonly value="f000" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf001;</span> icon-gamepad-dpad</div><label class="_demo_code">U+ <input readonly value="f001" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf002;</span> icon-gamepad-dpad-up</div><label class="_demo_code">U+ <input readonly value="f002" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf003;</span> icon-gamepad-dpad-right</div><label class="_demo_code">U+ <input readonly value="f003" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf004;</span> icon-gamepad-dpad-left</div><label class="_demo_code">U+ <input readonly value="f004" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf005;</span> icon-gamepad-dpad-down</div><label class="_demo_code">U+ <input readonly value="f005" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf006;</span> icon-gamepad-b</div><label class="_demo_code">U+ <input readonly value="f006" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf007;</span> icon-gamepad-a</div><label class="_demo_code">U+ <input readonly value="f007" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf008;</span> icon-gamepad-y</div><label class="_demo_code">U+ <input readonly value="f008" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf009;</span> icon-gamepad-x</div><label class="_demo_code">U+ <input readonly value="f009" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf00a;</span> icon-gamepad-view</div><label class="_demo_code">U+ <input readonly value="f00a" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf00b;</span> icon-gamepad-share</div><label class="_demo_code">U+ <input readonly value="f00b" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf00c;</span> icon-gamepad-rtrigger</div><label class="_demo_code">U+ <input readonly value="f00c" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf00d;</span> icon-gamepad-rstick</div><label class="_demo_code">U+ <input readonly value="f00d" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf00e;</span> icon-gamepad-rstick-updown</div><label class="_demo_code">U+ <input readonly value="f00e" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf00f;</span> icon-gamepad-rstick-up</div><label class="_demo_code">U+ <input readonly value="f00f" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf010;</span> icon-gamepad-rstick-right</div><label class="_demo_code">U+ <input readonly value="f010" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf011;</span> icon-gamepad-rstick-leftright</div><label class="_demo_code">U+ <input readonly value="f011" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf012;</span> icon-gamepad-rstick-left</div><label class="_demo_code">U+ <input readonly value="f012" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf013;</span> icon-gamepad-rstick-down</div><label class="_demo_code">U+ <input readonly value="f013" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf014;</span> icon-gamepad-rstick-click</div><label class="_demo_code">U+ <input readonly value="f014" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf015;</span> icon-gamepad-rstick-all</div><label class="_demo_code">U+ <input readonly value="f015" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf016;</span> icon-gamepad-rbumper</div><label class="_demo_code">U+ <input readonly value="f016" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf017;</span> icon-gamepad-menu</div><label class="_demo_code">U+ <input readonly value="f017" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf018;</span> icon-gamepad-ltrigger</div><label class="_demo_code">U+ <input readonly value="f018" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf019;</span> icon-gamepad-lstick</div><label class="_demo_code">U+ <input readonly value="f019" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf01a;</span> icon-gamepad-lstick-updown</div><label class="_demo_code">U+ <input readonly value="f01a" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf01b;</span> icon-gamepad-lstick-up</div><label class="_demo_code">U+ <input readonly value="f01b" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf01c;</span> icon-gamepad-lstick-right</div><label class="_demo_code">U+ <input readonly value="f01c" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf01d;</span> icon-gamepad-lstick-leftright</div><label class="_demo_code">U+ <input readonly value="f01d" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf01e;</span> icon-gamepad-lstick-left</div><label class="_demo_code">U+ <input readonly value="f01e" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf01f;</span> icon-gamepad-lstick-down</div><label class="_demo_code">U+ <input readonly value="f01f" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf020;</span> icon-gamepad-lstick-click</div><label class="_demo_code">U+ <input readonly value="f020" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf021;</span> icon-gamepad-lstick-all</div><label class="_demo_code">U+ <input readonly value="f021" /></label></div>
+            <div><div class="_demo_glyph"><span class="icon">&#xf022;</span> icon-LeftBumper</div><label class="_demo_code">U+ <input readonly value="f022" /></label></div>
             <div><div class="_demo_glyph"><span class="icon">&#xf6e3;</span> icon-toggle-off</div><label class="_demo_code">U+ <input readonly value="f6e3" /></label></div>
             <div><div class="_demo_glyph"><span class="icon">&#xfa3f;</span> icon-toggle-on</div><label class="_demo_code">U+ <input readonly value="fa3f" /></label></div>
             <div><div class="_demo_glyph"><span class="icon">&#xf2e6;</span> icon-wiki-fandom</div><label class="_demo_code">U+ <input readonly value="f2e6" /></label></div>
@@ -263,6 +354,36 @@ body {--glyph-size: 32px;}#size {width: 5em;}#test {display: block;margin: 3rem 
                     });
                 } catch (ignore) {}
             }
+        }, false);
+        document.getElementById("palette").addEventListener("change", function (e) {
+            const i = Number(e.target.value);
+            const testArea = document.querySelector("#test textarea");
+            const className = "icon" + (
+                (e.target.value === "" || Number.isNaN(i))
+                ? ""
+                : " palette" + i
+            );
+            document.querySelectorAll(".icon").forEach(function (x) {
+                x.className = className;
+            });
+            const selected = e.target.children[e.target.selectedIndex];
+            const background = selected.getAttribute("data-background");
+            const foreground = selected.getAttribute("data-foreground");
+            let style = [];
+            if (background) {
+                style.push(`--background: ${background}`);
+                testArea.style.background = background;
+            } else {
+                testArea.style.background = "";
+            }
+            if (foreground) {
+                style.push(`--color: ${foreground}`);
+                testArea.style.color = foreground;
+            } else {
+                testArea.style.color = "";
+            }
+            style = style.join("; ");
+            wrapper.setAttribute("style", style);
         }, false);
         document.getElementById("size").addEventListener("change", function (e) {
             let size = Number(e.target.value);

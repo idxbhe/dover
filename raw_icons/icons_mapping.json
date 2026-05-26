@@ -1,4 +1,214 @@
 {
+    "gamepad-home": {
+        "macro": "ICON_GAMEPAD_HOME",
+        "codepoint_dec": 61440,
+        "codepoint_hex": "U+F000",
+        "utf8_cpp": "\\xef\\x80\\x80"
+    },
+    "gamepad-dpad": {
+        "macro": "ICON_GAMEPAD_DPAD",
+        "codepoint_dec": 61441,
+        "codepoint_hex": "U+F001",
+        "utf8_cpp": "\\xef\\x80\\x81"
+    },
+    "gamepad-dpad-up": {
+        "macro": "ICON_GAMEPAD_DPAD_UP",
+        "codepoint_dec": 61442,
+        "codepoint_hex": "U+F002",
+        "utf8_cpp": "\\xef\\x80\\x82"
+    },
+    "gamepad-dpad-right": {
+        "macro": "ICON_GAMEPAD_DPAD_RIGHT",
+        "codepoint_dec": 61443,
+        "codepoint_hex": "U+F003",
+        "utf8_cpp": "\\xef\\x80\\x83"
+    },
+    "gamepad-dpad-left": {
+        "macro": "ICON_GAMEPAD_DPAD_LEFT",
+        "codepoint_dec": 61444,
+        "codepoint_hex": "U+F004",
+        "utf8_cpp": "\\xef\\x80\\x84"
+    },
+    "gamepad-dpad-down": {
+        "macro": "ICON_GAMEPAD_DPAD_DOWN",
+        "codepoint_dec": 61445,
+        "codepoint_hex": "U+F005",
+        "utf8_cpp": "\\xef\\x80\\x85"
+    },
+    "gamepad-b": {
+        "macro": "ICON_GAMEPAD_B",
+        "codepoint_dec": 61446,
+        "codepoint_hex": "U+F006",
+        "utf8_cpp": "\\xef\\x80\\x86"
+    },
+    "gamepad-a": {
+        "macro": "ICON_GAMEPAD_A",
+        "codepoint_dec": 61447,
+        "codepoint_hex": "U+F007",
+        "utf8_cpp": "\\xef\\x80\\x87"
+    },
+    "gamepad-y": {
+        "macro": "ICON_GAMEPAD_Y",
+        "codepoint_dec": 61448,
+        "codepoint_hex": "U+F008",
+        "utf8_cpp": "\\xef\\x80\\x88"
+    },
+    "gamepad-x": {
+        "macro": "ICON_GAMEPAD_X",
+        "codepoint_dec": 61449,
+        "codepoint_hex": "U+F009",
+        "utf8_cpp": "\\xef\\x80\\x89"
+    },
+    "gamepad-view": {
+        "macro": "ICON_GAMEPAD_VIEW",
+        "codepoint_dec": 61450,
+        "codepoint_hex": "U+F00A",
+        "utf8_cpp": "\\xef\\x80\\x8a"
+    },
+    "gamepad-share": {
+        "macro": "ICON_GAMEPAD_SHARE",
+        "codepoint_dec": 61451,
+        "codepoint_hex": "U+F00B",
+        "utf8_cpp": "\\xef\\x80\\x8b"
+    },
+    "gamepad-rtrigger": {
+        "macro": "ICON_GAMEPAD_RTRIGGER",
+        "codepoint_dec": 61452,
+        "codepoint_hex": "U+F00C",
+        "utf8_cpp": "\\xef\\x80\\x8c"
+    },
+    "gamepad-rstick": {
+        "macro": "ICON_GAMEPAD_RSTICK",
+        "codepoint_dec": 61453,
+        "codepoint_hex": "U+F00D",
+        "utf8_cpp": "\\xef\\x80\\x8d"
+    },
+    "gamepad-rstick-updown": {
+        "macro": "ICON_GAMEPAD_RSTICK_UPDOWN",
+        "codepoint_dec": 61454,
+        "codepoint_hex": "U+F00E",
+        "utf8_cpp": "\\xef\\x80\\x8e"
+    },
+    "gamepad-rstick-up": {
+        "macro": "ICON_GAMEPAD_RSTICK_UP",
+        "codepoint_dec": 61455,
+        "codepoint_hex": "U+F00F",
+        "utf8_cpp": "\\xef\\x80\\x8f"
+    },
+    "gamepad-rstick-right": {
+        "macro": "ICON_GAMEPAD_RSTICK_RIGHT",
+        "codepoint_dec": 61456,
+        "codepoint_hex": "U+F010",
+        "utf8_cpp": "\\xef\\x80\\x90"
+    },
+    "gamepad-rstick-leftright": {
+        "macro": "ICON_GAMEPAD_RSTICK_LEFTRIGHT",
+        "codepoint_dec": 61457,
+        "codepoint_hex": "U+F011",
+        "utf8_cpp": "\\xef\\x80\\x91"
+    },
+    "gamepad-rstick-left": {
+        "macro": "ICON_GAMEPAD_RSTICK_LEFT",
+        "codepoint_dec": 61458,
+        "codepoint_hex": "U+F012",
+        "utf8_cpp": "\\xef\\x80\\x92"
+    },
+    "gamepad-rstick-down": {
+        "macro": "ICON_GAMEPAD_RSTICK_DOWN",
+        "codepoint_dec": 61459,
+        "codepoint_hex": "U+F013",
+        "utf8_cpp": "\\xef\\x80\\x93"
+    },
+    "gamepad-rstick-click": {
+        "macro": "ICON_GAMEPAD_RSTICK_CLICK",
+        "codepoint_dec": 61460,
+        "codepoint_hex": "U+F014",
+        "utf8_cpp": "\\xef\\x80\\x94"
+    },
+    "gamepad-rstick-all": {
+        "macro": "ICON_GAMEPAD_RSTICK_ALL",
+        "codepoint_dec": 61461,
+        "codepoint_hex": "U+F015",
+        "utf8_cpp": "\\xef\\x80\\x95"
+    },
+    "gamepad-rbumper": {
+        "macro": "ICON_GAMEPAD_RBUMPER",
+        "codepoint_dec": 61462,
+        "codepoint_hex": "U+F016",
+        "utf8_cpp": "\\xef\\x80\\x96"
+    },
+    "gamepad-menu": {
+        "macro": "ICON_GAMEPAD_MENU",
+        "codepoint_dec": 61463,
+        "codepoint_hex": "U+F017",
+        "utf8_cpp": "\\xef\\x80\\x97"
+    },
+    "gamepad-ltrigger": {
+        "macro": "ICON_GAMEPAD_LTRIGGER",
+        "codepoint_dec": 61464,
+        "codepoint_hex": "U+F018",
+        "utf8_cpp": "\\xef\\x80\\x98"
+    },
+    "gamepad-lstick": {
+        "macro": "ICON_GAMEPAD_LSTICK",
+        "codepoint_dec": 61465,
+        "codepoint_hex": "U+F019",
+        "utf8_cpp": "\\xef\\x80\\x99"
+    },
+    "gamepad-lstick-updown": {
+        "macro": "ICON_GAMEPAD_LSTICK_UPDOWN",
+        "codepoint_dec": 61466,
+        "codepoint_hex": "U+F01A",
+        "utf8_cpp": "\\xef\\x80\\x9a"
+    },
+    "gamepad-lstick-up": {
+        "macro": "ICON_GAMEPAD_LSTICK_UP",
+        "codepoint_dec": 61467,
+        "codepoint_hex": "U+F01B",
+        "utf8_cpp": "\\xef\\x80\\x9b"
+    },
+    "gamepad-lstick-right": {
+        "macro": "ICON_GAMEPAD_LSTICK_RIGHT",
+        "codepoint_dec": 61468,
+        "codepoint_hex": "U+F01C",
+        "utf8_cpp": "\\xef\\x80\\x9c"
+    },
+    "gamepad-lstick-leftright": {
+        "macro": "ICON_GAMEPAD_LSTICK_LEFTRIGHT",
+        "codepoint_dec": 61469,
+        "codepoint_hex": "U+F01D",
+        "utf8_cpp": "\\xef\\x80\\x9d"
+    },
+    "gamepad-lstick-left": {
+        "macro": "ICON_GAMEPAD_LSTICK_LEFT",
+        "codepoint_dec": 61470,
+        "codepoint_hex": "U+F01E",
+        "utf8_cpp": "\\xef\\x80\\x9e"
+    },
+    "gamepad-lstick-down": {
+        "macro": "ICON_GAMEPAD_LSTICK_DOWN",
+        "codepoint_dec": 61471,
+        "codepoint_hex": "U+F01F",
+        "utf8_cpp": "\\xef\\x80\\x9f"
+    },
+    "gamepad-lstick-click": {
+        "macro": "ICON_GAMEPAD_LSTICK_CLICK",
+        "codepoint_dec": 61472,
+        "codepoint_hex": "U+F020",
+        "utf8_cpp": "\\xef\\x80\\xa0"
+    },
+    "gamepad-lstick-all": {
+        "macro": "ICON_GAMEPAD_LSTICK_ALL",
+        "codepoint_dec": 61473,
+        "codepoint_hex": "U+F021",
+        "utf8_cpp": "\\xef\\x80\\xa1"
+    },
+    "LeftBumper": {
+        "macro": "ICON_LEFTBUMPER",
+        "codepoint_dec": 61474,
+        "codepoint_hex": "U+F022",
+        "utf8_cpp": "\\xef\\x80\\xa2"
+    },
     "toggle-off": {
         "macro": "ICON_TOGGLE_OFF",
         "codepoint_dec": 63203,

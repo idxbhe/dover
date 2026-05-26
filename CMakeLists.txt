@@ -98,7 +98,7 @@ target_include_directories(imgui PUBLIC
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
 )
-target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_FREETYPE IMGUI_USE_WCHAR32)
+target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_FREETYPE)
 target_link_libraries(imgui PUBLIC freetype)
 
 if(MSVC)

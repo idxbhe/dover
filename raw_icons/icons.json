@@ -1,0 +1,422 @@
+{
+    "add-new": {
+        "macro": "ICON_ADD_NEW",
+        "codepoint_dec": 61696,
+        "codepoint_hex": "U+F100",
+        "utf8_cpp": "\\xef\\x84\\x80"
+    },
+    "delete": {
+        "macro": "ICON_DELETE",
+        "codepoint_dec": 61697,
+        "codepoint_hex": "U+F101",
+        "utf8_cpp": "\\xef\\x84\\x81"
+    },
+    "gamepad-a": {
+        "macro": "ICON_GAMEPAD_A",
+        "codepoint_dec": 61698,
+        "codepoint_hex": "U+F102",
+        "utf8_cpp": "\\xef\\x84\\x82"
+    },
+    "gamepad-b": {
+        "macro": "ICON_GAMEPAD_B",
+        "codepoint_dec": 61699,
+        "codepoint_hex": "U+F103",
+        "utf8_cpp": "\\xef\\x84\\x83"
+    },
+    "gamepad-dpad-down": {
+        "macro": "ICON_GAMEPAD_DPAD_DOWN",
+        "codepoint_dec": 61700,
+        "codepoint_hex": "U+F104",
+        "utf8_cpp": "\\xef\\x84\\x84"
+    },
+    "gamepad-dpad-left": {
+        "macro": "ICON_GAMEPAD_DPAD_LEFT",
+        "codepoint_dec": 61701,
+        "codepoint_hex": "U+F105",
+        "utf8_cpp": "\\xef\\x84\\x85"
+    },
+    "gamepad-dpad-right": {
+        "macro": "ICON_GAMEPAD_DPAD_RIGHT",
+        "codepoint_dec": 61702,
+        "codepoint_hex": "U+F106",
+        "utf8_cpp": "\\xef\\x84\\x86"
+    },
+    "gamepad-dpad-up": {
+        "macro": "ICON_GAMEPAD_DPAD_UP",
+        "codepoint_dec": 61703,
+        "codepoint_hex": "U+F107",
+        "utf8_cpp": "\\xef\\x84\\x87"
+    },
+    "gamepad-dpad": {
+        "macro": "ICON_GAMEPAD_DPAD",
+        "codepoint_dec": 61704,
+        "codepoint_hex": "U+F108",
+        "utf8_cpp": "\\xef\\x84\\x88"
+    },
+    "gamepad-home": {
+        "macro": "ICON_GAMEPAD_HOME",
+        "codepoint_dec": 61705,
+        "codepoint_hex": "U+F109",
+        "utf8_cpp": "\\xef\\x84\\x89"
+    },
+    "gamepad-lbumper": {
+        "macro": "ICON_GAMEPAD_LBUMPER",
+        "codepoint_dec": 61706,
+        "codepoint_hex": "U+F10A",
+        "utf8_cpp": "\\xef\\x84\\x8a"
+    },
+    "gamepad-lstick-all": {
+        "macro": "ICON_GAMEPAD_LSTICK_ALL",
+        "codepoint_dec": 61707,
+        "codepoint_hex": "U+F10B",
+        "utf8_cpp": "\\xef\\x84\\x8b"
+    },
+    "gamepad-lstick-click": {
+        "macro": "ICON_GAMEPAD_LSTICK_CLICK",
+        "codepoint_dec": 61708,
+        "codepoint_hex": "U+F10C",
+        "utf8_cpp": "\\xef\\x84\\x8c"
+    },
+    "gamepad-lstick-down": {
+        "macro": "ICON_GAMEPAD_LSTICK_DOWN",
+        "codepoint_dec": 61709,
+        "codepoint_hex": "U+F10D",
+        "utf8_cpp": "\\xef\\x84\\x8d"
+    },
+    "gamepad-lstick-left": {
+        "macro": "ICON_GAMEPAD_LSTICK_LEFT",
+        "codepoint_dec": 61710,
+        "codepoint_hex": "U+F10E",
+        "utf8_cpp": "\\xef\\x84\\x8e"
+    },
+    "gamepad-lstick-leftright": {
+        "macro": "ICON_GAMEPAD_LSTICK_LEFTRIGHT",
+        "codepoint_dec": 61711,
+        "codepoint_hex": "U+F10F",
+        "utf8_cpp": "\\xef\\x84\\x8f"
+    },
+    "gamepad-lstick-right": {
+        "macro": "ICON_GAMEPAD_LSTICK_RIGHT",
+        "codepoint_dec": 61712,
+        "codepoint_hex": "U+F110",
+        "utf8_cpp": "\\xef\\x84\\x90"
+    },
+    "gamepad-lstick-up": {
+        "macro": "ICON_GAMEPAD_LSTICK_UP",
+        "codepoint_dec": 61713,
+        "codepoint_hex": "U+F111",
+        "utf8_cpp": "\\xef\\x84\\x91"
+    },
+    "gamepad-lstick-updown": {
+        "macro": "ICON_GAMEPAD_LSTICK_UPDOWN",
+        "codepoint_dec": 61714,
+        "codepoint_hex": "U+F112",
+        "utf8_cpp": "\\xef\\x84\\x92"
+    },
+    "gamepad-lstick": {
+        "macro": "ICON_GAMEPAD_LSTICK",
+        "codepoint_dec": 61715,
+        "codepoint_hex": "U+F113",
+        "utf8_cpp": "\\xef\\x84\\x93"
+    },
+    "gamepad-ltrigger": {
+        "macro": "ICON_GAMEPAD_LTRIGGER",
+        "codepoint_dec": 61716,
+        "codepoint_hex": "U+F114",
+        "utf8_cpp": "\\xef\\x84\\x94"
+    },
+    "gamepad-menu": {
+        "macro": "ICON_GAMEPAD_MENU",
+        "codepoint_dec": 61717,
+        "codepoint_hex": "U+F115",
+        "utf8_cpp": "\\xef\\x84\\x95"
+    },
+    "gamepad-rbumper": {
+        "macro": "ICON_GAMEPAD_RBUMPER",
+        "codepoint_dec": 61718,
+        "codepoint_hex": "U+F116",
+        "utf8_cpp": "\\xef\\x84\\x96"
+    },
+    "gamepad-rstick-all": {
+        "macro": "ICON_GAMEPAD_RSTICK_ALL",
+        "codepoint_dec": 61719,
+        "codepoint_hex": "U+F117",
+        "utf8_cpp": "\\xef\\x84\\x97"
+    },
+    "gamepad-rstick-click": {
+        "macro": "ICON_GAMEPAD_RSTICK_CLICK",
+        "codepoint_dec": 61720,
+        "codepoint_hex": "U+F118",
+        "utf8_cpp": "\\xef\\x84\\x98"
+    },
+    "gamepad-rstick-down": {
+        "macro": "ICON_GAMEPAD_RSTICK_DOWN",
+        "codepoint_dec": 61721,
+        "codepoint_hex": "U+F119",
+        "utf8_cpp": "\\xef\\x84\\x99"
+    },
+    "gamepad-rstick-left": {
+        "macro": "ICON_GAMEPAD_RSTICK_LEFT",
+        "codepoint_dec": 61722,
+        "codepoint_hex": "U+F11A",
+        "utf8_cpp": "\\xef\\x84\\x9a"
+    },
+    "gamepad-rstick-leftright": {
+        "macro": "ICON_GAMEPAD_RSTICK_LEFTRIGHT",
+        "codepoint_dec": 61723,
+        "codepoint_hex": "U+F11B",
+        "utf8_cpp": "\\xef\\x84\\x9b"
+    },
+    "gamepad-rstick-right": {
+        "macro": "ICON_GAMEPAD_RSTICK_RIGHT",
+        "codepoint_dec": 61724,
+        "codepoint_hex": "U+F11C",
+        "utf8_cpp": "\\xef\\x84\\x9c"
+    },
+    "gamepad-rstick-up": {
+        "macro": "ICON_GAMEPAD_RSTICK_UP",
+        "codepoint_dec": 61725,
+        "codepoint_hex": "U+F11D",
+        "utf8_cpp": "\\xef\\x84\\x9d"
+    },
+    "gamepad-rstick-updown": {
+        "macro": "ICON_GAMEPAD_RSTICK_UPDOWN",
+        "codepoint_dec": 61726,
+        "codepoint_hex": "U+F11E",
+        "utf8_cpp": "\\xef\\x84\\x9e"
+    },
+    "gamepad-rstick": {
+        "macro": "ICON_GAMEPAD_RSTICK",
+        "codepoint_dec": 61727,
+        "codepoint_hex": "U+F11F",
+        "utf8_cpp": "\\xef\\x84\\x9f"
+    },
+    "gamepad-rtrigger": {
+        "macro": "ICON_GAMEPAD_RTRIGGER",
+        "codepoint_dec": 61728,
+        "codepoint_hex": "U+F120",
+        "utf8_cpp": "\\xef\\x84\\xa0"
+    },
+    "gamepad-share": {
+        "macro": "ICON_GAMEPAD_SHARE",
+        "codepoint_dec": 61729,
+        "codepoint_hex": "U+F121",
+        "utf8_cpp": "\\xef\\x84\\xa1"
+    },
+    "gamepad-view": {
+        "macro": "ICON_GAMEPAD_VIEW",
+        "codepoint_dec": 61730,
+        "codepoint_hex": "U+F122",
+        "utf8_cpp": "\\xef\\x84\\xa2"
+    },
+    "gamepad-x": {
+        "macro": "ICON_GAMEPAD_X",
+        "codepoint_dec": 61731,
+        "codepoint_hex": "U+F123",
+        "utf8_cpp": "\\xef\\x84\\xa3"
+    },
+    "gamepad-y": {
+        "macro": "ICON_GAMEPAD_Y",
+        "codepoint_dec": 61732,
+        "codepoint_hex": "U+F124",
+        "utf8_cpp": "\\xef\\x84\\xa4"
+    },
+    "panel-notes": {
+        "macro": "ICON_PANEL_NOTES",
+        "codepoint_dec": 61733,
+        "codepoint_hex": "U+F125",
+        "utf8_cpp": "\\xef\\x84\\xa5"
+    },
+    "panel-settings": {
+        "macro": "ICON_PANEL_SETTINGS",
+        "codepoint_dec": 61734,
+        "codepoint_hex": "U+F126",
+        "utf8_cpp": "\\xef\\x84\\xa6"
+    },
+    "setting-about": {
+        "macro": "ICON_SETTING_ABOUT",
+        "codepoint_dec": 61735,
+        "codepoint_hex": "U+F127",
+        "utf8_cpp": "\\xef\\x84\\xa7"
+    },
+    "setting-keybinds": {
+        "macro": "ICON_SETTING_KEYBINDS",
+        "codepoint_dec": 61736,
+        "codepoint_hex": "U+F128",
+        "utf8_cpp": "\\xef\\x84\\xa8"
+    },
+    "setting-theme": {
+        "macro": "ICON_SETTING_THEME",
+        "codepoint_dec": 61737,
+        "codepoint_hex": "U+F129",
+        "utf8_cpp": "\\xef\\x84\\xa9"
+    },
+    "text-format-bold": {
+        "macro": "ICON_TEXT_FORMAT_BOLD",
+        "codepoint_dec": 61738,
+        "codepoint_hex": "U+F12A",
+        "utf8_cpp": "\\xef\\x84\\xaa"
+    },
+    "text-format-code-block": {
+        "macro": "ICON_TEXT_FORMAT_CODE_BLOCK",
+        "codepoint_dec": 61739,
+        "codepoint_hex": "U+F12B",
+        "utf8_cpp": "\\xef\\x84\\xab"
+    },
+    "text-format-code": {
+        "macro": "ICON_TEXT_FORMAT_CODE",
+        "codepoint_dec": 61740,
+        "codepoint_hex": "U+F12C",
+        "utf8_cpp": "\\xef\\x84\\xac"
+    },
+    "text-format-h-five": {
+        "macro": "ICON_TEXT_FORMAT_H_FIVE",
+        "codepoint_dec": 61741,
+        "codepoint_hex": "U+F12D",
+        "utf8_cpp": "\\xef\\x84\\xad"
+    },
+    "text-format-h-four": {
+        "macro": "ICON_TEXT_FORMAT_H_FOUR",
+        "codepoint_dec": 61742,
+        "codepoint_hex": "U+F12E",
+        "utf8_cpp": "\\xef\\x84\\xae"
+    },
+    "text-format-h-one": {
+        "macro": "ICON_TEXT_FORMAT_H_ONE",
+        "codepoint_dec": 61743,
+        "codepoint_hex": "U+F12F",
+        "utf8_cpp": "\\xef\\x84\\xaf"
+    },
+    "text-format-h-three": {
+        "macro": "ICON_TEXT_FORMAT_H_THREE",
+        "codepoint_dec": 61744,
+        "codepoint_hex": "U+F130",
+        "utf8_cpp": "\\xef\\x84\\xb0"
+    },
+    "text-format-h-two": {
+        "macro": "ICON_TEXT_FORMAT_H_TWO",
+        "codepoint_dec": 61745,
+        "codepoint_hex": "U+F131",
+        "utf8_cpp": "\\xef\\x84\\xb1"
+    },
+    "text-format-headings": {
+        "macro": "ICON_TEXT_FORMAT_HEADINGS",
+        "codepoint_dec": 61746,
+        "codepoint_hex": "U+F132",
+        "utf8_cpp": "\\xef\\x84\\xb2"
+    },
+    "text-format-indent": {
+        "macro": "ICON_TEXT_FORMAT_INDENT",
+        "codepoint_dec": 61747,
+        "codepoint_hex": "U+F133",
+        "utf8_cpp": "\\xef\\x84\\xb3"
+    },
+    "text-format-italic": {
+        "macro": "ICON_TEXT_FORMAT_ITALIC",
+        "codepoint_dec": 61748,
+        "codepoint_hex": "U+F134",
+        "utf8_cpp": "\\xef\\x84\\xb4"
+    },
+    "text-format-list-bullets": {
+        "macro": "ICON_TEXT_FORMAT_LIST_BULLETS",
+        "codepoint_dec": 61749,
+        "codepoint_hex": "U+F135",
+        "utf8_cpp": "\\xef\\x84\\xb5"
+    },
+    "text-format-list-numbers": {
+        "macro": "ICON_TEXT_FORMAT_LIST_NUMBERS",
+        "codepoint_dec": 61750,
+        "codepoint_hex": "U+F136",
+        "utf8_cpp": "\\xef\\x84\\xb6"
+    },
+    "text-format-lists": {
+        "macro": "ICON_TEXT_FORMAT_LISTS",
+        "codepoint_dec": 61751,
+        "codepoint_hex": "U+F137",
+        "utf8_cpp": "\\xef\\x84\\xb7"
+    },
+    "text-format-outdent": {
+        "macro": "ICON_TEXT_FORMAT_OUTDENT",
+        "codepoint_dec": 61752,
+        "codepoint_hex": "U+F138",
+        "utf8_cpp": "\\xef\\x84\\xb8"
+    },
+    "text-format-strikethrough": {
+        "macro": "ICON_TEXT_FORMAT_STRIKETHROUGH",
+        "codepoint_dec": 61753,
+        "codepoint_hex": "U+F139",
+        "utf8_cpp": "\\xef\\x84\\xb9"
+    },
+    "text-format-underline": {
+        "macro": "ICON_TEXT_FORMAT_UNDERLINE",
+        "codepoint_dec": 61754,
+        "codepoint_hex": "U+F13A",
+        "utf8_cpp": "\\xef\\x84\\xba"
+    },
+    "toggle-edit": {
+        "macro": "ICON_TOGGLE_EDIT",
+        "codepoint_dec": 61755,
+        "codepoint_hex": "U+F13B",
+        "utf8_cpp": "\\xef\\x84\\xbb"
+    },
+    "toggle-hide-sidebar": {
+        "macro": "ICON_TOGGLE_HIDE_SIDEBAR",
+        "codepoint_dec": 61756,
+        "codepoint_hex": "U+F13C",
+        "utf8_cpp": "\\xef\\x84\\xbc"
+    },
+    "toggle-off": {
+        "macro": "ICON_TOGGLE_OFF",
+        "codepoint_dec": 61757,
+        "codepoint_hex": "U+F13D",
+        "utf8_cpp": "\\xef\\x84\\xbd"
+    },
+    "toggle-on": {
+        "macro": "ICON_TOGGLE_ON",
+        "codepoint_dec": 61758,
+        "codepoint_hex": "U+F13E",
+        "utf8_cpp": "\\xef\\x84\\xbe"
+    },
+    "toggle-read": {
+        "macro": "ICON_TOGGLE_READ",
+        "codepoint_dec": 61759,
+        "codepoint_hex": "U+F13F",
+        "utf8_cpp": "\\xef\\x84\\xbf"
+    },
+    "toggle-show-sidebar": {
+        "macro": "ICON_TOGGLE_SHOW_SIDEBAR",
+        "codepoint_dec": 61760,
+        "codepoint_hex": "U+F140",
+        "utf8_cpp": "\\xef\\x85\\x80"
+    },
+    "wiki-fandom": {
+        "macro": "ICON_WIKI_FANDOM",
+        "codepoint_dec": 61761,
+        "codepoint_hex": "U+F141",
+        "utf8_cpp": "\\xef\\x85\\x81"
+    },
+    "window-close": {
+        "macro": "ICON_WINDOW_CLOSE",
+        "codepoint_dec": 61762,
+        "codepoint_hex": "U+F142",
+        "utf8_cpp": "\\xef\\x85\\x82"
+    },
+    "window-full": {
+        "macro": "ICON_WINDOW_FULL",
+        "codepoint_dec": 61763,
+        "codepoint_hex": "U+F143",
+        "utf8_cpp": "\\xef\\x85\\x83"
+    },
+    "window-pinned": {
+        "macro": "ICON_WINDOW_PINNED",
+        "codepoint_dec": 61764,
+        "codepoint_hex": "U+F144",
+        "utf8_cpp": "\\xef\\x85\\x84"
+    },
+    "window-windowed": {
+        "macro": "ICON_WINDOW_WINDOWED",
+        "codepoint_dec": 61765,
+        "codepoint_hex": "U+F145",
+        "utf8_cpp": "\\xef\\x85\\x85"
+    }
+}
