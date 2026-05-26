@@ -1,5 +1,6 @@
 #include "overlay/ui/components/base_window.h"
 #include "overlay/icons.h"
+#include "overlay/game_storage.h"
 #include <imgui.h>
 
 namespace dover::overlay {
@@ -214,6 +215,21 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary)
             Close();
         }
     }
+}
+
+void BaseWindow::Open() {
+    m_is_open = true;
+    GameStorage::Get().SaveState();
+}
+
+void BaseWindow::Close() {
+    m_is_open = false;
+    GameStorage::Get().SaveState();
+}
+
+void BaseWindow::ToggleOpen() {
+    m_is_open = !m_is_open;
+    GameStorage::Get().SaveState();
 }
 
 } // namespace dover::overlay::ui

@@ -4,6 +4,8 @@
 #include "overlay/notes/formatter.h"
 #include "overlay/notes/style.h"
 #include "overlay/icons.h"
+#include "overlay/game_storage.h"
+#include "shared/log.h"
 
 #include <imgui.h>
 #include <string>
@@ -75,11 +77,54 @@ void NotesWindow::FlushEditBufferToNote() {
   }
 }
 
-void NotesWindow::SelectNote(int idx) {
+void NotesWindow::SelectNote(int idx, bool save_state) {
   FlushEditBufferToNote();
   m_selected_note_idx = idx;
   SyncEditBufferFromNote(idx);
   m_view_mode = 1;
+  if (save_state) {
+    GameStorage::Get().SaveState();
+  }
+}
+
+void NotesWindow::SelectNoteByFilename(const std::string& filename) {
+  auto& notes = GetNotes();
+  {
+    std::string msg = "NotesWindow::SelectNoteByFilename - Searching for filename: '" + filename + "', total notes loaded: " + std::to_string(notes.size());
+    shared::LogInfo(msg.c_str());
+  }
+  for (size_t i = 0; i < notes.size(); ++i) {
+    {
+      std::string msg = "  Note [" + std::to_string(i) + "]: filename='" + notes[i].filename + "', title='" + notes[i].title + "'";
+      shared::LogInfo(msg.c_str());
+    }
+    if (notes[i].filename == filename) {
+      {
+        std::string msg = "NotesWindow::SelectNoteByFilename - MATCH found at index " + std::to_string(i) + ". Selecting note.";
+        shared::LogInfo(msg.c_str());
+      }
+      SelectNote(static_cast<int>(i), false);
+      return;
+    }
+  }
+  shared::LogInfo("NotesWindow::SelectNoteByFilename - NO MATCH found. Falling back to note index 0.");
+  if (!notes.empty()) {
+    SelectNote(0, false);
+  }
+}
+
+std::string NotesWindow::GetSelectedNoteFilename() const {
+  auto& notes = GetNotes();
+  if (m_selected_note_idx >= 0 && static_cast<size_t>(m_selected_note_idx) < notes.size()) {
+    std::string fn = notes[m_selected_note_idx].filename;
+    {
+      std::string msg = "NotesWindow::GetSelectedNoteFilename - Active note index " + std::to_string(m_selected_note_idx) + " -> filename='" + fn + "'";
+      shared::LogInfo(msg.c_str());
+    }
+    return fn;
+  }
+  shared::LogInfo("NotesWindow::GetSelectedNoteFilename - Active index invalid or empty, returning empty string.");
+  return "";
 }
 
 void NotesWindow::SwitchToEditor() {

@@ -115,7 +115,7 @@ void RenderImGuiUI() {
     const float button_spacing = 8.0f;
     ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(display_size.x, bar_height), ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.92f);
+    ImGui::SetNextWindowBgAlpha(0.0f);
     
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);

@@ -51,10 +51,10 @@ public:
     // Call this every frame inside RenderImGuiUI
     void Render(bool interactive);
 
-    // State Accessors
-    void Open() { m_is_open = true; }
-    void Close() { m_is_open = false; }
-    void ToggleOpen() { m_is_open = !m_is_open; }
+    void Open();
+    void Close();
+    void ToggleOpen();
+    void SetOpenDirect(bool open) { m_is_open = open; }
     
     bool IsOpen() const { return m_is_open; }
     bool* GetOpenPtr() { return &m_is_open; }

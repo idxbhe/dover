@@ -1,6 +1,7 @@
 #include "overlay/game_storage.h"
 #include "shared/storage.h"
 #include "shared/config.h"
+#include "shared/log.h"
 #include "overlay/overlay_ui.h"
 #include "overlay/notes/layout.h"
 #include "overlay/notes/manager.h"
@@ -83,22 +84,48 @@ void GameStorage::LoadState() {
     if (!m_initialized) return;
     auto st = GetStatePath();
 
-    int note_idx  = shared::ReadIniInt(st, "notes", "selected_note_index", 0);
+    std::string note_file = shared::ReadIniString(st, "notes", "selected_note_filename", "");
+    {
+      std::string msg = "GameStorage::LoadState - Loaded selected_note_filename: '" + note_file + "'";
+      shared::LogInfo(msg.c_str());
+    }
+    
     int view_mode = shared::ReadIniInt(st, "notes", "view_mode", 1);
-    notes::GetNotesWindow().SelectNote(note_idx);
+    
+    if (!note_file.empty()) {
+        notes::GetNotesWindow().SelectNoteByFilename(note_file);
+    } else {
+        shared::LogInfo("GameStorage::LoadState - selected_note_filename was empty, selecting note 0.");
+        notes::GetNotesWindow().SelectNote(0, false);
+    }
     notes::GetNotesWindow().SetViewMode(view_mode);
 
     int settings_cat = shared::ReadIniInt(st, "settings", "selected_category", 0);
     settings::GetSettingsWindow().SetSelectedCategory(settings_cat);
+
+    bool notes_open = shared::ReadIniBool(st, "notes", "is_open", false);
+    notes::GetNotesWindow().SetOpenDirect(notes_open);
+
+    bool settings_open = shared::ReadIniBool(st, "settings", "is_open", false);
+    settings::GetSettingsWindow().SetOpenDirect(settings_open);
 }
 
 void GameStorage::SaveState() {
     if (!m_initialized) return;
     auto st = GetStatePath();
 
-    shared::WriteIniInt(st, "notes", "selected_note_index", notes::GetNotesWindow().GetSelectedNoteIndex());
+    std::string note_fn = notes::GetNotesWindow().GetSelectedNoteFilename();
+    {
+      std::string msg = "GameStorage::SaveState - Writing selected_note_filename: '" + note_fn + "'";
+      shared::LogInfo(msg.c_str());
+    }
+
+    shared::WriteIniString(st, "notes", "selected_note_filename", note_fn.c_str());
     shared::WriteIniInt(st, "notes", "view_mode",           notes::GetNotesWindow().GetViewMode());
     shared::WriteIniInt(st, "settings", "selected_category", settings::GetSettingsWindow().GetSelectedCategory());
+
+    shared::WriteIniBool(st, "notes", "is_open",            notes::GetNotesWindow().IsOpen());
+    shared::WriteIniBool(st, "settings", "is_open",         settings::GetSettingsWindow().IsOpen());
 }
 
 } // namespace dover::overlay
