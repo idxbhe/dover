@@ -77,6 +77,12 @@ void BaseWindow::Render(bool interactive) {
     if (begin_ok) {
         m_is_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
         
+        // Track the correct parent window size and position while windowed
+        if (!m_is_maximized) {
+            m_prev_pos = ImGui::GetWindowPos();
+            m_prev_size = ImGui::GetWindowSize();
+        }
+        
         // Draw Slate-Blue gradient background base
         ImVec2 min_p = ImGui::GetWindowPos();
         ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
@@ -202,8 +208,6 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary)
         const char* tooltip = m_is_maximized ? "Restore Window Size" : "Maximize Window";
         if (DrawCustomButton(icon, right_boundary - 60.0f, tooltip)) {
             if (!m_is_maximized) {
-                m_prev_pos = ImGui::GetWindowPos();
-                m_prev_size = ImGui::GetWindowSize();
                 m_was_maximized = true;
             }
             m_is_maximized = !m_is_maximized;
