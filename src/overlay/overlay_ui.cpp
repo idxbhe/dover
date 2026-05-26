@@ -29,6 +29,10 @@ const char* g_active_dx_version = "Unknown API";
 float g_overlay_bg_alpha = 0.63f;     // Approx 160/255
 float g_global_window_alpha = 0.95f;
 
+bool g_cfg_show_fps = true;
+bool g_cfg_show_clock = true;
+bool g_cfg_show_api = false;
+
 // ---- Accurate FPS counter using QPC (bypasses ImGui's inflated averaging) ----
 static LARGE_INTEGER g_fps_freq      = {};
 static double        g_fps_last_time = 0.0;
@@ -65,22 +69,32 @@ void RenderImGuiUI() {
   PollGamepadToggle();
 
   // 1. Draw Pinned Info Window (transparent corner overlay) - Hidden when interactive overlay is active
-  if (!g_show_overlay) {
+  if (!g_show_overlay && (g_cfg_show_fps || g_cfg_show_clock || g_cfg_show_api)) {
     ImGui::SetNextWindowPos(ImVec2(12.0f, 10.0f), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
     ImGui::Begin("Info Window", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground);
+                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs);
 
-    TickFPS();
+    if (g_cfg_show_fps) {
+      TickFPS();
+    }
 
-    SYSTEMTIME time{};
-    GetLocalTime(&time);
-    ImGui::TextColored(ImVec4(0.20f, 1.00f, 0.70f, 1.00f), "%02u:%02u:%02u", time.wHour, time.wMinute, time.wSecond);
-    ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", g_fps_value);
-    // Pinned API info hidden as requested:
-    // ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", g_active_dx_version);
+    if (g_cfg_show_clock) {
+      SYSTEMTIME time{};
+      GetLocalTime(&time);
+      ImGui::TextColored(ImVec4(0.20f, 1.00f, 0.70f, 1.00f), "%02u:%02u:%02u", time.wHour, time.wMinute, time.wSecond);
+    }
+    
+    if (g_cfg_show_fps) {
+      ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", g_fps_value);
+    }
+    
+    if (g_cfg_show_api) {
+      ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", g_active_dx_version);
+    }
+    
     ImGui::End();
   }
 

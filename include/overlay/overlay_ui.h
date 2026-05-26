@@ -12,6 +12,10 @@ extern const char* g_active_dx_version;
 extern float g_overlay_bg_alpha;
 extern float g_global_window_alpha;
 
+extern bool g_cfg_show_fps;
+extern bool g_cfg_show_clock;
+extern bool g_cfg_show_api;
+
 
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 void RenderImGuiUI();

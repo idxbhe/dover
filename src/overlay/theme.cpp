@@ -39,7 +39,6 @@ void SetupImGuiTheme() {
     
     ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = g_ini_path_utf8.c_str();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable built-in gamepad navigation
 
     // ---- Load Custom Fonts (3 Roles) ----
     HMODULE hMod = NULL;

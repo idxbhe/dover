@@ -199,11 +199,11 @@ void NotesWindow::RenderToolbar(bool interactive) {
       ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,  ImVec2(0.0f, 0.0f));
       ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f);
       
-      ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(1.00f, 1.00f, 1.00f, 0.05f));
-      ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(1.00f, 1.00f, 1.00f, 0.05f));
-      ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(1.00f, 1.00f, 1.00f, 0.05f));
-      ImGui::PushStyleColor(ImGuiCol_SliderGrab,       ImVec4(0, 0, 0, 0));
-      ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0, 0, 0, 0));
+      ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+      ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+      ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+      ImGui::PushStyleColor(ImGuiCol_SliderGrab,       ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+      ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
       
       const float slider_width = 80.0f;
       float frame_height = ImGui::GetFrameHeight();
@@ -221,10 +221,23 @@ void NotesWindow::RenderToolbar(bool interactive) {
         grab_color = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
       }
       
+      // Draw modern slim background track
+      float track_h = 3.0f;
+      ImVec2 track_min = ImVec2(slider_pos.x, slider_pos.y + frame_height * 0.5f - track_h * 0.5f);
+      ImVec2 track_max = ImVec2(slider_pos.x + slider_width, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
+      ImGui::GetWindowDrawList()->AddRectFilled(track_min, track_max, ImGui::GetColorU32(ImVec4(1.00f, 1.00f, 1.00f, 0.15f)), 1.5f);
+
+      // Draw active filled track (theme accent color matching other premium buttons)
+      if (m_bg_alpha > 0.0f) {
+        ImVec2 active_max = ImVec2(grab_center_x, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
+        ImGui::GetWindowDrawList()->AddRectFilled(track_min, active_max, ImGui::GetColorU32(ImVec4(0.118f, 0.478f, 0.812f, 0.90f)), 1.5f);
+      }
+      
+      // Draw premium grab indicator
       ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
       
       ImGui::PopStyleColor(5);
-      ImGui::PopStyleVar(3);
+      ImGui::PopStyleVar(1);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Opacity (Ctrl+Click to type exact float value)");
       ImGui::SameLine();
 
@@ -378,7 +391,7 @@ void NotesWindow::RenderContent(bool interactive) {
       std::string id_str = "##note_" + std::to_string(i);
       
       ImVec2 min_p = ImVec2(pos.x + 6.0f, pos.y);
-      ImVec2 max_p = ImVec2(pos.x + sb_w, pos.y + 32.0f);
+      ImVec2 max_p = ImVec2(pos.x + sb_w - 6.0f, pos.y + 32.0f);
       
       ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0, 0, 0, 0));
       ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0, 0, 0, 0));
@@ -387,7 +400,7 @@ void NotesWindow::RenderContent(bool interactive) {
       ImGui::SetCursorPosX(6.0f);
       bool selected_now = ImGui::Selectable(id_str.c_str(), is_sel,
                             ImGuiSelectableFlags_None,
-                            ImVec2(sb_w - 6.0f, 32.0f));
+                            ImVec2(sb_w - 12.0f, 32.0f));
                             
       bool is_hovered = ImGui::IsItemHovered();
       bool is_active = ImGui::IsItemActive();

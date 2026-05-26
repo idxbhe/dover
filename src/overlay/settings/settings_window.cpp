@@ -12,9 +12,9 @@ namespace dover::overlay {
 namespace dover::overlay::settings {
 
 SettingsWindow::SettingsWindow()
-    : ui::BaseWindow("Settings", ui::WindowFeature::NoPin, ImVec2(480.0f, 300.0f)) {
+    : ui::BaseWindow("Settings", ui::WindowFeature::NoPin, ImVec2(520.0f, 300.0f)) {
     m_selected_category = 0;
-    m_sidebar_width = 140.0f;
+    m_sidebar_width = 165.0f;
 }
 
 void SettingsWindow::Initialize() {
@@ -24,7 +24,7 @@ void SettingsWindow::Initialize() {
 void SettingsWindow::RenderContent(bool interactive) {
     const float win_w    = ImGui::GetContentRegionAvail().x;
     const float win_h    = ImGui::GetContentRegionAvail().y;
-    const float sb_w     = 140.0f; // Fixed unresizable sidebar width
+    const float sb_w     = 165.0f; // Fixed unresizable sidebar width
     const float split_w  = 1.0f;   // 1px static line width
     const float cont_w   = win_w - sb_w - split_w;
 
@@ -67,14 +67,14 @@ void SettingsWindow::RenderContent(bool interactive) {
         
         ImVec2 pos = ImGui::GetCursorScreenPos();
         ImVec2 min_p = ImVec2(pos.x + 6.0f, pos.y);
-        ImVec2 max_p = ImVec2(pos.x + sb_w, pos.y + 32.0f);
+        ImVec2 max_p = ImVec2(pos.x + sb_w - 6.0f, pos.y + 32.0f);
         
         ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0, 0, 0, 0));
         
         ImGui::SetCursorPosX(6.0f);
-        bool selected_now = ImGui::Selectable(id_str.c_str(), is_sel, ImGuiSelectableFlags_None, ImVec2(sb_w - 6.0f, 32.0f));
+        bool selected_now = ImGui::Selectable(id_str.c_str(), is_sel, ImGuiSelectableFlags_None, ImVec2(sb_w - 12.0f, 32.0f));
         
         bool is_hovered = ImGui::IsItemHovered();
         bool is_active = ImGui::IsItemActive();
@@ -158,6 +158,13 @@ void SettingsWindow::RenderContent(bool interactive) {
                 static bool vsync = true;
                 ImGui::Checkbox("Enable VSync Simulation", &vsync);
                 ImGui::Spacing();
+
+                ImGui::Text("OSD (On Screen Display):");
+                ImGui::Spacing();
+                ImGui::Checkbox("FPS", &g_cfg_show_fps);
+                ImGui::Checkbox("CLOCK", &g_cfg_show_clock);
+                ImGui::Checkbox("GRAPHIC API", &g_cfg_show_api);
+                ImGui::Spacing();
                 
                 ImGui::TextDisabled("Future game-specific saving:");
                 ImGui::TextDisabled("dover/imgui_<game>.ini");
@@ -177,17 +184,76 @@ void SettingsWindow::RenderContent(bool interactive) {
                 ImGui::Text("Current Theme: Steam Slate Blue");
                 ImGui::Spacing();
                 
-                float pct_window = g_global_window_alpha * 100.0f;
-                if (ImGui::SliderFloat("Window Opacity", &pct_window, 0.0f, 100.0f, "%.0f%%")) {
-                    g_global_window_alpha = pct_window / 100.0f;
+                auto RenderSlimSlider = [&](const char* label, float* value_ptr, auto onChangeCallback) {
+                    ImGui::TextDisabled("%s", label);
+                    ImGui::SameLine(130.0f);
+                    
+                    float orig_y = ImGui::GetCursorPosY();
+                    
+                    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
+                    ImGui::SetCursorPosY(orig_y + 3.0f);
+                    
+                    ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+                    ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+                    ImGui::PushStyleColor(ImGuiCol_SliderGrab,       ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+                    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+                    
+                    const float slider_width = 120.0f;
+                    float frame_height = ImGui::GetFrameHeight();
+                    ImVec2 slider_pos = ImGui::GetCursorScreenPos();
+                    ImGui::SetNextItemWidth(slider_width);
+                    
+                    std::string id_str = "##slider_";
+                    id_str += label;
+                    
+                    bool changed = ImGui::SliderFloat(id_str.c_str(), value_ptr, 0.00f, 1.00f, "");
+                    
+                    float grab_center_x = slider_pos.x + (*value_ptr) * slider_width;
+                    float grab_center_y = slider_pos.y + frame_height * 0.5f;
+                    
+                    ImVec4 grab_color = ImVec4(1.00f, 1.00f, 1.00f, 0.90f);
+                    if (ImGui::IsItemActive()) {
+                        grab_color = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+                    } else if (ImGui::IsItemHovered()) {
+                        grab_color = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+                    }
+                    
+                    // Draw modern slim background track
+                    float track_h = 3.0f;
+                    ImVec2 track_min = ImVec2(slider_pos.x, slider_pos.y + frame_height * 0.5f - track_h * 0.5f);
+                    ImVec2 track_max = ImVec2(slider_pos.x + slider_width, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
+                    ImGui::GetWindowDrawList()->AddRectFilled(track_min, track_max, ImGui::GetColorU32(ImVec4(1.00f, 1.00f, 1.00f, 0.15f)), 1.5f);
+
+                    // Draw active filled track (theme accent color matching notes premium slider)
+                    if (*value_ptr > 0.0f) {
+                        ImVec2 active_max = ImVec2(grab_center_x, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
+                        ImGui::GetWindowDrawList()->AddRectFilled(track_min, active_max, ImGui::GetColorU32(ImVec4(0.118f, 0.478f, 0.812f, 0.90f)), 1.5f);
+                    }
+                    
+                    // Draw premium grab indicator
+                    ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
+                    
+                    ImGui::PopStyleColor(5);
+                    ImGui::PopStyleVar(1);
+                    
+                    ImGui::SetCursorPosY(orig_y);
+                    ImGui::SameLine(130.0f + slider_width + 12.0f);
+                    ImGui::TextDisabled("%.0f%%", (*value_ptr) * 100.0f);
+                    
+                    if (changed) {
+                        onChangeCallback();
+                    }
+                };
+
+                RenderSlimSlider("Window Opacity", &g_global_window_alpha, [&]() {
                     m_bg_alpha = g_global_window_alpha;
                     notes::GetNotesWindow().SetBgAlpha(g_global_window_alpha);
-                }
+                });
                 
-                float pct_overlay = g_overlay_bg_alpha * 100.0f;
-                if (ImGui::SliderFloat("Overlay Opacity", &pct_overlay, 0.0f, 100.0f, "%.0f%%")) {
-                    g_overlay_bg_alpha = pct_overlay / 100.0f;
-                }
+                ImGui::Dummy(ImVec2(0.0f, 6.0f));
+                
+                RenderSlimSlider("Overlay Opacity", &g_overlay_bg_alpha, []() {});
                 break;
             }
             case 3: { // About

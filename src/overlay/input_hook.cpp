@@ -211,7 +211,16 @@ XInputGetStateFn g_orig_xinput14_getstate = nullptr;
 XInputGetStateFn g_orig_xinput13_getstate = nullptr;
 
 void ModifyXInputState(XINPUT_STATE* pState) {
-  if (g_show_overlay && !g_allow_xinput) {
+  bool should_zero = false;
+  if (g_allow_xinput) {
+    // Caller is ImGui: Zero inputs if overlay is hidden
+    if (!g_show_overlay) should_zero = true;
+  } else {
+    // Caller is Game: Zero inputs if overlay is showing
+    if (g_show_overlay) should_zero = true;
+  }
+
+  if (should_zero) {
     pState->Gamepad.wButtons = 0;
     pState->Gamepad.bLeftTrigger = 0;
     pState->Gamepad.bRightTrigger = 0;
@@ -241,12 +250,14 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
   if (msg == WM_KEYDOWN && wparam == VK_TAB && (GetKeyState(VK_SHIFT) & 0x8000)) {
     g_show_overlay = !g_show_overlay;
     
-    // Update ImGui cursor visibility state
+    // Update ImGui cursor visibility state and gamepad navigation
     ImGuiIO& io = ImGui::GetIO();
     if (g_show_overlay) {
       io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+      io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     } else {
       io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+      io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
     }
     
     return 1; // Block input to game
@@ -402,8 +413,10 @@ void PollGamepadToggle() {
       ImGuiIO& io = ImGui::GetIO();
       if (g_show_overlay) {
         io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
       } else {
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+        io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
       }
     }
     g_prev_guide_pressed = guide_pressed;
