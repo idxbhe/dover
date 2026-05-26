@@ -3,6 +3,7 @@
 #include "overlay/input_hook.h"
 #include "overlay/hook_utils.h"
 #include "overlay/overlay_ui.h"
+#include "overlay/game_storage.h"
 #include "overlay/notes/manager.h"
 #include "overlay/notes/layout.h"
 #include "shared/ipc.h"
@@ -75,6 +76,8 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
 
   notes::GetNotesWindow().Shutdown();
   notes::AutoSaveAll();
+  GameStorage::Get().SaveState();
+  GameStorage::Get().SaveConfig();
   ShutdownInputHooks();
   ShutdownDx9Hook();
   ShutdownDx11Hook();

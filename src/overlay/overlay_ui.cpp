@@ -3,6 +3,7 @@
 #include "overlay/notes/layout.h"
 #include "overlay/notes/manager.h"
 #include "overlay/settings/settings_window.h"
+#include "overlay/game_storage.h"
 #include "overlay/icons.h"
 #include "overlay/fonts.h"
 #include "overlay/theme.h"

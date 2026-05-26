@@ -1,8 +1,10 @@
 #include "overlay/theme.h"
 #include "overlay/fonts.h"
 #include "overlay/icons.h"
+#include "overlay/game_storage.h"
 #include "overlay/notes/manager.h"
 #include "overlay/notes/layout.h"
+#include "overlay/settings/settings_window.h"
 
 #include <windows.h>
 #include <psapi.h>
@@ -23,29 +25,27 @@ ImFont* g_fonts_preview_h1[5] = {};
 ImFont* g_fonts_preview_h2[5] = {};
 ImFont* g_fonts_preview_h3[5] = {};
 
-static std::string g_ini_path_utf8;
+
 
 void SetupImGuiTheme() {
-  // Setup robust global INI file path in user LOCALAPPDATA directory
-  wchar_t local_app_data[MAX_PATH];
-  if (GetEnvironmentVariableW(L"LOCALAPPDATA", local_app_data, MAX_PATH)) {
-    std::wstring dover_dir = std::wstring(local_app_data) + L"\\dover";
-    CreateDirectoryW(dover_dir.c_str(), NULL);
-    std::wstring ini_path = dover_dir + L"\\imgui.ini";
-    
-    int size_needed = WideCharToMultiByte(CP_UTF8, 0, ini_path.c_str(), -1, NULL, 0, NULL, NULL);
-    g_ini_path_utf8.resize(size_needed);
-    WideCharToMultiByte(CP_UTF8, 0, ini_path.c_str(), -1, &g_ini_path_utf8[0], size_needed, NULL, NULL);
-    
-    ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = g_ini_path_utf8.c_str();
+  // ── Step 1: Resolve game exe name from current process ─────────────────
+  wchar_t exe_name_w[MAX_PATH] = {};
+  GetModuleBaseNameW(GetCurrentProcess(), nullptr, exe_name_w, MAX_PATH);
+  std::wstring exe_name(exe_name_w);
 
-    // ---- Load Custom Fonts (3 Roles) ----
-    HMODULE hMod = NULL;
-    if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                           (LPCWSTR)&SetupImGuiTheme, &hMod)) {
-      wchar_t dll_path[MAX_PATH];
-      if (GetModuleFileNameW(hMod, dll_path, MAX_PATH)) {
+  // ── Step 2: Initialize GameStorage FIRST (resolves all paths) ───────────
+  GameStorage::Get().Initialize(exe_name);
+
+  // ── Step 3: Set ImGui INI path from persistent member (no dangling ptr) ─
+  ImGuiIO& io = ImGui::GetIO();
+  io.IniFilename = GameStorage::Get().GetLayoutPathCStr();
+
+  // ── Step 4: Load fonts from DLL directory ───────────────────────────────
+  HMODULE hMod = nullptr;
+  if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                         (LPCWSTR)&SetupImGuiTheme, &hMod)) {
+    wchar_t dll_path[MAX_PATH];
+    if (GetModuleFileNameW(hMod, dll_path, MAX_PATH)) {
         std::wstring path_str = dll_path;
         size_t last_slash = path_str.find_last_of(L"\\/");
         if (last_slash != std::wstring::npos) {
@@ -156,12 +156,13 @@ void SetupImGuiTheme() {
       }
     }
 
-    // Determine game name from the current process executable
-    char exe_name[MAX_PATH] = {};
-    GetModuleBaseNameA(GetCurrentProcess(), nullptr, exe_name, MAX_PATH);
-    notes::InitializeNotesManager(std::wstring(local_app_data), std::string(exe_name));
-    notes::GetNotesWindow().Initialize();
-  }
+  // ── Step 5: Initialize Notes and load persistent config/state ────────────
+  notes::InitializeNotesManager(GameStorage::Get().GetNotesDir());
+  notes::GetNotesWindow().Initialize();
+  settings::GetSettingsWindow().Initialize();
+
+  GameStorage::Get().LoadConfig();
+  GameStorage::Get().LoadState();
 
   ImGuiStyle& style = ImGui::GetStyle();
   style.WindowRounding = 8.0f;

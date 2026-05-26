@@ -1,5 +1,5 @@
 #include "shared/log.h"
-#include "shared/config.h"
+#include "shared/storage.h"
 
 #include <windows.h>
 #include <fstream>
@@ -26,11 +26,11 @@ void LogWithTag(const char* tag, const char* message) {
     WriteFile(stdout_handle, buffer, static_cast<DWORD>(strlen(buffer)), &written, nullptr);
   }
 
-  // Write to appdata log file
-  std::filesystem::path app_data_dir = GetAppDataDir();
-  if (!app_data_dir.empty()) {
-    std::filesystem::create_directories(app_data_dir);
-    std::filesystem::path log_file = app_data_dir / L"dover.log";
+  // Write to Documents/Dover/debug/dover.log
+  std::filesystem::path debug_dir = GetDoverDebugDir();
+  if (!debug_dir.empty()) {
+    std::filesystem::create_directories(debug_dir);
+    std::filesystem::path log_file = debug_dir / L"dover.log";
     std::ofstream ofs(log_file, std::ios::app);
     if (ofs.is_open()) {
       auto now = std::chrono::system_clock::now();

@@ -2,14 +2,11 @@
 #include "overlay/notes/layout.h"
 
 #include <windows.h>
-#include <psapi.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <chrono>
-
-#pragma comment(lib, "psapi.lib")
 
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
@@ -18,38 +15,12 @@ namespace dover::overlay::notes {
 
 namespace {
 std::vector<NoteFile> g_notes;
-std::string g_game_name;
 fs::path g_notes_dir;
 
 // Autosave debounce: save 3s after last dirty change
 Clock::time_point g_last_dirty_time{};
 bool g_has_pending_save = false;
 Clock::time_point g_save_status_show_until{};
-
-std::string NormalizeGameName(const std::string& exe_name) {
-  std::string name = exe_name;
-  // Strip .exe extension if present
-  if (name.size() > 4 &&
-      (name.substr(name.size() - 4) == ".exe" ||
-       name.substr(name.size() - 4) == ".EXE")) {
-    name = name.substr(0, name.size() - 4);
-  }
-  // Lowercase and replace spaces/special chars with underscore
-  std::transform(name.begin(), name.end(), name.begin(),
-                 [](unsigned char c) { return static_cast<char>(::tolower(c)); });
-  for (char& c : name) {
-    if (!isalnum(c) && c != '_' && c != '-') c = '_';
-  }
-  return name;
-}
-
-std::string WstrToUtf8(const std::wstring& wstr) {
-  if (wstr.empty()) return {};
-  int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
-  std::string result(size - 1, '\0');
-  WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, result.data(), size, nullptr, nullptr);
-  return result;
-}
 
 std::string ReadFileContent(const fs::path& path) {
   std::ifstream f(path, std::ios::in | std::ios::binary);
@@ -90,13 +61,8 @@ void LoadNotesFromDisk() {
 
 } // namespace
 
-bool InitializeNotesManager(const std::wstring& localappdata_base, const std::string& game_exe) {
-  g_game_name = NormalizeGameName(game_exe);
-  
-  std::wstring base_dir = localappdata_base + L"\\dover\\notes\\" +
-                          std::wstring(g_game_name.begin(), g_game_name.end());
-  g_notes_dir = fs::path(base_dir);
-  
+bool InitializeNotesManager(const fs::path& notes_dir) {
+  g_notes_dir = notes_dir;
   LoadNotesFromDisk();
 
   // Create a default note if game has none
@@ -110,13 +76,12 @@ std::vector<NoteFile>& GetNotes() {
   return g_notes;
 }
 
-const std::string& GetNotesGameName() {
-  return g_game_name;
+const fs::path& GetNotesDir() {
+  return g_notes_dir;
 }
 
 std::string CreateAutoNote() {
   const std::string base = "untitled";
-  // Try "untitled" first, then "untitled_2", "untitled_3", ...
   std::string candidate = base;
   int suffix = 2;
   while (true) {
@@ -132,12 +97,10 @@ std::string CreateAutoNote() {
 }
 
 bool CreateNote(const std::string& title) {
-  // Normalize title to safe filename
   std::string safe_title = title;
   for (char& c : safe_title) {
     if (!isalnum(c) && c != '_' && c != '-' && c != ' ') c = '_';
   }
-  // Check uniqueness
   for (const auto& n : g_notes) {
     if (n.title == safe_title) return false;
   }
@@ -148,7 +111,6 @@ bool CreateNote(const std::string& title) {
   note.content = "# " + safe_title + "\n\nStart writing your notes here...\n";
   note.is_dirty = true;
 
-  // Save immediately to disk
   fs::create_directories(g_notes_dir);
   WriteFileContent(g_notes_dir / note.filename, note.content);
   note.is_dirty = false;
@@ -178,7 +140,7 @@ bool SaveNote(size_t index) {
   bool ok = WriteFileContent(g_notes_dir / g_notes[index].filename, g_notes[index].content);
   if (ok) {
     g_notes[index].is_dirty = false;
-    g_save_status_show_until = Clock::now() + std::chrono::seconds(3); // Tampilkan status Saved selama 3 detik
+    g_save_status_show_until = Clock::now() + std::chrono::seconds(3);
   }
   return ok;
 }
@@ -196,8 +158,8 @@ void TickAutosave() {
   if (g_has_pending_save) {
     auto now = Clock::now();
     auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_last_dirty_time).count();
-    if (elapsed_ms >= 3000) { // Menunggu 3 detik sunyi (tidak mengetik) baru autosave
-      GetNotesWindow().FlushEditBuffer(); // Salin teks aktif dari buffer edit ImGui ke data note
+    if (elapsed_ms >= 3000) {
+      GetNotesWindow().FlushEditBuffer();
       AutoSaveAll();
     }
   }

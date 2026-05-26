@@ -129,6 +129,7 @@ add_library(dover_shared STATIC
   src/shared/ipc.cpp
   src/shared/process.cpp
   src/shared/log.cpp
+  src/shared/storage.cpp
 )
 
 target_include_directories(dover_shared PUBLIC
@@ -150,6 +151,7 @@ add_library(dover_overlay SHARED
   src/overlay/theme.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
+  src/overlay/game_storage.cpp
   src/overlay/ui/components/base_window.cpp
   src/overlay/notes/manager.cpp
   src/overlay/notes/layout.cpp

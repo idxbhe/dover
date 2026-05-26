@@ -9,9 +9,11 @@ public:
     SettingsWindow();
     ~SettingsWindow() override = default;
 
-    // We only need to override Initialize if we want defaults,
-    // and RenderContent to draw our configurations UI.
     void Initialize();
+
+    // State accessors for GameStorage persistence
+    int  GetSelectedCategory() const { return m_selected_category; }
+    void SetSelectedCategory(int cat) { m_selected_category = cat; }
 
 protected:
     void RenderContent(bool interactive) override;

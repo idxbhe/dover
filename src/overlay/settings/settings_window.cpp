@@ -1,5 +1,6 @@
 #include "overlay/settings/settings_window.h"
 #include "overlay/icons.h"
+#include "overlay/game_storage.h"
 #include <imgui.h>
 #include "overlay/overlay_ui.h"
 #include "overlay/notes/manager.h"
@@ -161,13 +162,10 @@ void SettingsWindow::RenderContent(bool interactive) {
 
                 ImGui::Text("OSD (On Screen Display):");
                 ImGui::Spacing();
-                ImGui::Checkbox("FPS", &g_cfg_show_fps);
-                ImGui::Checkbox("CLOCK", &g_cfg_show_clock);
-                ImGui::Checkbox("GRAPHIC API", &g_cfg_show_api);
+                if (ImGui::Checkbox("FPS", &g_cfg_show_fps))           GameStorage::Get().SaveConfig();
+                if (ImGui::Checkbox("CLOCK", &g_cfg_show_clock))        GameStorage::Get().SaveConfig();
+                if (ImGui::Checkbox("GRAPHIC API", &g_cfg_show_api))    GameStorage::Get().SaveConfig();
                 ImGui::Spacing();
-                
-                ImGui::TextDisabled("Future game-specific saving:");
-                ImGui::TextDisabled("dover/imgui_<game>.ini");
                 break;
             }
             case 1: { // Keybinds
@@ -249,11 +247,14 @@ void SettingsWindow::RenderContent(bool interactive) {
                 RenderSlimSlider("Window Opacity", &g_global_window_alpha, [&]() {
                     m_bg_alpha = g_global_window_alpha;
                     notes::GetNotesWindow().SetBgAlpha(g_global_window_alpha);
+                    GameStorage::Get().SaveConfig();
                 });
                 
                 ImGui::Dummy(ImVec2(0.0f, 6.0f));
                 
-                RenderSlimSlider("Overlay Opacity", &g_overlay_bg_alpha, []() {});
+                RenderSlimSlider("Overlay Opacity", &g_overlay_bg_alpha, []() {
+                    GameStorage::Get().SaveConfig();
+                });
                 break;
             }
             case 3: { // About

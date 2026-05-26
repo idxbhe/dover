@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <filesystem>
 
 namespace dover::overlay::notes {
 
@@ -12,16 +13,14 @@ struct NoteFile {
 };
 
 // Must be called once after ImGui context is created.
-// localappdata_base: path to %LOCALAPPDATA%
-// game_exe: name of the game process (e.g. "csgo.exe") — will be normalized
-bool InitializeNotesManager(const std::wstring& localappdata_base,
-                             const std::string& game_exe);
+// notes_dir: full path to the per-game notes directory (from GameStorage)
+bool InitializeNotesManager(const std::filesystem::path& notes_dir);
 
 // Returns mutable reference to the in-memory notes list
 std::vector<NoteFile>& GetNotes();
 
-// Returns the normalized game folder name (e.g. "csgo")
-const std::string& GetNotesGameName();
+// Returns the notes directory path
+const std::filesystem::path& GetNotesDir();
 
 // Creates a note with a guaranteed unique auto-generated title.
 // Returns the title of the created note, empty string on failure.

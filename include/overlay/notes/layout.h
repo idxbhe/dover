@@ -16,6 +16,12 @@ public:
     // Replaces FlushNotesEditBuffer
     void FlushEditBuffer();
 
+    // Public for GameStorage state persistence
+    void SelectNote(int idx);
+    void SetViewMode(int mode) { m_view_mode = mode; }
+    int  GetSelectedNoteIndex() const { return m_selected_note_idx; }
+    int  GetViewMode() const { return m_view_mode; }
+
 protected:
     void RenderToolbar(bool interactive) override;
     void RenderContent(bool interactive) override;
@@ -38,7 +44,6 @@ private:
     // Helper methods
     void SyncEditBufferFromNote(int idx);
     void FlushEditBufferToNote();
-    void SelectNote(int idx);
     void SwitchToEditor();
 };
 

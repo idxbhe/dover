@@ -1,5 +1,5 @@
 #include "shared/ipc.h"
-#include "shared/config.h"
+#include "shared/storage.h"
 #include "shared/log.h"
 #include "shared/process.h"
 
@@ -22,10 +22,10 @@ struct GameConfig {
 
 std::vector<GameConfig> LoadSavedGames() {
   std::vector<GameConfig> games;
-  const auto config_path = dover::shared::GetConfigPath();
-  if (config_path.empty() || !std::filesystem::exists(config_path)) {
-    return games;
-  }
+  auto root = dover::shared::GetDoverRootDir();
+  if (root.empty()) return games;
+  const auto config_path = root / L"launcher" / L"games.ini";
+  if (!std::filesystem::exists(config_path)) return games;
 
   int count = GetPrivateProfileIntW(L"Games", L"Count", 0, config_path.c_str());
   for (int i = 0; i < count; ++i) {
@@ -44,19 +44,14 @@ std::vector<GameConfig> LoadSavedGames() {
 }
 
 void SaveGamePath(const std::wstring& path) {
-  const auto config_path = dover::shared::GetConfigPath();
-  if (config_path.empty()) {
-    return;
-  }
-
-  // Ensure directories exist
+  auto root = dover::shared::GetDoverRootDir();
+  if (root.empty()) return;
+  auto config_path = root / L"launcher" / L"games.ini";
   std::filesystem::create_directories(config_path.parent_path());
 
   auto games = LoadSavedGames();
   for (const auto& game : games) {
-    if (game.path == path) {
-      return; // Already saved
-    }
+    if (game.path == path) return; // Already saved
   }
 
   int count = static_cast<int>(games.size());
@@ -151,11 +146,12 @@ bool LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv) 
 } // namespace
 
 int wmain(int argc, wchar_t** argv) {
-  const auto app_data = dover::shared::EnsureAppDataDir();
-  if (app_data.empty()) {
-    dover::shared::LogError("Failed to locate AppData.");
+  auto dover_root = dover::shared::GetDoverRootDir();
+  if (dover_root.empty()) {
+    dover::shared::LogError("Failed to locate Documents/Dover directory.");
     return 1;
   }
+  std::filesystem::create_directories(dover_root / L"launcher");
 
   std::wstring target_path;
   if (argc >= 2) {
