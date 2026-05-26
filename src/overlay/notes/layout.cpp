@@ -65,9 +65,15 @@ void NotesWindow::FlushEditBufferToNote() {
   const char* buf = m_edit_buffer;
   int len = static_cast<int>(strlen(buf));
   clean_content.reserve(len);
-  for (int i = 0; i < len; ++i) {
-    if (buf[i] != '\r') {
+  for (int i = 0; i < len; ) {
+    if (i + 1 < len && buf[i] == '\r' && buf[i+1] == '\n') {
+      clean_content += ' ';
+      i += 2;
+    } else if (i + 2 < len && buf[i] == '\r' && buf[i+1] == '-' && buf[i+2] == '\n') {
+      i += 3;
+    } else {
       clean_content += buf[i];
+      i++;
     }
   }
 
@@ -567,9 +573,15 @@ void NotesWindow::RenderContent(bool interactive) {
       std::string clean_content;
       int len = static_cast<int>(strlen(m_edit_buffer));
       clean_content.reserve(len);
-      for (int i = 0; i < len; ++i) {
-        if (m_edit_buffer[i] != '\r') {
+      for (int i = 0; i < len; ) {
+        if (i + 1 < len && m_edit_buffer[i] == '\r' && m_edit_buffer[i+1] == '\n') {
+          clean_content += ' ';
+          i += 2;
+        } else if (i + 2 < len && m_edit_buffer[i] == '\r' && m_edit_buffer[i+1] == '-' && m_edit_buffer[i+2] == '\n') {
+          i += 3;
+        } else {
           clean_content += m_edit_buffer[i];
+          i++;
         }
       }
       if (notes[m_selected_note_idx].content != clean_content) {

@@ -49,16 +49,17 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
   std::vector<int> map_W_to_C(data->BufTextLen + 1, 0);
   int c_idx = 0;
   for (int i = 0; i < data->BufTextLen; ) {
-    if (i + 1 < data->BufTextLen && data->Buf[i] == ' ' && data->Buf[i+1] == '\n') {
+    if (i + 1 < data->BufTextLen && data->Buf[i] == '\r' && data->Buf[i+1] == '\n') {
       map_W_to_C[i] = c_idx;
       map_W_to_C[i+1] = c_idx;
       clean_str += ' ';
       c_idx++;
       i += 2;
-    } else if (i + 1 < data->BufTextLen && data->Buf[i] == '-' && data->Buf[i+1] == '\n') {
+    } else if (i + 2 < data->BufTextLen && data->Buf[i] == '\r' && data->Buf[i+1] == '-' && data->Buf[i+2] == '\n') {
       map_W_to_C[i] = c_idx;
       map_W_to_C[i+1] = c_idx;
-      i += 2;
+      map_W_to_C[i+2] = c_idx;
+      i += 3;
     } else {
       map_W_to_C[i] = c_idx;
       clean_str += data->Buf[i];
@@ -116,11 +117,12 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
 
     if (width > g_wrap_width) {
       if (last_space_c_idx != -1 && last_space_c_idx > last_wrap_c_idx) {
-        for (int j = last_wrap_c_idx; j <= last_space_c_idx; j++) {
+        for (int j = last_wrap_c_idx; j < last_space_c_idx; j++) {
           map_C_to_Wnew[j] = static_cast<int>(wrapped_str.length());
           wrapped_str += clean_str[j];
         }
-        wrapped_str += "\n";
+        map_C_to_Wnew[last_space_c_idx] = static_cast<int>(wrapped_str.length());
+        wrapped_str += "\r\n";
 
         last_wrap_c_idx = last_space_c_idx + 1;
         i = last_wrap_c_idx - 1;
@@ -130,7 +132,7 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
           map_C_to_Wnew[j] = static_cast<int>(wrapped_str.length());
           wrapped_str += clean_str[j];
         }
-        wrapped_str += "-\n";
+        wrapped_str += "\r-\n";
 
         last_wrap_c_idx = i;
         i = last_wrap_c_idx - 1;
@@ -246,11 +248,11 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
   std::string clean_str;
   int len = static_cast<int>(strlen(edit_buffer));
   for (int i = 0; i < len; ) {
-    if (i + 1 < len && edit_buffer[i] == ' ' && edit_buffer[i+1] == '\n') {
+    if (i + 1 < len && edit_buffer[i] == '\r' && edit_buffer[i+1] == '\n') {
       clean_str += ' ';
       i += 2;
-    } else if (i + 1 < len && edit_buffer[i] == '-' && edit_buffer[i+1] == '\n') {
-      i += 2;
+    } else if (i + 2 < len && edit_buffer[i] == '\r' && edit_buffer[i+1] == '-' && edit_buffer[i+2] == '\n') {
+      i += 3;
     } else {
       clean_str += edit_buffer[i];
       i++;
@@ -285,10 +287,10 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
 
     if (width > wrap_width) {
       if (last_space_c_idx != -1 && last_space_c_idx > last_wrap_c_idx) {
-        for (int j = last_wrap_c_idx; j <= last_space_c_idx; j++) {
+        for (int j = last_wrap_c_idx; j < last_space_c_idx; j++) {
           wrapped_str += clean_str[j];
         }
-        wrapped_str += "\n";
+        wrapped_str += "\r\n";
         last_wrap_c_idx = last_space_c_idx + 1;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
@@ -296,7 +298,7 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
         for (int j = last_wrap_c_idx; j < i; j++) {
           wrapped_str += clean_str[j];
         }
-        wrapped_str += "-\n";
+        wrapped_str += "\r-\n";
         last_wrap_c_idx = i;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
