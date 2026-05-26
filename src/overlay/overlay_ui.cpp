@@ -6,6 +6,7 @@
 #include "overlay/icons.h"
 #include "overlay/fonts.h"
 #include "overlay/theme.h"
+#include "overlay/input_hook.h"
 
 #include <windows.h>
 #include <psapi.h>
@@ -61,6 +62,8 @@ static void TickFPS() {
 
 
 void RenderImGuiUI() {
+  PollGamepadToggle();
+
   // 1. Draw Pinned Info Window (transparent corner overlay) - Hidden when interactive overlay is active
   if (!g_show_overlay) {
     ImGui::SetNextWindowPos(ImVec2(12.0f, 10.0f), ImGuiCond_Always);

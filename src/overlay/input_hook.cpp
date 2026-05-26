@@ -5,11 +5,23 @@
 #include <windows.h>
 #include <cstring>
 #include <imgui.h>
+#include <xinput.h>
 
 // Forward declaration of imgui wndproc handler
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace dover::overlay {
+
+// XInput Guide Button
+#define XINPUT_GAMEPAD_GUIDE 0x0400
+typedef DWORD(WINAPI* XInputGetStateEx_t)(DWORD dwUserIndex, XINPUT_STATE* pState);
+
+static XInputGetStateEx_t g_XInputGetStateEx = nullptr;
+static HMODULE g_hXInputDll = nullptr;
+static bool g_xinput_initialized = false;
+static bool g_prev_guide_pressed = false;
+
+thread_local bool g_allow_xinput = false;
 
 namespace {
 using GetAsyncKeyStateFn = SHORT(WINAPI*)(int);
@@ -193,6 +205,35 @@ BOOL WINAPI HookedGetMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT w
   }
   return result;
 }
+
+using XInputGetStateFn = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
+XInputGetStateFn g_orig_xinput14_getstate = nullptr;
+XInputGetStateFn g_orig_xinput13_getstate = nullptr;
+
+void ModifyXInputState(XINPUT_STATE* pState) {
+  if (g_show_overlay && !g_allow_xinput) {
+    pState->Gamepad.wButtons = 0;
+    pState->Gamepad.bLeftTrigger = 0;
+    pState->Gamepad.bRightTrigger = 0;
+    pState->Gamepad.sThumbLX = 0;
+    pState->Gamepad.sThumbLY = 0;
+    pState->Gamepad.sThumbRX = 0;
+    pState->Gamepad.sThumbRY = 0;
+  }
+}
+
+DWORD WINAPI HookedXInput14GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
+  DWORD result = g_orig_xinput14_getstate ? g_orig_xinput14_getstate(dwUserIndex, pState) : ERROR_DEVICE_NOT_CONNECTED;
+  if (result == ERROR_SUCCESS) ModifyXInputState(pState);
+  return result;
+}
+
+DWORD WINAPI HookedXInput13GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
+  DWORD result = g_orig_xinput13_getstate ? g_orig_xinput13_getstate(dwUserIndex, pState) : ERROR_DEVICE_NOT_CONNECTED;
+  if (result == ERROR_SUCCESS) ModifyXInputState(pState);
+  return result;
+}
+
 } // namespace
 
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
@@ -303,7 +344,7 @@ bool InitializeInputHooks() {
         get_message_w_addr,
         reinterpret_cast<void*>(&HookedGetMessageW),
         reinterpret_cast<void**>(&g_original_get_message_w));
-  }
+}
   if (get_message_a_addr) {
     success &= CreateAndEnableHook(
         get_message_a_addr,
@@ -311,7 +352,62 @@ bool InitializeInputHooks() {
         reinterpret_cast<void**>(&g_original_get_message_a));
   }
 
+  // Hook XInputGetState proactively if loaded by game or by us
+  HMODULE xinput14 = GetModuleHandleW(L"xinput1_4.dll");
+  if (!xinput14) xinput14 = LoadLibraryW(L"xinput1_4.dll"); // Force load to intercept future calls and ImGui
+  if (xinput14) {
+    void* addr = GetProcAddress(xinput14, "XInputGetState");
+    if (addr) {
+      CreateAndEnableHook(addr, reinterpret_cast<void*>(&HookedXInput14GetState), reinterpret_cast<void**>(&g_orig_xinput14_getstate));
+    }
+  }
+
+  HMODULE xinput13 = GetModuleHandleW(L"xinput1_3.dll");
+  if (xinput13) {
+    void* addr = GetProcAddress(xinput13, "XInputGetState");
+    if (addr) {
+      CreateAndEnableHook(addr, reinterpret_cast<void*>(&HookedXInput13GetState), reinterpret_cast<void**>(&g_orig_xinput13_getstate));
+    }
+  }
+
   return success;
+}
+
+void PollGamepadToggle() {
+  if (!g_xinput_initialized) {
+    const wchar_t* dlls[] = { L"xinput1_4.dll", L"xinput1_3.dll", L"xinput9_1_0.dll" };
+    for (auto dll : dlls) {
+      g_hXInputDll = LoadLibraryW(dll);
+      if (g_hXInputDll) {
+        g_XInputGetStateEx = (XInputGetStateEx_t)GetProcAddress(g_hXInputDll, (LPCSTR)100);
+        if (g_XInputGetStateEx) {
+          break;
+        }
+        FreeLibrary(g_hXInputDll);
+        g_hXInputDll = nullptr;
+      }
+    }
+    g_xinput_initialized = true;
+  }
+
+  if (!g_XInputGetStateEx) return;
+
+  XINPUT_STATE state = {};
+  if (g_XInputGetStateEx(0, &state) == ERROR_SUCCESS) {
+    bool guide_pressed = (state.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0;
+    
+    if (guide_pressed && !g_prev_guide_pressed) {
+      g_show_overlay = !g_show_overlay;
+      
+      ImGuiIO& io = ImGui::GetIO();
+      if (g_show_overlay) {
+        io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+      } else {
+        io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+      }
+    }
+    g_prev_guide_pressed = guide_pressed;
+  }
 }
 
 void ShutdownInputHooks() {
@@ -336,6 +432,22 @@ void ShutdownInputHooks() {
   g_original_peek_message_a = nullptr;
   g_original_get_message_w = nullptr;
   g_original_get_message_a = nullptr;
+
+  if (g_orig_xinput14_getstate) {
+    DisableAndRemoveHook(reinterpret_cast<void*>(g_orig_xinput14_getstate));
+    g_orig_xinput14_getstate = nullptr;
+  }
+  if (g_orig_xinput13_getstate) {
+    DisableAndRemoveHook(reinterpret_cast<void*>(g_orig_xinput13_getstate));
+    g_orig_xinput13_getstate = nullptr;
+  }
+
+  if (g_hXInputDll) {
+    FreeLibrary(g_hXInputDll);
+    g_hXInputDll = nullptr;
+    g_XInputGetStateEx = nullptr;
+    g_xinput_initialized = false;
+  }
 }
 
 } // namespace dover::overlay
