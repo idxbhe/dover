@@ -100,6 +100,9 @@ void GameStorage::LoadState() {
     }
     notes::GetNotesWindow().SetViewMode(view_mode);
 
+    int zoom_idx = shared::ReadIniInt(st, "notes", "zoom_idx", 2);
+    notes::GetNotesWindow().SetZoomIndex(zoom_idx);
+
     int settings_cat = shared::ReadIniInt(st, "settings", "selected_category", 0);
     settings::GetSettingsWindow().SetSelectedCategory(settings_cat);
 
@@ -122,6 +125,7 @@ void GameStorage::SaveState() {
 
     shared::WriteIniString(st, "notes", "selected_note_filename", note_fn.c_str());
     shared::WriteIniInt(st, "notes", "view_mode",           notes::GetNotesWindow().GetViewMode());
+    shared::WriteIniInt(st, "notes", "zoom_idx",            notes::GetNotesWindow().GetZoomIndex());
     shared::WriteIniInt(st, "settings", "selected_category", settings::GetSettingsWindow().GetSelectedCategory());
 
     shared::WriteIniBool(st, "notes", "is_open",            notes::GetNotesWindow().IsOpen());

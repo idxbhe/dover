@@ -228,6 +228,7 @@ void NotesWindow::RenderToolbar(bool interactive) {
           bool is_selected = (m_zoom_idx == i);
           if (ImGui::Selectable(size_items[i], is_selected)) {
             m_zoom_idx = i;
+            GameStorage::Get().SaveState();
           }
           if (is_selected) ImGui::SetItemDefaultFocus();
         }

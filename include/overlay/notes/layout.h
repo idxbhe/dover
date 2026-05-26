@@ -23,6 +23,8 @@ public:
     void SetViewMode(int mode) { m_view_mode = mode; }
     int  GetSelectedNoteIndex() const { return m_selected_note_idx; }
     int  GetViewMode() const { return m_view_mode; }
+    void SetZoomIndex(int idx) { m_zoom_idx = idx; }
+    int  GetZoomIndex() const { return m_zoom_idx; }
 
 protected:
     void RenderToolbar(bool interactive) override;
