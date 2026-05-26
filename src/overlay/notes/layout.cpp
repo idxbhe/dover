@@ -603,64 +603,61 @@ void NotesWindow::RenderContent(bool interactive) {
     ImGui::PopStyleVar();
   }
 
-  ImGui::EndChild(); // End NoteContent
-  ImGui::PopStyleVar(3);
-  ImGui::PopStyleColor(5);
-}
-
-void NotesWindow::PostRender(bool interactive) {
-    if (!interactive) return;
-
+  // Draw floating buttons inside NoteContent context to ensure correct rendering layer
+  if (interactive) {
     ImVec2 content_pos = ImGui::GetWindowPos();
     ImVec2 content_size = ImGui::GetWindowSize();
-    ImVec2 float_btn_pos = ImVec2(content_pos.x + content_size.x - 80.0f, content_pos.y + 46.0f);
-    ImVec2 delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 46.0f);
+    ImVec2 float_btn_pos = ImVec2(content_pos.x + content_size.x - 80.0f, content_pos.y + 4.0f);
+    ImVec2 delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 4.0f);
 
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+
+    // 1. Edit/Read Toggle Button
     {
+        ImGui::SetCursorScreenPos(float_btn_pos);
+        bool clicked_toggle = ImGui::InvisibleButton("##edit_toggle_btn", ImVec2(30.0f, 30.0f));
+        bool hovered_toggle = ImGui::IsItemHovered();
+        bool active_toggle = ImGui::IsItemActive();
+
         ImVec2 min_p = float_btn_pos;
         ImVec2 max_p = ImVec2(float_btn_pos.x + 30.0f, float_btn_pos.y + 30.0f);
         ImVec2 center = ImVec2(float_btn_pos.x + 15.0f, float_btn_pos.y + 15.0f);
-        
-        bool hovered = ImGui::IsMouseHoveringRect(min_p, max_p);
-        bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
-        bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-        
+
         ImVec4 bg_color = ImVec4(0.118f, 0.478f, 0.812f, 0.90f);
         ImVec4 border_color = ImVec4(0.200f, 0.569f, 0.902f, 0.35f);
-        
-        if (active) {
+
+        if (active_toggle) {
             bg_color = ImVec4(0.000f, 0.384f, 0.722f, 1.00f);
             border_color = ImVec4(0.100f, 0.486f, 0.847f, 0.50f);
-        } else if (hovered) {
+        } else if (hovered_toggle) {
             bg_color = ImVec4(0.200f, 0.639f, 1.000f, 0.98f);
             border_color = ImVec4(0.360f, 0.710f, 1.000f, 0.45f);
         }
-        
+
         ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
         ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
         ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.960f, 0.965f, 0.973f, 1.00f));
-        
-        ImGui::GetForegroundDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f);
-        
+
+        draw_list->AddRectFilled(min_p, max_p, bg_col32, 2.0f);
+
         ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
         ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
-        ImGui::GetForegroundDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
-        ImGui::GetForegroundDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
-        
+        draw_list->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+        draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+
         const char* icon = (m_view_mode == 0) ? ICON_TOGGLE_READ : ICON_TOGGLE_EDIT;
-        
+
         ImGui::PushFont(g_font_gui);
         ImVec2 text_size = ImGui::CalcTextSize(icon);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
-        ImGui::GetForegroundDrawList()->AddText(text_pos, text_col32, icon);
+        draw_list->AddText(text_pos, text_col32, icon);
         ImGui::PopFont();
-        
-        if (hovered) {
+
+        if (hovered_toggle) {
             ImGui::SetTooltip(m_view_mode == 0 ? "Switch to Preview Mode" : "Switch to Editor Mode");
-            ImGui::GetIO().WantCaptureMouse = true;
         }
-        
-        if (clicked) {
+
+        if (clicked_toggle) {
             if (m_view_mode == 0) {
                 FlushEditBufferToNote();
                 m_view_mode = 1;
@@ -670,49 +667,50 @@ void NotesWindow::PostRender(bool interactive) {
         }
     }
 
+    // 2. Delete Note Button
     {
+        ImGui::SetCursorScreenPos(delete_btn_pos);
+        bool clicked_del = ImGui::InvisibleButton("##delete_note_btn", ImVec2(30.0f, 30.0f));
+        bool hovered_del = ImGui::IsItemHovered();
+        bool active_del = ImGui::IsItemActive();
+
         ImVec2 min_p = delete_btn_pos;
         ImVec2 max_p = ImVec2(delete_btn_pos.x + 30.0f, delete_btn_pos.y + 30.0f);
         ImVec2 center = ImVec2(delete_btn_pos.x + 15.0f, delete_btn_pos.y + 15.0f);
-        
-        bool hovered = ImGui::IsMouseHoveringRect(min_p, max_p);
-        bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
-        bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
-        
+
         ImVec4 bg_color = ImVec4(0.851f, 0.220f, 0.220f, 0.90f);
         ImVec4 border_color = ImVec4(0.910f, 0.318f, 0.318f, 0.35f);
-        
-        if (active) {
+
+        if (active_del) {
             bg_color = ImVec4(0.722f, 0.114f, 0.114f, 1.00f);
             border_color = ImVec4(0.800f, 0.169f, 0.169f, 0.50f);
-        } else if (hovered) {
+        } else if (hovered_del) {
             bg_color = ImVec4(1.000f, 0.322f, 0.322f, 0.98f);
             border_color = ImVec4(1.000f, 0.471f, 0.471f, 0.45f);
         }
-        
+
         ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
         ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
         ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.960f, 0.965f, 0.973f, 1.00f));
-        
-        ImGui::GetForegroundDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f);
-        
+
+        draw_list->AddRectFilled(min_p, max_p, bg_col32, 2.0f);
+
         ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
         ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
-        ImGui::GetForegroundDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
-        ImGui::GetForegroundDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
-        
+        draw_list->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+        draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+
         ImGui::PushFont(g_font_gui);
         ImVec2 text_size = ImGui::CalcTextSize(ICON_DELETE);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
-        ImGui::GetForegroundDrawList()->AddText(text_pos, text_col32, ICON_DELETE);
+        draw_list->AddText(text_pos, text_col32, ICON_DELETE);
         ImGui::PopFont();
-        
-        if (hovered) {
+
+        if (hovered_del) {
             ImGui::SetTooltip("Delete Note");
-            ImGui::GetIO().WantCaptureMouse = true;
         }
-        
-        if (clicked) {
+
+        if (clicked_del) {
             auto& ns = GetNotes();
             if (!ns.empty()) {
                 ns.erase(ns.begin() + m_selected_note_idx);
@@ -721,7 +719,7 @@ void NotesWindow::PostRender(bool interactive) {
                     m_selected_note_idx--;
                 }
                 if (!ns.empty()) {
-                    SyncEditBufferFromNote(m_selected_note_idx);
+                    SelectNote(m_selected_note_idx);
                 } else {
                     m_edit_buffer[0] = '\0';
                     m_synced_note_idx = -1;
@@ -729,6 +727,15 @@ void NotesWindow::PostRender(bool interactive) {
             }
         }
     }
+  }
+
+  ImGui::EndChild(); // End NoteContent
+  ImGui::PopStyleVar(3);
+  ImGui::PopStyleColor(5);
+}
+
+void NotesWindow::PostRender(bool interactive) {
+    // Buttons are rendered inside NoteContent child window context instead
 }
 
 } // namespace dover::overlay::notes
