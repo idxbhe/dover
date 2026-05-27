@@ -25,13 +25,14 @@ public:
     int  GetViewMode() const { return m_view_mode; }
     void SetZoomIndex(int idx) { m_zoom_idx = idx; }
     int  GetZoomIndex() const { return m_zoom_idx; }
+    float& GetBgAlpha() { return m_bg_alpha; }
 
 protected:
     void RenderToolbar(bool interactive) override;
     void RenderContent(bool interactive) override;
     void PostRender(bool interactive) override;
 
-private:
+public:
     // Local state previously in anonymous namespace
     float m_sidebar_width = 240.0f;
     bool m_sidebar_visible = true;

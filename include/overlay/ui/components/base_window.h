@@ -69,16 +69,16 @@ protected:
     // Core template methods to be overridden by child classes
     
     // Rendered before toolbar, typically for inner window background overlays
-    virtual void PreRender(bool interactive) {}
+    virtual void PreRender(bool /*interactive*/) {}
     
     // Render custom toolbar items (if interactive is true)
-    virtual void RenderToolbar(bool interactive) {}
+    virtual void RenderToolbar(bool /*interactive*/) {}
     
     // Render the main content (required)
     virtual void RenderContent(bool interactive) = 0;
     
     // Render after content (floating buttons, popups)
-    virtual void PostRender(bool interactive) {}
+    virtual void PostRender(bool /*interactive*/) {}
 
     // Internal rendering logic made available to child window classes
     void RenderWindowDecorations(bool interactive, float right_boundary);

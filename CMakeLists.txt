@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(MSVC)
-  add_compile_options(/W4 /permissive-)
+  add_compile_options(/W4 /permissive- /EHsc)
 else()
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -168,6 +168,19 @@ target_include_directories(dover_overlay PRIVATE
 )
 
 target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 minhook imgui imgui_md_lib)
+
+option(DOVER_STRICT_BUILD "Treat warnings as errors for Dover targets" OFF)
+if(DOVER_STRICT_BUILD)
+  if(MSVC)
+    set(DOVER_STRICT_FLAGS /WX)
+  else()
+    set(DOVER_STRICT_FLAGS -Werror)
+  endif()
+  target_compile_options(dover_shared PRIVATE ${DOVER_STRICT_FLAGS})
+  target_compile_options(dover_launcher PRIVATE ${DOVER_STRICT_FLAGS})
+  target_compile_options(dover_injector PRIVATE ${DOVER_STRICT_FLAGS})
+  target_compile_options(dover_overlay PRIVATE ${DOVER_STRICT_FLAGS})
+endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_target_properties(dover_launcher PROPERTIES OUTPUT_NAME "dover_launcher")
