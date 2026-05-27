@@ -1,5 +1,5 @@
 #include "overlay/input_hook.h"
-#include "overlay/overlay_ui.h" // For g_show_overlay, g_in_overlay_frame, HookedWndProc
+#include "overlay/overlay_ui.h" // For GetOverlayState().show_overlay, GetOverlayState().in_overlay_frame, HookedWndProc
 #include "overlay/hook_utils.h"
 
 #include <windows.h>
@@ -47,7 +47,7 @@ GetMessageWFn g_original_get_message_w = nullptr;
 GetMessageAFn g_original_get_message_a = nullptr;
 
 bool ProcessInputMessage(LPMSG lpMsg) {
-  if (g_show_overlay && lpMsg) {
+  if (GetOverlayState().show_overlay && lpMsg) {
     if ((lpMsg->message >= WM_MOUSEFIRST && lpMsg->message <= WM_MOUSELAST) ||
         (lpMsg->message >= WM_KEYFIRST && lpMsg->message <= WM_KEYLAST) ||
         lpMsg->message == WM_INPUT) {
@@ -61,7 +61,7 @@ bool ProcessInputMessage(LPMSG lpMsg) {
 }
 
 SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
-  if (g_show_overlay) {
+  if (GetOverlayState().show_overlay) {
     if (vKey == VK_TAB || vKey == VK_SHIFT) {
       if (g_original_get_async_key_state) {
         return g_original_get_async_key_state(vKey);
@@ -76,7 +76,7 @@ SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
 }
 
 SHORT WINAPI HookedGetKeyState(int nVirtKey) {
-  if (g_show_overlay) {
+  if (GetOverlayState().show_overlay) {
     if (nVirtKey == VK_TAB || nVirtKey == VK_SHIFT) {
       if (g_original_get_key_state) {
         return g_original_get_key_state(nVirtKey);
@@ -91,7 +91,7 @@ SHORT WINAPI HookedGetKeyState(int nVirtKey) {
 }
 
 BOOL WINAPI HookedGetKeyboardState(PBYTE lpKeyState) {
-  if (g_show_overlay && lpKeyState) {
+  if (GetOverlayState().show_overlay && lpKeyState) {
     std::memset(lpKeyState, 0, 256);
     return TRUE;
   }
@@ -102,7 +102,7 @@ BOOL WINAPI HookedGetKeyboardState(PBYTE lpKeyState) {
 }
 
 BOOL WINAPI HookedClipCursor(const RECT* lpRect) {
-  if (g_show_overlay) {
+  if (GetOverlayState().show_overlay) {
     return TRUE;
   }
   if (g_original_clip_cursor) {
@@ -112,7 +112,7 @@ BOOL WINAPI HookedClipCursor(const RECT* lpRect) {
 }
 
 BOOL WINAPI HookedGetCursorPos(LPPOINT lpPoint) {
-  if (g_show_overlay && !g_in_overlay_frame) {
+  if (GetOverlayState().show_overlay && !GetOverlayState().in_overlay_frame) {
     HWND active_wnd = GetActiveWindow();
     if (active_wnd) {
       RECT rect = {};
@@ -133,7 +133,7 @@ BOOL WINAPI HookedGetCursorPos(LPPOINT lpPoint) {
 }
 
 BOOL WINAPI HookedSetCursorPos(int x, int y) {
-  if (g_show_overlay && !g_in_overlay_frame) {
+  if (GetOverlayState().show_overlay && !GetOverlayState().in_overlay_frame) {
     return TRUE;
   }
   if (g_original_set_cursor_pos) {
@@ -214,10 +214,10 @@ void ModifyXInputState(XINPUT_STATE* pState) {
   bool should_zero = false;
   if (g_allow_xinput) {
     // Caller is ImGui: Zero inputs if overlay is hidden
-    if (!g_show_overlay) should_zero = true;
+    if (!GetOverlayState().show_overlay) should_zero = true;
   } else {
     // Caller is Game: Zero inputs if overlay is showing
-    if (g_show_overlay) should_zero = true;
+    if (GetOverlayState().show_overlay) should_zero = true;
   }
 
   if (should_zero) {
@@ -248,11 +248,11 @@ DWORD WINAPI HookedXInput13GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   // Toggle overlay on Shift + Tab
   if (msg == WM_KEYDOWN && wparam == VK_TAB && (GetKeyState(VK_SHIFT) & 0x8000)) {
-    g_show_overlay = !g_show_overlay;
+    GetOverlayState().show_overlay = !GetOverlayState().show_overlay;
     
     // Update ImGui cursor visibility state and gamepad navigation
     ImGuiIO& io = ImGui::GetIO();
-    if (g_show_overlay) {
+    if (GetOverlayState().show_overlay) {
       io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
       io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     } else {
@@ -263,7 +263,7 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
     return 1; // Block input to game
   }
 
-  if (g_show_overlay) {
+  if (GetOverlayState().show_overlay) {
     if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam)) {
       return true; // ImGui processed, block from game
     }
@@ -280,7 +280,7 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
     }
   }
 
-  return CallWindowProcW(g_original_wnd_proc, hwnd, msg, wparam, lparam);
+  return CallWindowProcW(GetOverlayState().original_wnd_proc, hwnd, msg, wparam, lparam);
 }
 
 bool InitializeInputHooks() {
@@ -408,10 +408,10 @@ void PollGamepadToggle() {
     bool guide_pressed = (state.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0;
     
     if (guide_pressed && !g_prev_guide_pressed) {
-      g_show_overlay = !g_show_overlay;
+      GetOverlayState().show_overlay = !GetOverlayState().show_overlay;
       
       ImGuiIO& io = ImGui::GetIO();
-      if (g_show_overlay) {
+      if (GetOverlayState().show_overlay) {
         io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
       } else {

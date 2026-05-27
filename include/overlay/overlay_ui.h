@@ -5,16 +5,23 @@ struct ImFont;
 
 namespace dover::overlay {
 
-extern bool g_show_overlay;
-extern bool g_in_overlay_frame;
-extern WNDPROC g_original_wnd_proc;
-extern const char* g_active_dx_version;
-extern float g_overlay_bg_alpha;
-extern float g_global_window_alpha;
+struct OverlayState {
+    bool show_overlay = false;
+    bool in_overlay_frame = false;
+    WNDPROC original_wnd_proc = nullptr;
+    const char* active_dx_version = "Unknown API";
+};
 
-extern bool g_cfg_show_fps;
-extern bool g_cfg_show_clock;
-extern bool g_cfg_show_api;
+struct OverlayConfig {
+    float overlay_bg_alpha = 0.63f;
+    float global_window_alpha = 0.95f;
+    bool show_fps = true;
+    bool show_clock = true;
+    bool show_api = false;
+};
+
+OverlayState& GetOverlayState();
+OverlayConfig& GetOverlayConfig();
 
 
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);

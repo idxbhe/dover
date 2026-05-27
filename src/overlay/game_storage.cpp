@@ -56,28 +56,28 @@ void GameStorage::LoadConfig() {
     if (!m_initialized) return;
     auto cfg = GetConfigPath();
 
-    g_cfg_show_fps   = shared::ReadIniBool(cfg, "osd", "show_fps",   true);
-    g_cfg_show_clock = shared::ReadIniBool(cfg, "osd", "show_clock", true);
-    g_cfg_show_api   = shared::ReadIniBool(cfg, "osd", "show_api",   false);
+    GetOverlayConfig().show_fps   = shared::ReadIniBool(cfg, "osd", "show_fps",   true);
+    GetOverlayConfig().show_clock = shared::ReadIniBool(cfg, "osd", "show_clock", true);
+    GetOverlayConfig().show_api   = shared::ReadIniBool(cfg, "osd", "show_api",   false);
 
-    g_global_window_alpha = shared::ReadIniFloat(cfg, "theme", "window_alpha", 0.95f);
-    g_overlay_bg_alpha    = shared::ReadIniFloat(cfg, "theme", "overlay_alpha", 0.63f);
+    GetOverlayConfig().global_window_alpha = shared::ReadIniFloat(cfg, "theme", "window_alpha", 0.95f);
+    GetOverlayConfig().overlay_bg_alpha    = shared::ReadIniFloat(cfg, "theme", "overlay_alpha", 0.63f);
 
     // Sync opacity to open windows
-    notes::GetNotesWindow().SetBgAlpha(g_global_window_alpha);
-    settings::GetSettingsWindow().SetBgAlpha(g_global_window_alpha);
+    notes::GetNotesWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
+    settings::GetSettingsWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
 }
 
 void GameStorage::SaveConfig() {
     if (!m_initialized) return;
     auto cfg = GetConfigPath();
 
-    shared::WriteIniBool(cfg, "osd", "show_fps",   g_cfg_show_fps);
-    shared::WriteIniBool(cfg, "osd", "show_clock", g_cfg_show_clock);
-    shared::WriteIniBool(cfg, "osd", "show_api",   g_cfg_show_api);
+    shared::WriteIniBool(cfg, "osd", "show_fps",   GetOverlayConfig().show_fps);
+    shared::WriteIniBool(cfg, "osd", "show_clock", GetOverlayConfig().show_clock);
+    shared::WriteIniBool(cfg, "osd", "show_api",   GetOverlayConfig().show_api);
 
-    shared::WriteIniFloat(cfg, "theme", "window_alpha",  g_global_window_alpha);
-    shared::WriteIniFloat(cfg, "theme", "overlay_alpha", g_overlay_bg_alpha);
+    shared::WriteIniFloat(cfg, "theme", "window_alpha",  GetOverlayConfig().global_window_alpha);
+    shared::WriteIniFloat(cfg, "theme", "overlay_alpha", GetOverlayConfig().overlay_bg_alpha);
 }
 
 void GameStorage::LoadState() {

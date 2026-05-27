@@ -53,17 +53,17 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
       ImGui_ImplDX9_Init(device);
 
       // Subclass WndProc using shared HookedWndProc
-      g_original_wnd_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+      GetOverlayState().original_wnd_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
           g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
 
-      g_active_dx_version = "DirectX 9";
+      GetOverlayState().active_dx_version = "DirectX 9";
       g_imgui_initialized = true;
       dover::shared::LogInfo("Dear ImGui initialized inside D3D9 EndScene hook.");
     }
   }
 
   if (g_imgui_initialized.load()) {
-    g_in_overlay_frame = true;
+    GetOverlayState().in_overlay_frame = true;
     ImGui_ImplDX9_NewFrame();
     
     g_allow_xinput = true;
@@ -77,7 +77,7 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
 
     ImGui::Render();
     ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
-    g_in_overlay_frame = false;
+    GetOverlayState().in_overlay_frame = false;
   }
 
   if (g_original_end_scene) {
@@ -183,8 +183,8 @@ bool InitializeDx9Hook() {
 
 void ShutdownDx9Hook() {
   if (g_imgui_initialized.load()) {
-    if (g_game_hwnd && g_original_wnd_proc) {
-      SetWindowLongPtrW(g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(g_original_wnd_proc));
+    if (g_game_hwnd && GetOverlayState().original_wnd_proc) {
+      SetWindowLongPtrW(g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(GetOverlayState().original_wnd_proc));
     }
     ImGui_ImplDX9_Shutdown();
     ImGui_ImplWin32_Shutdown();

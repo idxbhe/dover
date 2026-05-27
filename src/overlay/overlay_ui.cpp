@@ -23,16 +23,15 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 
 namespace dover::overlay {
 
-bool g_show_overlay = false;
-bool g_in_overlay_frame = false;
-WNDPROC g_original_wnd_proc = nullptr;
-const char* g_active_dx_version = "Unknown API";
-float g_overlay_bg_alpha = 0.63f;     // Approx 160/255
-float g_global_window_alpha = 0.95f;
+OverlayState& GetOverlayState() {
+    static OverlayState s;
+    return s;
+}
 
-bool g_cfg_show_fps = true;
-bool g_cfg_show_clock = true;
-bool g_cfg_show_api = false;
+OverlayConfig& GetOverlayConfig() {
+    static OverlayConfig s;
+    return s;
+}
 
 // ---- Accurate FPS counter using QPC (bypasses ImGui's inflated averaging) ----
 static LARGE_INTEGER g_fps_freq      = {};
@@ -66,11 +65,80 @@ static void TickFPS() {
 }
 
 
+struct NavButtonState {
+    bool is_open;
+    bool is_focused;
+};
+
+static void RenderNavButton(
+    const char* icon,
+    const NavButtonState& state,
+    const ImVec4& active_shadow_color,
+    const ImVec4& active_border_color,
+    float icon_btn_width,
+    float icon_box_height
+) {
+      ImVec2 pos = ImGui::GetCursorScreenPos();
+      ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + icon_box_height);
+      bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
+      
+      ImVec2 glyph_size = ImGui::CalcTextSize(icon);
+      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (icon_box_height - glyph_size.y) * 0.5f + 2.5f);
+      
+      ImVec4 text_color, shadow_color, highlight_color, border_color;
+      if (state.is_open) {
+        text_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
+        shadow_color    = active_shadow_color;
+        border_color    = active_border_color;
+      } else if (hovered) {
+        text_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
+        shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
+        border_color    = ImVec4(0.35f, 0.50f, 0.75f, 0.60f); // Subtle hovered border
+      } else {
+        text_color      = ImVec4(0.95f, 0.96f, 0.98f, 1.00f); // High-visibility bright off-white (no fade)
+        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
+        shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
+        border_color    = ImVec4(0.18f, 0.20f, 0.25f, 0.40f); // Sleek dull border
+      }
+
+      // Draw premium slate/charcoal gradient box background matching the brand label
+      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.13f, 0.15f, 0.19f, 0.95f)); // #212630
+      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.09f, 0.11f, 0.14f, 0.95f)); // #171c24
+      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.07f, 0.08f, 0.11f, 0.95f)); // #12141c
+      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.11f, 0.13f, 0.16f, 0.95f)); // #1c2129
+      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(pos, p_max, col_tl, col_tr, col_br, col_bl);
+
+      // Draw premium rounded border over the box to round off the sharp corners
+      ImGui::GetWindowDrawList()->AddRect(pos, p_max, ImGui::ColorConvertFloat4ToU32(border_color), 4.0f, ImDrawFlags_None, 1.0f);
+
+      // Draw 3D double shadow behind the text glyph
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), icon);
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), icon);
+
+      // Draw the crisp main icon text inside the gradient box
+      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), icon);
+
+      // Draw active indicator (Long line if focused, small dot if open but not focused)
+      if (state.is_open) {
+        float indicator_y = pos.y + icon_box_height + 2.0f;
+        if (state.is_focused) {
+          ImVec2 l_start(pos.x + 6.0f, indicator_y);
+          ImVec2 l_end(pos.x + icon_btn_width - 6.0f, indicator_y + 2.0f);
+          ImGui::GetWindowDrawList()->AddRectFilled(l_start, l_end, ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.65f, 1.00f, 1.00f)), 1.0f);
+        } else {
+          ImVec2 dot_center(pos.x + icon_btn_width * 0.5f, indicator_y + 1.0f);
+          ImGui::GetWindowDrawList()->AddCircleFilled(dot_center, 2.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(0.70f, 0.73f, 0.80f, 0.85f)), 16);
+        }
+      }
+}
+
 void RenderImGuiUI() {
   PollGamepadToggle();
 
   // 1. Draw Pinned Info Window (transparent corner overlay) - Hidden when interactive overlay is active
-  if (!g_show_overlay && (g_cfg_show_fps || g_cfg_show_clock || g_cfg_show_api)) {
+  if (!GetOverlayState().show_overlay && (GetOverlayConfig().show_fps || GetOverlayConfig().show_clock || GetOverlayConfig().show_api)) {
     ImGui::SetNextWindowPos(ImVec2(12.0f, 10.0f), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
     ImGui::Begin("Info Window", nullptr,
@@ -78,32 +146,32 @@ void RenderImGuiUI() {
                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs);
 
-    if (g_cfg_show_fps) {
+    if (GetOverlayConfig().show_fps) {
       TickFPS();
     }
 
-    if (g_cfg_show_clock) {
+    if (GetOverlayConfig().show_clock) {
       SYSTEMTIME time{};
       GetLocalTime(&time);
       ImGui::TextColored(ImVec4(0.20f, 1.00f, 0.70f, 1.00f), "%02u:%02u:%02u", time.wHour, time.wMinute, time.wSecond);
     }
     
-    if (g_cfg_show_fps) {
+    if (GetOverlayConfig().show_fps) {
       ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", g_fps_value);
     }
     
-    if (g_cfg_show_api) {
-      ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", g_active_dx_version);
+    if (GetOverlayConfig().show_api) {
+      ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", GetOverlayState().active_dx_version);
     }
     
     ImGui::End();
   }
 
   // 2. Draw Steam-style Interactive Navigation and floating windows if visible
-  if (g_show_overlay) {
+  if (GetOverlayState().show_overlay) {
     // Dim the underlying game frame for premium presentation
     ImVec2 display_size = ImGui::GetIO().DisplaySize;
-    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, (int)(g_overlay_bg_alpha * 255.0f)));
+    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, (int)(GetOverlayConfig().overlay_bg_alpha * 255.0f)));
 
     bool show_notes = notes::GetNotesWindow().IsOpen();
 
@@ -185,61 +253,13 @@ void RenderImGuiUI() {
     const float icon_box_y = (bar_height - icon_box_height) * 0.5f;
     ImGui::SetCursorPos(ImVec2(center_start_x, icon_box_y));
     {
-      ImVec2 pos = ImGui::GetCursorScreenPos();
-      ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + icon_box_height);
-      bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
-      bool notes_focused = show_notes && notes::GetNotesWindow().IsFocused();
-      
-      ImVec2 glyph_size = ImGui::CalcTextSize(ICON_PANEL_NOTES);
-      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (icon_box_height - glyph_size.y) * 0.5f + 2.5f);
-      
-      ImVec4 text_color, shadow_color, highlight_color, border_color;
-      if (show_notes) {
-        text_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
-        shadow_color    = ImVec4(0.00f, 0.45f, 0.85f, 0.85f);
-        border_color    = ImVec4(0.20f, 0.65f, 1.00f, 0.85f); // Vibrant blue active border
-      } else if (hovered) {
-        text_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
-        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
-        shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
-        border_color    = ImVec4(0.35f, 0.50f, 0.75f, 0.60f); // Subtle hovered border
-      } else {
-        text_color      = ImVec4(0.95f, 0.96f, 0.98f, 1.00f); // High-visibility bright off-white (no fade)
-        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
-        shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
-        border_color    = ImVec4(0.18f, 0.20f, 0.25f, 0.40f); // Sleek dull border
-      }
-
-      // Draw premium slate/charcoal gradient box background matching the brand label
-      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.13f, 0.15f, 0.19f, 0.95f)); // #212630
-      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.09f, 0.11f, 0.14f, 0.95f)); // #171c24
-      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.07f, 0.08f, 0.11f, 0.95f)); // #12141c
-      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.11f, 0.13f, 0.16f, 0.95f)); // #1c2129
-      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(pos, p_max, col_tl, col_tr, col_br, col_bl);
-
-      // Draw premium rounded border over the box to round off the sharp corners
-      ImGui::GetWindowDrawList()->AddRect(pos, p_max, ImGui::ColorConvertFloat4ToU32(border_color), 4.0f, ImDrawFlags_None, 1.0f);
-
-      // Draw 3D double shadow behind the text glyph
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), ICON_PANEL_NOTES);
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), ICON_PANEL_NOTES);
-
-      // Draw the crisp main icon text inside the gradient box
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), ICON_PANEL_NOTES);
-
-      // Draw active indicator (Long line if focused, small dot if open but not focused)
-      if (show_notes) {
-        float indicator_y = pos.y + icon_box_height + 2.0f;
-        if (notes_focused) {
-          ImVec2 l_start(pos.x + 6.0f, indicator_y);
-          ImVec2 l_end(pos.x + icon_btn_width - 6.0f, indicator_y + 2.0f);
-          ImGui::GetWindowDrawList()->AddRectFilled(l_start, l_end, ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.65f, 1.00f, 1.00f)), 1.0f);
-        } else {
-          ImVec2 dot_center(pos.x + icon_btn_width * 0.5f, indicator_y + 1.0f);
-          ImGui::GetWindowDrawList()->AddCircleFilled(dot_center, 2.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(0.70f, 0.73f, 0.80f, 0.85f)), 16);
-        }
-      }
+      NavButtonState notes_state{show_notes, show_notes && notes::GetNotesWindow().IsFocused()};
+      RenderNavButton(
+          ICON_PANEL_NOTES, notes_state,
+          ImVec4(0.00f, 0.45f, 0.85f, 0.85f),  // active shadow
+          ImVec4(0.20f, 0.65f, 1.00f, 0.85f),  // active border
+          icon_btn_width, icon_box_height
+      );
     }
     if (ImGui::Button(ICON_PANEL_NOTES, ImVec2(icon_btn_width, icon_box_height))) {
       if (!show_notes) {
@@ -254,63 +274,15 @@ void RenderImGuiUI() {
     // B. Settings Button Rendering (Modern Dot / Line Indicator + Taskbar Clicking Mechanism)
     ImGui::SameLine(0.0f, button_spacing);
     {
-      ImVec2 pos = ImGui::GetCursorScreenPos();
-      ImVec2 p_max = ImVec2(pos.x + icon_btn_width, pos.y + icon_box_height);
-      bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
-      
-      ImVec2 glyph_size = ImGui::CalcTextSize(ICON_PANEL_SETTINGS);
-      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (icon_box_height - glyph_size.y) * 0.5f + 2.5f);
-      
-      ImVec4 text_color, shadow_color, highlight_color, border_color;
       bool is_settings_open = settings::GetSettingsWindow().IsOpen();
       bool is_settings_focused = settings::GetSettingsWindow().IsFocused();
-
-      if (is_settings_open) {
-        text_color      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.40f);
-        shadow_color    = ImVec4(0.55f, 0.30f, 0.90f, 0.85f);
-        border_color    = ImVec4(0.68f, 0.45f, 0.95f, 0.85f); // Vibrant purple active border
-      } else if (hovered) {
-        text_color      = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
-        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.30f);
-        shadow_color    = ImVec4(0.12f, 0.15f, 0.20f, 0.80f);
-        border_color    = ImVec4(0.55f, 0.40f, 0.80f, 0.60f); // Subtle hovered border
-      } else {
-        text_color      = ImVec4(0.95f, 0.96f, 0.98f, 1.00f); // High-visibility bright off-white (no fade)
-        highlight_color = ImVec4(1.00f, 1.00f, 1.00f, 0.20f);
-        shadow_color    = ImVec4(0.07f, 0.08f, 0.11f, 0.70f);
-        border_color    = ImVec4(0.18f, 0.20f, 0.25f, 0.40f); // Sleek dull border
-      }
-      
-      // Draw premium slate/charcoal gradient box background matching the brand label
-      ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.13f, 0.15f, 0.19f, 0.95f)); // #212630
-      ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.09f, 0.11f, 0.14f, 0.95f)); // #171c24
-      ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.07f, 0.08f, 0.11f, 0.95f)); // #12141c
-      ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.11f, 0.13f, 0.16f, 0.95f)); // #1c2129
-      ImGui::GetWindowDrawList()->AddRectFilledMultiColor(pos, p_max, col_tl, col_tr, col_br, col_bl);
-
-      // Draw premium rounded border over the box to round off the sharp corners
-      ImGui::GetWindowDrawList()->AddRect(pos, p_max, ImGui::ColorConvertFloat4ToU32(border_color), 4.0f, ImDrawFlags_None, 1.0f);
-
-      // Draw 3D double shadow behind the text glyph
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), ICON_PANEL_SETTINGS);
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), ICON_PANEL_SETTINGS);
-
-      // Draw the crisp main icon text inside the gradient box
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), ICON_PANEL_SETTINGS);
-
-      // Draw active indicator (Long line if focused, small dot if open but not focused)
-      if (is_settings_open) {
-        float indicator_y = pos.y + icon_box_height + 2.0f;
-        if (is_settings_focused) {
-          ImVec2 l_start(pos.x + 6.0f, indicator_y);
-          ImVec2 l_end(pos.x + icon_btn_width - 6.0f, indicator_y + 2.0f);
-          ImGui::GetWindowDrawList()->AddRectFilled(l_start, l_end, ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.65f, 1.00f, 1.00f)), 1.0f);
-        } else {
-          ImVec2 dot_center(pos.x + icon_btn_width * 0.5f, indicator_y + 1.0f);
-          ImGui::GetWindowDrawList()->AddCircleFilled(dot_center, 2.0f, ImGui::ColorConvertFloat4ToU32(ImVec4(0.70f, 0.73f, 0.80f, 0.85f)), 16);
-        }
-      }
+      NavButtonState settings_state{is_settings_open, is_settings_focused};
+      RenderNavButton(
+          ICON_PANEL_SETTINGS, settings_state,
+          ImVec4(0.55f, 0.30f, 0.90f, 0.85f),  // active shadow
+          ImVec4(0.68f, 0.45f, 0.95f, 0.85f),  // active border
+          icon_btn_width, icon_box_height
+      );
     }
     if (ImGui::Button(ICON_PANEL_SETTINGS, ImVec2(icon_btn_width, icon_box_height))) {
       if (!settings::GetSettingsWindow().IsOpen()) {
@@ -370,7 +342,7 @@ void RenderImGuiUI() {
       ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(text_color), ICON_WINDOW_CLOSE);
     }
     if (ImGui::Button("##close_nav", ImVec2(button_width, button_height))) {
-      g_show_overlay = false;
+      GetOverlayState().show_overlay = false;
       ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Close");
@@ -387,8 +359,8 @@ void RenderImGuiUI() {
   }
   
   // Render modular windows universally. BaseWindow handles visibility/pin logic internally.
-  notes::GetNotesWindow().Render(g_show_overlay);
-  settings::GetSettingsWindow().Render(g_show_overlay);
+  notes::GetNotesWindow().Render(GetOverlayState().show_overlay);
+  settings::GetSettingsWindow().Render(GetOverlayState().show_overlay);
 
 }
 

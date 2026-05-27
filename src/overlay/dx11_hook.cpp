@@ -75,10 +75,10 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
       ImGui_ImplDX11_Init(g_d3d11_device, g_d3d11_context);
 
       // Subclass WndProc using shared HookedWndProc
-      g_original_wnd_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+      GetOverlayState().original_wnd_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
           g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
 
-      g_active_dx_version = "DirectX 11";
+      GetOverlayState().active_dx_version = "DirectX 11";
       CreateRenderTargetView(swapchain);
 
       g_imgui_initialized = true;
@@ -87,7 +87,7 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
   }
 
   if (g_imgui_initialized.load() && g_render_target_view) {
-    g_in_overlay_frame = true;
+    GetOverlayState().in_overlay_frame = true;
     ImGui_ImplDX11_NewFrame();
     
     g_allow_xinput = true;
@@ -104,7 +104,7 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
     // Bind RenderTargetView before rendering ImGui
     g_d3d11_context->OMSetRenderTargets(1, &g_render_target_view, nullptr);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    g_in_overlay_frame = false;
+    GetOverlayState().in_overlay_frame = false;
   }
 
   if (g_original_present) {
@@ -223,8 +223,8 @@ bool InitializeDx11Hook() {
 
 void ShutdownDx11Hook() {
   if (g_imgui_initialized.load()) {
-    if (g_game_hwnd && g_original_wnd_proc) {
-      SetWindowLongPtrW(g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(g_original_wnd_proc));
+    if (g_game_hwnd && GetOverlayState().original_wnd_proc) {
+      SetWindowLongPtrW(g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(GetOverlayState().original_wnd_proc));
     }
     CleanupRenderTargetView();
     ImGui_ImplDX11_Shutdown();

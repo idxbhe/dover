@@ -162,9 +162,9 @@ void SettingsWindow::RenderContent(bool interactive) {
 
                 ImGui::Text("OSD (On Screen Display):");
                 ImGui::Spacing();
-                if (ImGui::Checkbox("FPS", &g_cfg_show_fps))           GameStorage::Get().SaveConfig();
-                if (ImGui::Checkbox("CLOCK", &g_cfg_show_clock))        GameStorage::Get().SaveConfig();
-                if (ImGui::Checkbox("GRAPHIC API", &g_cfg_show_api))    GameStorage::Get().SaveConfig();
+                if (ImGui::Checkbox("FPS", &GetOverlayConfig().show_fps))           GameStorage::Get().SaveConfig();
+                if (ImGui::Checkbox("CLOCK", &GetOverlayConfig().show_clock))        GameStorage::Get().SaveConfig();
+                if (ImGui::Checkbox("GRAPHIC API", &GetOverlayConfig().show_api))    GameStorage::Get().SaveConfig();
                 ImGui::Spacing();
                 break;
             }
@@ -244,15 +244,15 @@ void SettingsWindow::RenderContent(bool interactive) {
                     }
                 };
 
-                RenderSlimSlider("Window Opacity", &g_global_window_alpha, [&]() {
-                    m_bg_alpha = g_global_window_alpha;
-                    notes::GetNotesWindow().SetBgAlpha(g_global_window_alpha);
+                RenderSlimSlider("Window Opacity", &GetOverlayConfig().global_window_alpha, [&]() {
+                    m_bg_alpha = GetOverlayConfig().global_window_alpha;
+                    notes::GetNotesWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
                     GameStorage::Get().SaveConfig();
                 });
                 
                 ImGui::Dummy(ImVec2(0.0f, 6.0f));
                 
-                RenderSlimSlider("Overlay Opacity", &g_overlay_bg_alpha, []() {
+                RenderSlimSlider("Overlay Opacity", &GetOverlayConfig().overlay_bg_alpha, []() {
                     GameStorage::Get().SaveConfig();
                 });
                 break;
