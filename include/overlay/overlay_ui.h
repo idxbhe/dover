@@ -27,6 +27,6 @@ OverlayConfig& GetOverlayConfig();
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 void RenderImGuiUI();
 
-
+void InitializeOverlay();
 
 } // namespace dover::overlay

@@ -69,7 +69,7 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
 
       IMGUI_CHECKVERSION();
       ImGui::CreateContext();
-      SetupImGuiTheme();
+      InitializeOverlay();
 
       ImGui_ImplWin32_Init(g_game_hwnd);
       ImGui_ImplDX11_Init(g_d3d11_device, g_d3d11_context);

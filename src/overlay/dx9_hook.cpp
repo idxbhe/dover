@@ -47,7 +47,7 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
       
       IMGUI_CHECKVERSION();
       ImGui::CreateContext();
-      SetupImGuiTheme();
+      InitializeOverlay();
 
       ImGui_ImplWin32_Init(g_game_hwnd);
       ImGui_ImplDX9_Init(device);

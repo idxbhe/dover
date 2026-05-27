@@ -1,10 +1,7 @@
 #include "overlay/theme.h"
 #include "overlay/fonts.h"
 #include "overlay/icons.h"
-#include "overlay/game_storage.h"
-#include "overlay/notes/manager.h"
-#include "overlay/notes/layout.h"
-#include "overlay/settings/settings_window.h"
+
 
 #include <windows.h>
 #include <psapi.h>
@@ -28,17 +25,7 @@ ImFont* g_fonts_preview_h3[5] = {};
 
 
 void SetupImGuiTheme() {
-  // ── Step 1: Resolve game exe name from current process ─────────────────
-  wchar_t exe_name_w[MAX_PATH] = {};
-  GetModuleBaseNameW(GetCurrentProcess(), nullptr, exe_name_w, MAX_PATH);
-  std::wstring exe_name(exe_name_w);
-
-  // ── Step 2: Initialize GameStorage FIRST (resolves all paths) ───────────
-  GameStorage::Get().Initialize(exe_name);
-
-  // ── Step 3: Set ImGui INI path from persistent member (no dangling ptr) ─
   ImGuiIO& io = ImGui::GetIO();
-  io.IniFilename = GameStorage::Get().GetLayoutPathCStr();
 
   // ── Step 4: Load fonts from DLL directory ───────────────────────────────
   HMODULE hMod = nullptr;
@@ -155,14 +142,6 @@ void SetupImGuiTheme() {
         g_fonts_preview_h3[i] = g_font_gui;
       }
     }
-
-  // ── Step 5: Initialize Notes and load persistent config/state ────────────
-  notes::InitializeNotesManager(GameStorage::Get().GetNotesDir());
-  notes::GetNotesWindow().Initialize();
-  settings::GetSettingsWindow().Initialize();
-
-  GameStorage::Get().LoadConfig();
-  GameStorage::Get().LoadState();
 
   ImGuiStyle& style = ImGui::GetStyle();
   style.WindowRounding = 8.0f;

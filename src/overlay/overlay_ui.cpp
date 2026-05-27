@@ -364,4 +364,30 @@ void RenderImGuiUI() {
 
 }
 
+void InitializeOverlay() {
+    // 1. Resolve game exe name
+    wchar_t exe_name_w[MAX_PATH] = {};
+    GetModuleBaseNameW(GetCurrentProcess(), nullptr, exe_name_w, MAX_PATH);
+    std::wstring exe_name(exe_name_w);
+
+    // 2. Init GameStorage
+    GameStorage::Get().Initialize(exe_name);
+
+    // 3. Set ImGui INI path
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = GameStorage::Get().GetLayoutPathCStr();
+
+    // 4. Setup theme (font + colors)
+    SetupImGuiTheme();
+
+    // 5. Init subsystems
+    notes::InitializeNotesManager(GameStorage::Get().GetNotesDir());
+    notes::GetNotesWindow().Initialize();
+    settings::GetSettingsWindow().Initialize();
+
+    // 6. Load persistent config/state
+    GameStorage::Get().LoadConfig();
+    GameStorage::Get().LoadState();
+}
+
 } // namespace dover::overlay
