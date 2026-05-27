@@ -9,6 +9,7 @@ namespace dover::shared {
 // All functions take a wide-string path so filesystem::path.wstring() works directly.
 
 std::string  ReadIniString(const std::filesystem::path& path, const char* section, const char* key, const char* default_val);
+void         ReadIniString(const std::filesystem::path& path, const char* section, const char* key, const char* default_val, char* out_buf, size_t out_buf_size);
 void         WriteIniString(const std::filesystem::path& path, const char* section, const char* key, const char* value);
 
 bool         ReadIniBool(const std::filesystem::path& path, const char* section, const char* key, bool default_val);

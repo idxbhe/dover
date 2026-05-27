@@ -1,6 +1,7 @@
 #include "overlay/notes/formatter.h"
 #include <windows.h>
-#include <vector>
+#include <algorithm> // For std::swap
+#include <cstring>   // For memcpy, memcmp, memmove, strlen
 
 namespace dover::overlay::notes {
 
@@ -44,24 +45,35 @@ static void WrapSelection(ImGuiInputTextCallbackData* data,
 static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
   if (data->BufTextLen == 0 || !g_editor_font) return;
 
-  // Build clean string and mapping from wrapped index to clean index
-  static std::string s_clean_str;
-  static std::vector<int> s_map_W_to_C;
-  static std::string s_wrapped_str;
-  static std::vector<int> s_map_C_to_Wnew;
+  // Zero-Overhead Early Exit Buffers
+  constexpr int MAX_LEN = 131072;
+  static char s_last_wrapped_buffer[MAX_LEN] = {0};
+  static int s_last_wrapped_len = -1;
+  static float s_last_wrap_width = 0.0f;
+  static ImFont* s_last_font = nullptr;
 
-  s_clean_str.clear();
-  s_map_W_to_C.clear();
-  s_wrapped_str.clear();
-  s_map_C_to_Wnew.clear();
+  if (data->BufTextLen == s_last_wrapped_len &&
+      g_wrap_width == s_last_wrap_width &&
+      g_editor_font == s_last_font &&
+      memcmp(data->Buf, s_last_wrapped_buffer, data->BufTextLen) == 0) {
+    return; // Instant early exit!
+  }
 
-  s_map_W_to_C.resize(data->BufTextLen + 1, 0);
+  // Static persistent buffers (No Heap Allocations)
+  static char s_clean_str[MAX_LEN];
+  static int s_map_W_to_C[MAX_LEN];
+  static char s_wrapped_str[MAX_LEN];
+  static int s_map_C_to_Wnew[MAX_LEN];
+
+  if (data->BufTextLen >= MAX_LEN - 1) return;
+
+  int clean_len = 0;
   int c_idx = 0;
   for (int i = 0; i < data->BufTextLen; ) {
     if (i + 1 < data->BufTextLen && data->Buf[i] == '\r' && data->Buf[i+1] == '\n') {
       s_map_W_to_C[i] = c_idx;
       s_map_W_to_C[i+1] = c_idx;
-      s_clean_str += ' ';
+      s_clean_str[clean_len++] = ' ';
       c_idx++;
       i += 2;
     } else if (i + 2 < data->BufTextLen && data->Buf[i] == '\r' && data->Buf[i+1] == '-' && data->Buf[i+2] == '\n') {
@@ -71,44 +83,31 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
       i += 3;
     } else {
       s_map_W_to_C[i] = c_idx;
-      s_clean_str += data->Buf[i];
+      s_clean_str[clean_len++] = data->Buf[i];
       c_idx++;
       i++;
     }
   }
   s_map_W_to_C[data->BufTextLen] = c_idx;
+  s_clean_str[clean_len] = '\0';
 
-  // Performance optimization check:
-  static std::string s_last_clean_str;
-  static float s_last_wrap_width = 0.0f;
-  static ImFont* s_last_font = nullptr;
-
-  if (s_clean_str == s_last_clean_str &&
-      g_wrap_width == s_last_wrap_width &&
-      g_editor_font == s_last_font) {
-    return;
-  }
-
-  s_last_clean_str = s_clean_str;
-  s_last_wrap_width = g_wrap_width;
-  s_last_font = g_editor_font;
-
-  // Wrap clean string to build wrapped string and mapping from clean index to new wrapped index
-  s_map_C_to_Wnew.resize(s_clean_str.length() + 1, 0);
-
-  int clean_len = static_cast<int>(s_clean_str.length());
+  int wrapped_len = 0;
   int last_wrap_c_idx = 0;
   int last_space_c_idx = -1;
 
   for (int i = 0; i <= clean_len; i++) {
     if (i == clean_len || s_clean_str[i] == '\n') {
       for (int j = last_wrap_c_idx; j < i; j++) {
-        s_map_C_to_Wnew[j] = static_cast<int>(s_wrapped_str.length());
-        s_wrapped_str += s_clean_str[j];
+        if (wrapped_len < MAX_LEN - 1) {
+          s_map_C_to_Wnew[j] = wrapped_len;
+          s_wrapped_str[wrapped_len++] = s_clean_str[j];
+        }
       }
       if (i < clean_len) {
-        s_map_C_to_Wnew[i] = static_cast<int>(s_wrapped_str.length());
-        s_wrapped_str += '\n';
+        if (wrapped_len < MAX_LEN - 1) {
+          s_map_C_to_Wnew[i] = wrapped_len;
+          s_wrapped_str[wrapped_len++] = '\n';
+        }
       }
       last_wrap_c_idx = i + 1;
       last_space_c_idx = -1;
@@ -126,34 +125,45 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
     if (width > g_wrap_width) {
       if (last_space_c_idx != -1 && last_space_c_idx > last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < last_space_c_idx; j++) {
-          s_map_C_to_Wnew[j] = static_cast<int>(s_wrapped_str.length());
-          s_wrapped_str += s_clean_str[j];
+          if (wrapped_len < MAX_LEN - 1) {
+            s_map_C_to_Wnew[j] = wrapped_len;
+            s_wrapped_str[wrapped_len++] = s_clean_str[j];
+          }
         }
-        s_map_C_to_Wnew[last_space_c_idx] = static_cast<int>(s_wrapped_str.length());
-        s_wrapped_str += "\r\n";
-
+        if (wrapped_len < MAX_LEN - 2) {
+          s_map_C_to_Wnew[last_space_c_idx] = wrapped_len;
+          s_wrapped_str[wrapped_len++] = '\r';
+          s_wrapped_str[wrapped_len++] = '\n';
+        }
         last_wrap_c_idx = last_space_c_idx + 1;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
       } else if (i > last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < i; j++) {
-          s_map_C_to_Wnew[j] = static_cast<int>(s_wrapped_str.length());
-          s_wrapped_str += s_clean_str[j];
+          if (wrapped_len < MAX_LEN - 1) {
+            s_map_C_to_Wnew[j] = wrapped_len;
+            s_wrapped_str[wrapped_len++] = s_clean_str[j];
+          }
         }
-        s_wrapped_str += "\r-\n";
-
+        if (wrapped_len < MAX_LEN - 3) {
+          s_wrapped_str[wrapped_len++] = '\r';
+          s_wrapped_str[wrapped_len++] = '-';
+          s_wrapped_str[wrapped_len++] = '\n';
+        }
         last_wrap_c_idx = i;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
       }
     }
   }
-  s_map_C_to_Wnew[clean_len] = static_cast<int>(s_wrapped_str.length());
+  s_map_C_to_Wnew[clean_len] = wrapped_len;
+  s_wrapped_str[wrapped_len] = '\0';
 
   auto MapOldToNew = [&](int old_pos) -> int {
     if (old_pos < 0) return 0;
     if (old_pos > data->BufTextLen) old_pos = data->BufTextLen;
     int clean_pos = s_map_W_to_C[old_pos];
+    if (clean_pos > clean_len) clean_pos = clean_len;
     return s_map_C_to_Wnew[clean_pos];
   };
 
@@ -161,16 +171,24 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
   int new_sel_start = MapOldToNew(data->SelectionStart);
   int new_sel_end = MapOldToNew(data->SelectionEnd);
 
-  if (s_wrapped_str != data->Buf) {
+  if (data->BufTextLen != wrapped_len || memcmp(data->Buf, s_wrapped_str, wrapped_len) != 0) {
     data->DeleteChars(0, data->BufTextLen);
-    data->InsertChars(0, s_wrapped_str.c_str(), s_wrapped_str.c_str() + s_wrapped_str.length());
+    data->InsertChars(0, s_wrapped_str, s_wrapped_str + wrapped_len);
     data->CursorPos = new_cursor;
     data->SelectionStart = new_sel_start;
     data->SelectionEnd = new_sel_end;
+    g_formatter_state.text_was_formatted_this_frame = true;
   }
+
+  s_last_wrapped_len = wrapped_len;
+  s_last_wrap_width = g_wrap_width;
+  s_last_font = g_editor_font;
+  memcpy(s_last_wrapped_buffer, s_wrapped_str, wrapped_len);
 }
 
 int FormatCallback(ImGuiInputTextCallbackData* data) {
+  g_formatter_state.text_was_formatted_this_frame = false;
+
   if (g_formatter_state.focus_editor_restore_frames > 0 && g_formatter_state.has_saved_state) {
     data->SelectionStart          = g_formatter_state.saved_selection_start;
     data->SelectionEnd            = g_formatter_state.saved_selection_end;
@@ -228,23 +246,30 @@ void ApplyToolbarFormat(const char* prefix, const char* suffix, char* edit_buffe
   int s_end   = g_formatter_state.saved_selection_end;
   if (s_start > s_end) std::swap(s_start, s_end);
   
-  std::string text = edit_buffer;
-  if (s_start >= 0 && s_start <= static_cast<int>(text.length()) && s_end >= 0 && s_end <= static_cast<int>(text.length())) {
-      text.insert(s_end, suffix);
-      text.insert(s_start, prefix);
-      strncpy_s(edit_buffer, buffer_size, text.c_str(), _TRUNCATE);
+  size_t len = strlen(edit_buffer);
+  size_t plen = strlen(prefix);
+  size_t slen = strlen(suffix);
+
+  if (s_start >= 0 && static_cast<size_t>(s_start) <= len && s_end >= 0 && static_cast<size_t>(s_end) <= len) {
+    if (len + plen + slen < buffer_size) {
+      memmove(edit_buffer + s_end + slen, edit_buffer + s_end, len - s_end + 1);
+      memcpy(edit_buffer + s_end, suffix, slen);
       
-      int plen = static_cast<int>(strlen(prefix));
-      int slen = static_cast<int>(strlen(suffix));
+      len += slen;
+      
+      memmove(edit_buffer + s_start + plen, edit_buffer + s_start, len - s_start + 1);
+      memcpy(edit_buffer + s_start, prefix, plen);
+      
       if (s_start == s_end) {
-          g_formatter_state.saved_cursor_pos = s_start + plen;
+          g_formatter_state.saved_cursor_pos = s_start + static_cast<int>(plen);
           g_formatter_state.saved_selection_start = g_formatter_state.saved_cursor_pos;
           g_formatter_state.saved_selection_end   = g_formatter_state.saved_cursor_pos;
       } else {
-          g_formatter_state.saved_cursor_pos      = s_end + plen + slen;
-          g_formatter_state.saved_selection_start = s_start + plen;
-          g_formatter_state.saved_selection_end   = s_end + plen;
+          g_formatter_state.saved_cursor_pos      = s_end + static_cast<int>(plen + slen);
+          g_formatter_state.saved_selection_start = s_start + static_cast<int>(plen);
+          g_formatter_state.saved_selection_end   = s_end + static_cast<int>(plen);
       }
+    }
   }
   g_formatter_state.focus_editor_restore_frames = 3;
   g_formatter_state.has_saved_state = true;
@@ -253,68 +278,81 @@ void ApplyToolbarFormat(const char* prefix, const char* suffix, char* edit_buffe
 void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, ImFont* font) {
   if (strlen(edit_buffer) == 0 || !font) return;
 
-  std::string clean_str;
+  constexpr int MAX_LEN = 131072;
+  static char s_clean_str[MAX_LEN];
+  static char s_wrapped_str[MAX_LEN];
+
   int len = static_cast<int>(strlen(edit_buffer));
+  if (len >= MAX_LEN - 1) return;
+
+  int clean_len = 0;
   for (int i = 0; i < len; ) {
     if (i + 1 < len && edit_buffer[i] == '\r' && edit_buffer[i+1] == '\n') {
-      clean_str += ' ';
+      s_clean_str[clean_len++] = ' ';
       i += 2;
     } else if (i + 2 < len && edit_buffer[i] == '\r' && edit_buffer[i+1] == '-' && edit_buffer[i+2] == '\n') {
       i += 3;
     } else {
-      clean_str += edit_buffer[i];
+      s_clean_str[clean_len++] = edit_buffer[i];
       i++;
     }
   }
+  s_clean_str[clean_len] = '\0';
 
-  std::string wrapped_str;
-  int clean_len = static_cast<int>(clean_str.length());
+  int wrapped_len = 0;
   int last_wrap_c_idx = 0;
   int last_space_c_idx = -1;
 
   for (int i = 0; i <= clean_len; i++) {
-    if (i == clean_len || clean_str[i] == '\n') {
+    if (i == clean_len || s_clean_str[i] == '\n') {
       for (int j = last_wrap_c_idx; j < i; j++) {
-        wrapped_str += clean_str[j];
+        if (wrapped_len < MAX_LEN - 1) s_wrapped_str[wrapped_len++] = s_clean_str[j];
       }
       if (i < clean_len) {
-        wrapped_str += '\n';
+        if (wrapped_len < MAX_LEN - 1) s_wrapped_str[wrapped_len++] = '\n';
       }
       last_wrap_c_idx = i + 1;
       last_space_c_idx = -1;
       continue;
     }
 
-    if (clean_str[i] == ' ') {
+    if (s_clean_str[i] == ' ') {
       last_space_c_idx = i;
     }
 
     float width = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f,
-                                      &clean_str[last_wrap_c_idx],
-                                      &clean_str[i] + 1).x;
+                                      &s_clean_str[last_wrap_c_idx],
+                                      &s_clean_str[i] + 1).x;
 
     if (width > wrap_width) {
       if (last_space_c_idx != -1 && last_space_c_idx > last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < last_space_c_idx; j++) {
-          wrapped_str += clean_str[j];
+          if (wrapped_len < MAX_LEN - 1) s_wrapped_str[wrapped_len++] = s_clean_str[j];
         }
-        wrapped_str += "\r\n";
+        if (wrapped_len < MAX_LEN - 2) {
+          s_wrapped_str[wrapped_len++] = '\r';
+          s_wrapped_str[wrapped_len++] = '\n';
+        }
         last_wrap_c_idx = last_space_c_idx + 1;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
       } else if (i > last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < i; j++) {
-          wrapped_str += clean_str[j];
+          if (wrapped_len < MAX_LEN - 1) s_wrapped_str[wrapped_len++] = s_clean_str[j];
         }
-        wrapped_str += "\r-\n";
+        if (wrapped_len < MAX_LEN - 3) {
+          s_wrapped_str[wrapped_len++] = '\r';
+          s_wrapped_str[wrapped_len++] = '-';
+          s_wrapped_str[wrapped_len++] = '\n';
+        }
         last_wrap_c_idx = i;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
       }
     }
   }
-
-  strncpy_s(edit_buffer, buffer_size, wrapped_str.c_str(), _TRUNCATE);
+  s_wrapped_str[wrapped_len] = '\0';
+  strncpy_s(edit_buffer, buffer_size, s_wrapped_str, _TRUNCATE);
 }
 
 } // namespace dover::overlay::notes

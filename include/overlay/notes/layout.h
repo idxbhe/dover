@@ -27,8 +27,8 @@ public:
 
     // Public for GameStorage state persistence
     void SelectNote(int idx, bool save_state = true);
-    void SelectNoteByFilename(const std::string& filename);
-    std::string GetSelectedNoteFilename() const;
+    void SelectNoteByFilename(const char* filename);
+    const char* GetSelectedNoteFilename() const;
     void SetViewMode(int mode) { m_view_mode = mode; }
     int  GetSelectedNoteIndex() const { return m_selected_note_idx; }
     int  GetViewMode() const { return m_view_mode; }

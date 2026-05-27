@@ -17,6 +17,7 @@ struct FormatterState {
   int saved_cursor_pos = 0;
   bool has_saved_state = false;
   int focus_editor_restore_frames = 0;
+  bool text_was_formatted_this_frame = false;
 };
 
 // Access to the global formatter state

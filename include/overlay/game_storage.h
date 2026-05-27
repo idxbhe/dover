@@ -1,7 +1,6 @@
 #pragma once
 
 #include <filesystem>
-#include <string>
 
 namespace dover::overlay {
 
@@ -23,7 +22,7 @@ public:
     std::filesystem::path GetStatePath()  const { return m_game_dir / L"state.ini"; }
 
     // Safe pointer for io.IniFilename — lifetime matches singleton (= DLL lifetime)
-    const char* GetLayoutPathCStr() const { return m_layout_path_utf8.c_str(); }
+    const char* GetLayoutPathCStr() const { return m_layout_path_utf8; }
 
     // Config: OSD visibility and theme opacity
     void LoadConfig();
@@ -40,7 +39,7 @@ private:
     std::filesystem::path m_game_dir;
 
     // Persistent member string — pointer stays valid for entire DLL lifetime
-    std::string m_layout_path_utf8;
+    char m_layout_path_utf8[260] = {0};
 };
 
 } // namespace dover::overlay

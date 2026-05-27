@@ -1,8 +1,8 @@
 #include "overlay/notes/style.h"
 #include <imgui.h>
 #include <imgui_md.h>
-#include <vector>
 #include <cstdio>
+#include <cstring>
 
 namespace dover::overlay {
   // Extern references to the global overlay fonts
@@ -64,8 +64,9 @@ struct DoverMarkdownRenderer : public imgui_md {
   int m_quote_depth = 0;
   float m_quote_start_x = 0.0f;
 
-  // Custom list tracking
-  std::vector<CustomListInfo> m_custom_list_stack;
+  // Custom list tracking (Fixed static array, no vector allocations)
+  CustomListInfo m_custom_list_stack[32];
+  size_t m_custom_list_depth = 0;
 
   static constexpr float kListIndent = 18.0f;
 
@@ -204,10 +205,12 @@ struct DoverMarkdownRenderer : public imgui_md {
   void BLOCK_UL(const MD_BLOCK_UL_DETAIL* d, bool e) override {
     if (e) {
       m_list_level++;
-      m_custom_list_stack.push_back({false, 0});
+      if (m_custom_list_depth < 32) {
+        m_custom_list_stack[m_custom_list_depth++] = {false, 0};
+      }
     } else {
       m_list_level--;
-      if (!m_custom_list_stack.empty()) m_custom_list_stack.pop_back();
+      if (m_custom_list_depth > 0) m_custom_list_depth--;
     }
     imgui_md::BLOCK_UL(d, e);
   }
@@ -215,10 +218,12 @@ struct DoverMarkdownRenderer : public imgui_md {
   void BLOCK_OL(const MD_BLOCK_OL_DETAIL* d, bool e) override {
     if (e) {
       m_list_level++;
-      m_custom_list_stack.push_back({true, d->start});
+      if (m_custom_list_depth < 32) {
+        m_custom_list_stack[m_custom_list_depth++] = {true, d->start};
+      }
     } else {
       m_list_level--;
-      if (!m_custom_list_stack.empty()) m_custom_list_stack.pop_back();
+      if (m_custom_list_depth > 0) m_custom_list_depth--;
     }
     imgui_md::BLOCK_OL(d, e);
   }
@@ -232,9 +237,9 @@ struct DoverMarkdownRenderer : public imgui_md {
       float font_size = ImGui::GetFontSize();
       ImU32 col = ImGui::GetColorU32(palette::kBullet);
 
-      if (!m_custom_list_stack.empty() && m_custom_list_stack.back().is_ol) {
+      if (m_custom_list_depth > 0 && m_custom_list_stack[m_custom_list_depth - 1].is_ol) {
         // Ordered list: render number
-        auto& info = m_custom_list_stack.back();
+        auto& info = m_custom_list_stack[m_custom_list_depth - 1];
         char buf[16];
         snprintf(buf, sizeof(buf), "%u.", info.cur_number++);
         ImGui::PushStyleColor(ImGuiCol_Text, palette::kBullet);
@@ -334,7 +339,8 @@ struct DoverMarkdownRenderer : public imgui_md {
   bool get_image(image_info&) const override { return false; }
 };
 
-void RenderMarkdown(const std::string& content, int zoom_idx) {
+void RenderMarkdown(const char* content, int zoom_idx) {
+  if (!content || content[0] == '\0') return;
   static DoverMarkdownRenderer renderer;
   renderer.m_zoom_idx = zoom_idx;
 
@@ -343,10 +349,10 @@ void RenderMarkdown(const std::string& content, int zoom_idx) {
   renderer.m_li_indent_level = 0;
   renderer.m_code_block_active = false;
   renderer.m_quote_depth = 0;
-  renderer.m_custom_list_stack.clear();
+  renderer.m_custom_list_depth = 0; // Ensures safe bound check
 
   ImGui::PushFont(g_fonts_preview[zoom_idx]);
-  renderer.print(content.c_str(), content.c_str() + content.size());
+  renderer.print(content, content + strlen(content));
   ImGui::PopFont();
 }
 

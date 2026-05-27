@@ -1,33 +1,36 @@
 #pragma once
-#include <string>
-#include <vector>
 #include <filesystem>
+#include <memory>
+#include <span>
 
 namespace dover::overlay::notes {
 
+constexpr size_t MAX_NOTES = 128;
+constexpr size_t MAX_NOTE_SIZE = 65536; // 64KB, perfectly synchronized with m_edit_buffer
+
 struct NoteFile {
-  std::string filename;  // "strategy.md"
-  std::string title;     // "strategy"
-  std::string content;   // Full file content
-  bool is_dirty = false; // Unsaved changes flag
+  char filename[64];
+  char title[64];
+  std::unique_ptr<char[]> content; // Pre-allocated 64KB heap buffer, zero re-allocations
+  bool is_dirty = false;
 };
 
 // Must be called once after ImGui context is created.
 // notes_dir: full path to the per-game notes directory (from GameStorage)
 bool InitializeNotesManager(const std::filesystem::path& notes_dir);
 
-// Returns mutable reference to the in-memory notes list
-std::vector<NoteFile>& GetNotes();
+// Returns a span of the active in-memory notes (no copy, array backed)
+std::span<NoteFile> GetNotes();
 
 // Returns the notes directory path
 const std::filesystem::path& GetNotesDir();
 
 // Creates a note with a guaranteed unique auto-generated title.
-// Returns the title of the created note, empty string on failure.
-std::string CreateAutoNote();
+// Returns a static buffer with the title, or empty string on failure.
+const char* CreateAutoNote();
 
 // Creates a new empty note with the given title. Returns false if title exists.
-bool CreateNote(const std::string& title);
+bool CreateNote(const char* title);
 
 // Deletes the note at index from disk and memory. Returns false on failure.
 bool DeleteNote(size_t index);

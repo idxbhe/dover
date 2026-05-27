@@ -28,15 +28,15 @@ NotesWindow& GetNotesWindow() {
 }
 
 void NotesWindow::SyncEditBufferFromNote(int idx) {
-  auto& notes = GetNotes();
+  auto notes = GetNotes();
   if (idx < 0 || static_cast<size_t>(idx) >= notes.size()) return;
   strncpy_s(m_edit_buffer, sizeof(m_edit_buffer),
-            notes[idx].content.c_str(), _TRUNCATE);
+            notes[idx].content.get(), _TRUNCATE);
   m_synced_note_idx = idx;
 }
 
 void NotesWindow::FlushEditBufferToNote() {
-  auto& notes = GetNotes();
+  auto notes = GetNotes();
   if (m_synced_note_idx < 0 ||
       static_cast<size_t>(m_synced_note_idx) >= notes.size()) return;
   auto& note = notes[m_synced_note_idx];
@@ -57,8 +57,8 @@ void NotesWindow::FlushEditBufferToNote() {
     }
   }
 
-  if (note.content != clean_content) {
-    note.content = clean_content;
+  if (strcmp(note.content.get(), clean_content.c_str()) != 0) {
+    strncpy_s(note.content.get(), MAX_NOTE_SIZE, clean_content.c_str(), _TRUNCATE);
     note.is_dirty = true;
   }
 }
@@ -73,21 +73,24 @@ void NotesWindow::SelectNote(int idx, bool save_state) {
   }
 }
 
-void NotesWindow::SelectNoteByFilename(const std::string& filename) {
-  auto& notes = GetNotes();
+void NotesWindow::SelectNoteByFilename(const char* filename) {
+  auto notes = GetNotes();
   {
-    std::string msg = "NotesWindow::SelectNoteByFilename - Searching for filename: '" + filename + "', total notes loaded: " + std::to_string(notes.size());
-    shared::LogInfo(msg.c_str());
+    char msg[512];
+    snprintf(msg, sizeof(msg), "NotesWindow::SelectNoteByFilename - Searching for filename: '%s', total notes loaded: %zu", filename, notes.size());
+    shared::LogInfo(msg);
   }
   for (size_t i = 0; i < notes.size(); ++i) {
     {
-      std::string msg = "  Note [" + std::to_string(i) + "]: filename='" + notes[i].filename + "', title='" + notes[i].title + "'";
-      shared::LogInfo(msg.c_str());
+      char msg[512];
+      snprintf(msg, sizeof(msg), "  Note [%zu]: filename='%s', title='%s'", i, notes[i].filename, notes[i].title);
+      shared::LogInfo(msg);
     }
-    if (notes[i].filename == filename) {
+    if (strcmp(notes[i].filename, filename) == 0) {
       {
-        std::string msg = "NotesWindow::SelectNoteByFilename - MATCH found at index " + std::to_string(i) + ". Selecting note.";
-        shared::LogInfo(msg.c_str());
+        char msg[512];
+        snprintf(msg, sizeof(msg), "NotesWindow::SelectNoteByFilename - MATCH found at index %zu. Selecting note.", i);
+        shared::LogInfo(msg);
       }
       SelectNote(static_cast<int>(i), false);
       return;
@@ -99,17 +102,11 @@ void NotesWindow::SelectNoteByFilename(const std::string& filename) {
   }
 }
 
-std::string NotesWindow::GetSelectedNoteFilename() const {
-  auto& notes = GetNotes();
+const char* NotesWindow::GetSelectedNoteFilename() const {
+  auto notes = GetNotes();
   if (m_selected_note_idx >= 0 && static_cast<size_t>(m_selected_note_idx) < notes.size()) {
-    std::string fn = notes[m_selected_note_idx].filename;
-    {
-      std::string msg = "NotesWindow::GetSelectedNoteFilename - Active note index " + std::to_string(m_selected_note_idx) + " -> filename='" + fn + "'";
-      shared::LogInfo(msg.c_str());
-    }
-    return fn;
+    return notes[m_selected_note_idx].filename;
   }
-  shared::LogInfo("NotesWindow::GetSelectedNoteFilename - Active index invalid or empty, returning empty string.");
   return "";
 }
 
@@ -138,7 +135,7 @@ namespace detail {
 enum class FloatBtnAction { None, ToggleMode, DeleteNote };
 
 const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, float win_w) {
-    auto& notes = GetNotes();
+    auto notes = GetNotes();
     bool show_format_buttons = win_w >= 550.0f;
     bool show_opacity = win_w >= 470.0f;
     bool show_size = win_w >= 320.0f;
@@ -164,11 +161,11 @@ const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, flo
 
     if (show_add_new) {
       if (ImGui::Button(ICON_ADD_NEW)) {
-        std::string new_title = CreateAutoNote();
-        if (!new_title.empty()) {
-          auto& ns = GetNotes();
+        const char* new_title = CreateAutoNote();
+        if (new_title[0] != '\0') {
+          auto ns = GetNotes();
           for (int i = 0; i < static_cast<int>(ns.size()); ++i) {
-            if (ns[i].title == new_title) { window->SelectNote(i); break; }
+            if (strcmp(ns[i].title, new_title) == 0) { window->SelectNote(i); break; }
           }
           window->SwitchToEditor();
         }
@@ -354,7 +351,7 @@ const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, flo
 }
 
 int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
-    auto& notes = GetNotes();
+    auto notes = GetNotes();
     int new_selected_idx = -1;
 
     ImVec2 min_p = ImGui::GetWindowPos();
@@ -376,7 +373,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
       if (max_chars < 8) max_chars = 8;
       
       char title_buf[128];
-      const char* src = (is_sel && window->m_view_mode == 0) ? window->m_edit_buffer : notes[i].content.c_str();
+      const char* src = (is_sel && window->m_view_mode == 0) ? window->m_edit_buffer : notes[i].content.get();
       
       int j = 0;
       while (src[j] == ' ' || src[j] == '\t' || src[j] == '\r' || src[j] == '\n') j++;
@@ -495,11 +492,14 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
     if (GetFormatterState().focus_editor_restore_frames > 0) {
         window->m_force_focus_frames = GetFormatterState().focus_editor_restore_frames;
     }
+    if (GetFormatterState().text_was_formatted_this_frame) {
+        window->m_force_focus_frames = 1;
+    }
 
     ImGui::PopFont();
 
     if (changed) {
-        auto& notes = GetNotes();
+        auto notes = GetNotes();
         std::string clean_content;
         int len = static_cast<int>(strlen(window->m_edit_buffer));
         clean_content.reserve(len);
@@ -514,8 +514,8 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
                 i++;
             }
         }
-        if (notes[window->m_selected_note_idx].content != clean_content) {
-            notes[window->m_selected_note_idx].content = clean_content;
+        if (strcmp(notes[window->m_selected_note_idx].content.get(), clean_content.c_str()) != 0) {
+            strncpy_s(notes[window->m_selected_note_idx].content.get(), MAX_NOTE_SIZE, clean_content.c_str(), _TRUNCATE);
             notes[window->m_selected_note_idx].is_dirty = true;
             MarkNoteChanged();
         }
@@ -523,10 +523,10 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
 }
 
 void RenderPreviewInternal(NotesWindow* window, float /*content_h*/) {
-    auto& notes = GetNotes();
+    auto notes = GetNotes();
     const auto& content = notes[window->m_selected_note_idx].content;
-    if (!content.empty()) {
-        RenderMarkdown(content, window->m_zoom_idx);
+    if (content && content[0] != '\0') {
+        RenderMarkdown(content.get(), window->m_zoom_idx);
     }
 }
 
@@ -658,7 +658,7 @@ void NotesWindow::RenderToolbar(bool interactive) {
         
         ApplyToolbarFormat(format_ptr, suffix, m_edit_buffer, sizeof(m_edit_buffer));
         
-        auto& ns = GetNotes();
+        auto ns = GetNotes();
         if (m_selected_note_idx >= 0 && m_selected_note_idx < static_cast<int>(ns.size())) {
             ns[m_selected_note_idx].is_dirty = true;
             MarkNoteChanged();
@@ -670,7 +670,7 @@ void NotesWindow::RenderToolbar(bool interactive) {
 void NotesWindow::RenderContent(bool interactive) {
   if (!interactive) return;
 
-  auto& notes = GetNotes();
+  auto notes = GetNotes();
   if (!notes.empty() && m_selected_note_idx >= static_cast<int>(notes.size())) {
     m_selected_note_idx = static_cast<int>(notes.size()) - 1;
   }
@@ -769,8 +769,8 @@ void NotesWindow::RenderContent(bool interactive) {
     }
   } else if (btn_action == detail::FloatBtnAction::DeleteNote) {
     if (!notes.empty()) {
-      notes.erase(notes.begin() + m_selected_note_idx);
-      MarkNoteChanged();
+      DeleteNote(m_selected_note_idx);
+      notes = GetNotes();
       if (m_selected_note_idx > 0) {
         m_selected_note_idx--;
       }

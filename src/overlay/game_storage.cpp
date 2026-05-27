@@ -8,6 +8,8 @@
 #include "overlay/settings/settings_window.h"
 
 #include <windows.h>
+#include <cstdio>
+#include <cstring>
 
 namespace dover::overlay {
 
@@ -41,12 +43,13 @@ void GameStorage::Initialize(const std::wstring& exe_name) {
     // Build and cache the layout.ini UTF-8 path string — this pointer must outlive ImGui
     fs::path layout_path = m_game_dir / L"layout.ini";
     std::wstring layout_wide = layout_path.wstring();
-    int size = WideCharToMultiByte(CP_UTF8, 0, layout_wide.c_str(), -1, nullptr, 0, nullptr, nullptr);
-    m_layout_path_utf8.resize(static_cast<size_t>(size));
-    WideCharToMultiByte(CP_UTF8, 0, layout_wide.c_str(), -1, m_layout_path_utf8.data(), size, nullptr, nullptr);
-    // Remove null terminator from std::string size (WideCharToMultiByte includes it)
-    if (!m_layout_path_utf8.empty() && m_layout_path_utf8.back() == '\0') {
-        m_layout_path_utf8.pop_back();
+    
+    // Convert wide-character path to UTF-8 and write to the static buffer safely
+    int size = WideCharToMultiByte(CP_UTF8, 0, layout_wide.c_str(), -1, m_layout_path_utf8, sizeof(m_layout_path_utf8) - 1, nullptr, nullptr);
+    if (size > 0) {
+        m_layout_path_utf8[size - 1] = '\0'; // Explicit Null-Terminator protection!
+    } else {
+        m_layout_path_utf8[0] = '\0';
     }
 
     m_initialized = true;
@@ -84,15 +87,17 @@ void GameStorage::LoadState() {
     if (!m_initialized) return;
     auto st = GetStatePath();
 
-    std::string note_file = shared::ReadIniString(st, "notes", "selected_note_filename", "");
+    char note_file[64] = {};
+    shared::ReadIniString(st, "notes", "selected_note_filename", "", note_file, sizeof(note_file));
     {
-      std::string msg = "GameStorage::LoadState - Loaded selected_note_filename: '" + note_file + "'";
-      shared::LogInfo(msg.c_str());
+      char msg[512];
+      snprintf(msg, sizeof(msg), "GameStorage::LoadState - Loaded selected_note_filename: '%s'", note_file);
+      shared::LogInfo(msg);
     }
     
     int view_mode = shared::ReadIniInt(st, "notes", "view_mode", 1);
     
-    if (!note_file.empty()) {
+    if (note_file[0] != '\0') {
         notes::GetNotesWindow().SelectNoteByFilename(note_file);
     } else {
         shared::LogInfo("GameStorage::LoadState - selected_note_filename was empty, selecting note 0.");
@@ -117,13 +122,14 @@ void GameStorage::SaveState() {
     if (!m_initialized) return;
     auto st = GetStatePath();
 
-    std::string note_fn = notes::GetNotesWindow().GetSelectedNoteFilename();
+    const char* note_fn = notes::GetNotesWindow().GetSelectedNoteFilename();
     {
-      std::string msg = "GameStorage::SaveState - Writing selected_note_filename: '" + note_fn + "'";
-      shared::LogInfo(msg.c_str());
+      char msg[512];
+      snprintf(msg, sizeof(msg), "GameStorage::SaveState - Writing selected_note_filename: '%s'", note_fn);
+      shared::LogInfo(msg);
     }
 
-    shared::WriteIniString(st, "notes", "selected_note_filename", note_fn.c_str());
+    shared::WriteIniString(st, "notes", "selected_note_filename", note_fn);
     shared::WriteIniInt(st, "notes", "view_mode",           notes::GetNotesWindow().GetViewMode());
     shared::WriteIniInt(st, "notes", "zoom_idx",            notes::GetNotesWindow().GetZoomIndex());
     shared::WriteIniInt(st, "settings", "selected_category", settings::GetSettingsWindow().GetSelectedCategory());

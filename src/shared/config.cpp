@@ -28,6 +28,19 @@ std::string ReadIniString(const std::filesystem::path& path, const char* section
     return result;
 }
 
+void ReadIniString(const std::filesystem::path& path, const char* section, const char* key, const char* default_val, char* out_buf, size_t out_buf_size) {
+    if (!out_buf || out_buf_size == 0) return;
+    std::wstring wide_path = ToWide(path);
+    wchar_t wbuf[512] = {};
+    wchar_t wsec[128], wkey[128], wdef[512];
+    MultiByteToWideChar(CP_UTF8, 0, section, -1, wsec, 128);
+    MultiByteToWideChar(CP_UTF8, 0, key,     -1, wkey, 128);
+    MultiByteToWideChar(CP_UTF8, 0, default_val, -1, wdef, 512);
+    GetPrivateProfileStringW(wsec, wkey, wdef, wbuf, 512, wide_path.c_str());
+    WideCharToMultiByte(CP_UTF8, 0, wbuf, -1, out_buf, static_cast<int>(out_buf_size), nullptr, nullptr);
+    out_buf[out_buf_size - 1] = '\0';
+}
+
 void WriteIniString(const std::filesystem::path& path, const char* section, const char* key, const char* value) {
     std::wstring wide_path = ToWide(path);
     wchar_t wsec[128], wkey[128], wval[512];
