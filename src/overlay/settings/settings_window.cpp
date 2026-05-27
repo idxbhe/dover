@@ -64,7 +64,8 @@ void SettingsWindow::RenderContent(bool interactive) {
 
     for (int i = 0; i < 4; ++i) {
         bool is_sel = (i == m_selected_category);
-        std::string id_str = "##cat_" + std::to_string(i);
+        char id_buf[16];
+        snprintf(id_buf, sizeof(id_buf), "##cat_%d", i);
         
         ImVec2 pos = ImGui::GetCursorScreenPos();
         ImVec2 min_p = ImVec2(pos.x + 6.0f, pos.y);
@@ -75,7 +76,7 @@ void SettingsWindow::RenderContent(bool interactive) {
         ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0, 0, 0, 0));
         
         ImGui::SetCursorPosX(6.0f);
-        bool selected_now = ImGui::Selectable(id_str.c_str(), is_sel, ImGuiSelectableFlags_None, ImVec2(sb_w - 12.0f, 32.0f));
+        bool selected_now = ImGui::Selectable(id_buf, is_sel, ImGuiSelectableFlags_None, ImVec2(sb_w - 12.0f, 32.0f));
         
         bool is_hovered = ImGui::IsItemHovered();
         bool is_active = ImGui::IsItemActive();
@@ -98,10 +99,11 @@ void SettingsWindow::RenderContent(bool interactive) {
         }
         
         float text_y = pos.y + (32.0f - ImGui::GetFontSize()) * 0.5f;
-        std::string label = std::string(categories[i].icon) + "  " + categories[i].name;
+        char label_buf[64];
+        snprintf(label_buf, sizeof(label_buf), "%s  %s", categories[i].icon, categories[i].name);
         
         if (g_font_gui) ImGui::PushFont(g_font_gui);
-        ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), label.c_str());
+        ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), label_buf);
         if (g_font_gui) ImGui::PopFont();
         
         if (selected_now && !is_sel) {
@@ -202,10 +204,10 @@ void SettingsWindow::RenderContent(bool interactive) {
                     ImVec2 slider_pos = ImGui::GetCursorScreenPos();
                     ImGui::SetNextItemWidth(slider_width);
                     
-                    std::string id_str = "##slider_";
-                    id_str += label;
+                    char slider_id_buf[64];
+                    snprintf(slider_id_buf, sizeof(slider_id_buf), "##slider_%s", label);
                     
-                    bool changed = ImGui::SliderFloat(id_str.c_str(), value_ptr, 0.00f, 1.00f, "");
+                    bool changed = ImGui::SliderFloat(slider_id_buf, value_ptr, 0.00f, 1.00f, "");
                     
                     float grab_center_x = slider_pos.x + (*value_ptr) * slider_width;
                     float grab_center_y = slider_pos.y + frame_height * 0.5f;
