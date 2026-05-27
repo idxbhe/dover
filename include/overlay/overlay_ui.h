@@ -18,6 +18,8 @@ struct OverlayConfig {
     bool show_fps = true;
     bool show_clock = true;
     bool show_api = false;
+    int hotkey_toggle_main = VK_TAB;
+    int hotkey_toggle_modifier = VK_SHIFT;
 };
 
 OverlayState& GetOverlayState();

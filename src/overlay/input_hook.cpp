@@ -51,7 +51,9 @@ bool ProcessInputMessage(LPMSG lpMsg) {
     if ((lpMsg->message >= WM_MOUSEFIRST && lpMsg->message <= WM_MOUSELAST) ||
         (lpMsg->message >= WM_KEYFIRST && lpMsg->message <= WM_KEYLAST) ||
         lpMsg->message == WM_INPUT) {
-      bool is_toggle = (lpMsg->message == WM_KEYDOWN && lpMsg->wParam == VK_TAB && (GetKeyState(VK_SHIFT) & 0x8000));
+      auto& cfg = GetOverlayConfig();
+      bool modifier_pressed = cfg.hotkey_toggle_modifier == 0 || (GetKeyState(cfg.hotkey_toggle_modifier) & 0x8000);
+      bool is_toggle = (lpMsg->message == WM_KEYDOWN && lpMsg->wParam == (WPARAM)cfg.hotkey_toggle_main && modifier_pressed);
       if (!is_toggle) {
         return true; // We want to block it from game
       }
@@ -62,7 +64,8 @@ bool ProcessInputMessage(LPMSG lpMsg) {
 
 SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
   if (GetOverlayState().show_overlay) {
-    if (vKey == VK_TAB || vKey == VK_SHIFT) {
+    auto& cfg = GetOverlayConfig();
+    if (vKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && vKey == cfg.hotkey_toggle_modifier)) {
       if (g_original_get_async_key_state) {
         return g_original_get_async_key_state(vKey);
       }
@@ -77,7 +80,8 @@ SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
 
 SHORT WINAPI HookedGetKeyState(int nVirtKey) {
   if (GetOverlayState().show_overlay) {
-    if (nVirtKey == VK_TAB || nVirtKey == VK_SHIFT) {
+    auto& cfg = GetOverlayConfig();
+    if (nVirtKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && nVirtKey == cfg.hotkey_toggle_modifier)) {
       if (g_original_get_key_state) {
         return g_original_get_key_state(nVirtKey);
       }
@@ -245,9 +249,18 @@ DWORD WINAPI HookedXInput13GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
 
 } // namespace
 
+bool IsHardwareKeyPressed(int vKey) {
+  if (g_original_get_async_key_state) {
+    return (g_original_get_async_key_state(vKey) & 0x8000) != 0;
+  }
+  return (GetAsyncKeyState(vKey) & 0x8000) != 0;
+}
+
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
-  // Toggle overlay on Shift + Tab
-  if (msg == WM_KEYDOWN && wparam == VK_TAB && (GetKeyState(VK_SHIFT) & 0x8000)) {
+  auto& cfg = GetOverlayConfig();
+  bool modifier_pressed = cfg.hotkey_toggle_modifier == 0 || (GetKeyState(cfg.hotkey_toggle_modifier) & 0x8000);
+  
+  if (msg == WM_KEYDOWN && wparam == (WPARAM)cfg.hotkey_toggle_main && modifier_pressed) {
     GetOverlayState().show_overlay = !GetOverlayState().show_overlay;
     
     // Update ImGui cursor visibility state and gamepad navigation

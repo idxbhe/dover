@@ -66,6 +66,9 @@ void GameStorage::LoadConfig() {
     GetOverlayConfig().global_window_alpha = shared::ReadIniFloat(cfg, "theme", "window_alpha", 0.95f);
     GetOverlayConfig().overlay_bg_alpha    = shared::ReadIniFloat(cfg, "theme", "overlay_alpha", 0.63f);
 
+    GetOverlayConfig().hotkey_toggle_main = shared::ReadIniInt(cfg, "hotkeys", "toggle_main", VK_TAB);
+    GetOverlayConfig().hotkey_toggle_modifier = shared::ReadIniInt(cfg, "hotkeys", "toggle_modifier", VK_SHIFT);
+
     // Sync opacity to open windows
     notes::GetNotesWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
     settings::GetSettingsWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
@@ -81,6 +84,9 @@ void GameStorage::SaveConfig() {
 
     shared::WriteIniFloat(cfg, "theme", "window_alpha",  GetOverlayConfig().global_window_alpha);
     shared::WriteIniFloat(cfg, "theme", "overlay_alpha", GetOverlayConfig().overlay_bg_alpha);
+
+    shared::WriteIniInt(cfg, "hotkeys", "toggle_main", GetOverlayConfig().hotkey_toggle_main);
+    shared::WriteIniInt(cfg, "hotkeys", "toggle_modifier", GetOverlayConfig().hotkey_toggle_modifier);
 }
 
 void GameStorage::LoadState() {
