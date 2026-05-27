@@ -3,6 +3,15 @@
 #include "overlay/ui/components/base_window.h"
 
 namespace dover::overlay::notes {
+class NotesWindow;
+namespace detail {
+    enum class FloatBtnAction;
+    const char* RenderToolbarInternal(NotesWindow*, bool, float);
+    int RenderSidebarInternal(NotesWindow*, float, float);
+    void RenderEditorInternal(NotesWindow*, float, float);
+    void RenderPreviewInternal(NotesWindow*, float);
+    FloatBtnAction RenderFloatingButtonsInternal(NotesWindow*);
+}
 
 class NotesWindow : public ui::BaseWindow {
 public:
@@ -25,14 +34,14 @@ public:
     int  GetViewMode() const { return m_view_mode; }
     void SetZoomIndex(int idx) { m_zoom_idx = idx; }
     int  GetZoomIndex() const { return m_zoom_idx; }
-    float& GetBgAlpha() { return m_bg_alpha; }
+
 
 protected:
     void RenderToolbar(bool interactive) override;
     void RenderContent(bool interactive) override;
     void PostRender(bool interactive) override;
 
-public:
+private:
     // Local state previously in anonymous namespace
     float m_sidebar_width = 240.0f;
     bool m_sidebar_visible = true;
@@ -50,6 +59,13 @@ public:
     void SyncEditBufferFromNote(int idx);
     void FlushEditBufferToNote();
     void SwitchToEditor();
+
+    // Grant access to internal renderers
+    friend const char* detail::RenderToolbarInternal(NotesWindow*, bool, float);
+    friend int detail::RenderSidebarInternal(NotesWindow*, float, float);
+    friend void detail::RenderEditorInternal(NotesWindow*, float, float);
+    friend void detail::RenderPreviewInternal(NotesWindow*, float);
+    friend detail::FloatBtnAction detail::RenderFloatingButtonsInternal(NotesWindow*);
 };
 
 // Global instance getter

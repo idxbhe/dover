@@ -153,9 +153,11 @@ void NotesWindow::Shutdown() {
   FlushEditBufferToNote();
 }
 
+namespace detail {
+
 enum class FloatBtnAction { None, ToggleMode, DeleteNote };
 
-static const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, float win_w) {
+const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, float win_w) {
     auto& notes = GetNotes();
     bool show_format_buttons = win_w >= 550.0f;
     bool show_opacity = win_w >= 470.0f;
@@ -263,7 +265,10 @@ static const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive
       float frame_height = ImGui::GetFrameHeight();
       ImVec2 slider_pos = ImGui::GetCursorScreenPos();
       ImGui::SetNextItemWidth(slider_width);
-      ImGui::SliderFloat("##opacity", &window->GetBgAlpha(), 0.00f, 1.00f, "");
+      float current_alpha = window->GetBgAlpha();
+      if (ImGui::SliderFloat("##opacity", &current_alpha, 0.00f, 1.00f, "")) {
+          window->SetBgAlpha(current_alpha);
+      }
       
       float grab_center_x = slider_pos.x + window->GetBgAlpha() * slider_width;
       float grab_center_y = slider_pos.y + frame_height * 0.5f;
@@ -367,7 +372,7 @@ static const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive
     return format_ptr;
 }
 
-static int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
+int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
     auto& notes = GetNotes();
     int new_selected_idx = -1;
 
@@ -456,7 +461,7 @@ static int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*
     return new_selected_idx;
 }
 
-static void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
+void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
     window->m_editor_wrap_width = avail_w - 48.0f;
     if (window->m_editor_wrap_width < 100.0f) window->m_editor_wrap_width = 100.0f;
 
@@ -516,7 +521,7 @@ static void RenderEditorInternal(NotesWindow* window, float content_h, float ava
     }
 }
 
-static void RenderPreviewInternal(NotesWindow* window, float /*content_h*/) {
+void RenderPreviewInternal(NotesWindow* window, float /*content_h*/) {
     auto& notes = GetNotes();
     const auto& content = notes[window->m_selected_note_idx].content;
     if (!content.empty()) {
@@ -524,7 +529,7 @@ static void RenderPreviewInternal(NotesWindow* window, float /*content_h*/) {
     }
 }
 
-static FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
+FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
     FloatBtnAction action = FloatBtnAction::None;
     ImVec2 content_pos = ImGui::GetWindowPos();
     ImVec2 content_size = ImGui::GetWindowSize();
@@ -634,6 +639,8 @@ static FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
     return action;
 }
 
+} // namespace detail
+
 // ==============================================================================
 // ORCHESTRATORS
 // ==============================================================================
@@ -642,7 +649,7 @@ void NotesWindow::RenderToolbar(bool interactive) {
     if (!interactive) return;
 
     float win_w = ImGui::GetWindowWidth();
-    const char* format_ptr = RenderToolbarInternal(this, interactive, win_w);
+    const char* format_ptr = detail::RenderToolbarInternal(this, interactive, win_w);
     
     if (format_ptr) {
         const char* suffix = format_ptr;
@@ -685,7 +692,7 @@ void NotesWindow::RenderContent(bool interactive) {
     ImGui::PopStyleVar();
     ImGui::PopStyleColor();
 
-    int new_idx = RenderSidebarInternal(this, sb_w, win_h);
+    int new_idx = detail::RenderSidebarInternal(this, sb_w, win_h);
     
     ImGui::EndChild();
 
@@ -742,24 +749,24 @@ void NotesWindow::RenderContent(bool interactive) {
   float avail_w = ImGui::GetContentRegionAvail().x;
   
   if (m_view_mode == 0) {
-    RenderEditorInternal(this, content_h, avail_w);
+    detail::RenderEditorInternal(this, content_h, avail_w);
   } else {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 0.0f));
     ImGui::BeginChild("MDPreview", ImVec2(-6.0f, content_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
-    RenderPreviewInternal(this, content_h);
+    detail::RenderPreviewInternal(this, content_h);
     ImGui::EndChild();
     ImGui::PopStyleVar();
   }
 
-  FloatBtnAction btn_action = RenderFloatingButtonsInternal(this);
-  if (btn_action == FloatBtnAction::ToggleMode) {
+  detail::FloatBtnAction btn_action = detail::RenderFloatingButtonsInternal(this);
+  if (btn_action == detail::FloatBtnAction::ToggleMode) {
     if (m_view_mode == 0) {
       FlushEditBufferToNote();
       m_view_mode = 1;
     } else {
       SwitchToEditor();
     }
-  } else if (btn_action == FloatBtnAction::DeleteNote) {
+  } else if (btn_action == detail::FloatBtnAction::DeleteNote) {
     if (!notes.empty()) {
       notes.erase(notes.begin() + m_selected_note_idx);
       MarkNoteChanged();
