@@ -45,94 +45,102 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
   if (data->BufTextLen == 0 || !g_editor_font) return;
 
   // Build clean string and mapping from wrapped index to clean index
-  std::string clean_str;
-  std::vector<int> map_W_to_C(data->BufTextLen + 1, 0);
+  static std::string s_clean_str;
+  static std::vector<int> s_map_W_to_C;
+  static std::string s_wrapped_str;
+  static std::vector<int> s_map_C_to_Wnew;
+
+  s_clean_str.clear();
+  s_map_W_to_C.clear();
+  s_wrapped_str.clear();
+  s_map_C_to_Wnew.clear();
+
+  s_map_W_to_C.resize(data->BufTextLen + 1, 0);
   int c_idx = 0;
   for (int i = 0; i < data->BufTextLen; ) {
     if (i + 1 < data->BufTextLen && data->Buf[i] == '\r' && data->Buf[i+1] == '\n') {
-      map_W_to_C[i] = c_idx;
-      map_W_to_C[i+1] = c_idx;
-      clean_str += ' ';
+      s_map_W_to_C[i] = c_idx;
+      s_map_W_to_C[i+1] = c_idx;
+      s_clean_str += ' ';
       c_idx++;
       i += 2;
     } else if (i + 2 < data->BufTextLen && data->Buf[i] == '\r' && data->Buf[i+1] == '-' && data->Buf[i+2] == '\n') {
-      map_W_to_C[i] = c_idx;
-      map_W_to_C[i+1] = c_idx;
-      map_W_to_C[i+2] = c_idx;
+      s_map_W_to_C[i] = c_idx;
+      s_map_W_to_C[i+1] = c_idx;
+      s_map_W_to_C[i+2] = c_idx;
       i += 3;
     } else {
-      map_W_to_C[i] = c_idx;
-      clean_str += data->Buf[i];
+      s_map_W_to_C[i] = c_idx;
+      s_clean_str += data->Buf[i];
       c_idx++;
       i++;
     }
   }
-  map_W_to_C[data->BufTextLen] = c_idx;
+  s_map_W_to_C[data->BufTextLen] = c_idx;
 
   // Performance optimization check:
   static std::string s_last_clean_str;
   static float s_last_wrap_width = 0.0f;
   static ImFont* s_last_font = nullptr;
 
-  if (clean_str == s_last_clean_str &&
+  if (s_clean_str == s_last_clean_str &&
       g_wrap_width == s_last_wrap_width &&
       g_editor_font == s_last_font) {
     return;
   }
 
-  s_last_clean_str = clean_str;
+  s_last_clean_str = s_clean_str;
   s_last_wrap_width = g_wrap_width;
   s_last_font = g_editor_font;
 
   // Wrap clean string to build wrapped string and mapping from clean index to new wrapped index
-  std::string wrapped_str;
-  std::vector<int> map_C_to_Wnew(clean_str.length() + 1, 0);
+  s_map_C_to_Wnew.resize(s_clean_str.length() + 1, 0);
 
-  int clean_len = static_cast<int>(clean_str.length());
+  int clean_len = static_cast<int>(s_clean_str.length());
   int last_wrap_c_idx = 0;
   int last_space_c_idx = -1;
 
   for (int i = 0; i <= clean_len; i++) {
-    if (i == clean_len || clean_str[i] == '\n') {
+    if (i == clean_len || s_clean_str[i] == '\n') {
       for (int j = last_wrap_c_idx; j < i; j++) {
-        map_C_to_Wnew[j] = static_cast<int>(wrapped_str.length());
-        wrapped_str += clean_str[j];
+        s_map_C_to_Wnew[j] = static_cast<int>(s_wrapped_str.length());
+        s_wrapped_str += s_clean_str[j];
       }
       if (i < clean_len) {
-        map_C_to_Wnew[i] = static_cast<int>(wrapped_str.length());
-        wrapped_str += '\n';
+        s_map_C_to_Wnew[i] = static_cast<int>(s_wrapped_str.length());
+        s_wrapped_str += '\n';
       }
       last_wrap_c_idx = i + 1;
       last_space_c_idx = -1;
       continue;
     }
 
-    if (clean_str[i] == ' ') {
+    if (s_clean_str[i] == ' ') {
       last_space_c_idx = i;
     }
 
     float width = g_editor_font->CalcTextSizeA(g_editor_font->FontSize, FLT_MAX, 0.0f,
-                                               &clean_str[last_wrap_c_idx],
-                                               &clean_str[i] + 1).x;
+                                               &s_clean_str[last_wrap_c_idx],
+                                               &s_clean_str[i] + 1).x;
 
     if (width > g_wrap_width) {
       if (last_space_c_idx != -1 && last_space_c_idx > last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < last_space_c_idx; j++) {
-          map_C_to_Wnew[j] = static_cast<int>(wrapped_str.length());
-          wrapped_str += clean_str[j];
+          s_map_C_to_Wnew[j] = static_cast<int>(s_wrapped_str.length());
+          s_wrapped_str += s_clean_str[j];
         }
-        map_C_to_Wnew[last_space_c_idx] = static_cast<int>(wrapped_str.length());
-        wrapped_str += "\r\n";
+        s_map_C_to_Wnew[last_space_c_idx] = static_cast<int>(s_wrapped_str.length());
+        s_wrapped_str += "\r\n";
 
         last_wrap_c_idx = last_space_c_idx + 1;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
       } else if (i > last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < i; j++) {
-          map_C_to_Wnew[j] = static_cast<int>(wrapped_str.length());
-          wrapped_str += clean_str[j];
+          s_map_C_to_Wnew[j] = static_cast<int>(s_wrapped_str.length());
+          s_wrapped_str += s_clean_str[j];
         }
-        wrapped_str += "\r-\n";
+        s_wrapped_str += "\r-\n";
 
         last_wrap_c_idx = i;
         i = last_wrap_c_idx - 1;
@@ -140,22 +148,22 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
       }
     }
   }
-  map_C_to_Wnew[clean_len] = static_cast<int>(wrapped_str.length());
+  s_map_C_to_Wnew[clean_len] = static_cast<int>(s_wrapped_str.length());
 
   auto MapOldToNew = [&](int old_pos) -> int {
     if (old_pos < 0) return 0;
     if (old_pos > data->BufTextLen) old_pos = data->BufTextLen;
-    int clean_pos = map_W_to_C[old_pos];
-    return map_C_to_Wnew[clean_pos];
+    int clean_pos = s_map_W_to_C[old_pos];
+    return s_map_C_to_Wnew[clean_pos];
   };
 
   int new_cursor = MapOldToNew(data->CursorPos);
   int new_sel_start = MapOldToNew(data->SelectionStart);
   int new_sel_end = MapOldToNew(data->SelectionEnd);
 
-  if (wrapped_str != data->Buf) {
+  if (s_wrapped_str != data->Buf) {
     data->DeleteChars(0, data->BufTextLen);
-    data->InsertChars(0, wrapped_str.c_str(), wrapped_str.c_str() + wrapped_str.length());
+    data->InsertChars(0, s_wrapped_str.c_str(), s_wrapped_str.c_str() + s_wrapped_str.length());
     data->CursorPos = new_cursor;
     data->SelectionStart = new_sel_start;
     data->SelectionEnd = new_sel_end;
