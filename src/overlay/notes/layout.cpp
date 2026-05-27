@@ -19,27 +19,7 @@ namespace dover::overlay {
 
 namespace dover::overlay::notes {
 
-namespace {
-std::string ExtractTitleFromContent(const std::string& content) {
-  if (content.empty()) return "(empty)";
-  std::istringstream ss(content);
-  std::string line;
-  while (std::getline(ss, line)) {
-    size_t start = line.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos) continue;
-    line = line.substr(start);
-    if (line.empty()) continue;
-    size_t hash_end = line.find_first_not_of('#');
-    if (hash_end != std::string::npos && hash_end > 0) {
-      line = line.substr(hash_end);
-      size_t sp = line.find_first_not_of(' ');
-      if (sp != std::string::npos) line = line.substr(sp);
-    }
-    if (!line.empty()) return line;
-  }
-  return "(empty)";
-}
-} // namespace
+
 
 static NotesWindow g_notes_window;
 
@@ -391,18 +371,36 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
     for (int i = 0; i < static_cast<int>(notes.size()); ++i) {
       bool is_sel = (i == window->m_selected_note_idx);
 
-      std::string title;
-      if (is_sel && window->m_view_mode == 0) {
-        title = ExtractTitleFromContent(window->m_edit_buffer);
-      } else {
-        title = ExtractTitleFromContent(notes[i].content);
-      }
       int max_chars = static_cast<int>((sb_w - 24.0f) / 7.0f);
       if (max_chars < 8) max_chars = 8;
-      if (static_cast<int>(title.size()) > max_chars) {
-        title = title.substr(0, max_chars - 2) + "..";
+      
+      char title_buf[128];
+      const char* src = (is_sel && window->m_view_mode == 0) ? window->m_edit_buffer : notes[i].content.c_str();
+      
+      int j = 0;
+      while (src[j] == ' ' || src[j] == '\t' || src[j] == '\r' || src[j] == '\n') j++;
+      if (src[j] == '#') { while (src[j] == '#' || src[j] == ' ') j++; }
+      
+      int k = 0;
+      while (src[j] && src[j] != '\n' && src[j] != '\r' && k < max_chars - 1 && k < sizeof(title_buf) - 4) { 
+          title_buf[k++] = src[j++]; 
       }
-      if (notes[i].is_dirty) title = "* " + title;
+      
+      if (src[j] && src[j] != '\n' && src[j] != '\r') {
+          if (k >= max_chars - 1) {
+              if (k > 1) { title_buf[k-2] = '.'; title_buf[k-1] = '.'; }
+          }
+      }
+      title_buf[k] = '\0';
+      
+      if (k == 0) {
+          strncpy_s(title_buf, sizeof(title_buf), "(empty)", _TRUNCATE);
+      }
+
+      if (notes[i].is_dirty) {
+          memmove(title_buf + 2, title_buf, strlen(title_buf) + 1);
+          title_buf[0] = '*'; title_buf[1] = ' ';
+      }
 
       if (is_sel) {
         ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.22f, 0.38f, 0.62f, 0.85f));
@@ -412,7 +410,9 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
 
       ImGui::PushFont(g_fonts_preview_bold[2]);
       ImVec2 pos = ImGui::GetCursorScreenPos();
-      std::string id_str = "##note_" + std::to_string(i);
+      
+      char id_buf[24];
+      snprintf(id_buf, sizeof(id_buf), "##note_%d", i);
       
       ImVec2 item_min = ImVec2(pos.x + 6.0f, pos.y);
       ImVec2 item_max = ImVec2(pos.x + sb_w - 6.0f, pos.y + 32.0f);
@@ -422,7 +422,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
       ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0, 0, 0, 0));
       
       ImGui::SetCursorPosX(6.0f);
-      bool selected_now = ImGui::Selectable(id_str.c_str(), is_sel,
+      bool selected_now = ImGui::Selectable(id_buf, is_sel,
                             ImGuiSelectableFlags_None,
                             ImVec2(sb_w - 12.0f, 32.0f));
                             
@@ -447,7 +447,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
       }
       
       float text_y = pos.y + (32.0f - ImGui::GetFontSize()) * 0.5f;
-      ImGui::GetWindowDrawList()->AddText(g_fonts_preview_bold[2], g_fonts_preview_bold[2]->FontSize, ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), title.c_str());
+      ImGui::GetWindowDrawList()->AddText(g_fonts_preview_bold[2], g_fonts_preview_bold[2]->FontSize, ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), title_buf);
       ImGui::PopFont();
 
       if (selected_now && !is_sel) {
