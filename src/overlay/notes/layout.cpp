@@ -245,12 +245,13 @@ const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, flo
       float frame_height = ImGui::GetFrameHeight();
       ImVec2 slider_pos = ImGui::GetCursorScreenPos();
       ImGui::SetNextItemWidth(slider_width);
-      float current_alpha = window->GetBgAlpha();
-      if (ImGui::SliderFloat("##opacity", &current_alpha, 0.00f, 1.00f, "")) {
-          window->SetBgAlpha(current_alpha);
+      float bg_alpha = window->GetBgAlpha();
+      ImGui::SliderFloat("##opacity", &bg_alpha, 0.00f, 1.00f, "");
+      if (bg_alpha != window->GetBgAlpha()) {
+          window->SetBgAlpha(bg_alpha);
       }
       
-      float grab_center_x = slider_pos.x + window->GetBgAlpha() * slider_width;
+      float grab_center_x = slider_pos.x + bg_alpha * slider_width;
       float grab_center_y = slider_pos.y + frame_height * 0.5f;
       
       ImVec4 grab_color = ImVec4(1.00f, 1.00f, 1.00f, 0.90f);
@@ -265,7 +266,7 @@ const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, flo
       ImVec2 track_max = ImVec2(slider_pos.x + slider_width, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
       ImGui::GetWindowDrawList()->AddRectFilled(track_min, track_max, ImGui::GetColorU32(ImVec4(1.00f, 1.00f, 1.00f, 0.15f)), 1.5f);
 
-      if (window->GetBgAlpha() > 0.0f) {
+      if (bg_alpha > 0.0f) {
         ImVec2 active_max = ImVec2(grab_center_x, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
         ImGui::GetWindowDrawList()->AddRectFilled(track_min, active_max, ImGui::GetColorU32(ImVec4(0.118f, 0.478f, 0.812f, 0.90f)), 1.5f);
       }
@@ -277,7 +278,7 @@ const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, flo
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Opacity (Ctrl+Click to type exact float value)");
       ImGui::SameLine();
 
-      ImGui::TextDisabled("%.0f%%", window->GetBgAlpha() * 100.0f);
+      ImGui::TextDisabled("%.0f%%", bg_alpha * 100.0f);
       ImGui::SameLine();
     }
 
