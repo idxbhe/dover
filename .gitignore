@@ -4,6 +4,10 @@ promts.md
 doverlay/
 docs/
 refactor-plan/
+.agents/
+plans/
+
+
 
 # IDE Workspace Settings & Metadata
 .vscode/
