@@ -458,10 +458,9 @@ void SettingsWindow::RenderContent(bool interactive) {
     
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 16.0f));
-
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
-
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 6.0f));
 
     
 
@@ -500,42 +499,21 @@ void SettingsWindow::RenderContent(bool interactive) {
         switch (m_selected_category) {
 
             case 0: { // General
-
                 RenderSettingsHeader("Application Configurations");
-
-                ImGui::Spacing();
-
                 static bool vsync = true;
-
                 ToggleCheckbox("Enable VSync Simulation", &vsync);
 
-                ImGui::Spacing();
-
-
+                ImGui::Dummy(ImVec2(0.0f, 10.0f)); // Elegant vertical spacing between groups
 
                 RenderSettingsHeader("OSD (On Screen Display)");
-
-                ImGui::Spacing();
-
                 if (ToggleCheckbox("FPS", &GetOverlayConfig().show_fps))           GameStorage::Get().SaveConfig();
-
-                ImGui::Spacing();
-
                 if (ToggleCheckbox("CLOCK", &GetOverlayConfig().show_clock))        GameStorage::Get().SaveConfig();
-
-                ImGui::Spacing();
-
                 if (ToggleCheckbox("GRAPHIC API", &GetOverlayConfig().show_api))    GameStorage::Get().SaveConfig();
-
-                ImGui::Spacing();
-
                 break;
-
             }
 
             case 1: { // Keybinds
                 RenderSettingsHeader("Shortcut Configuration");
-                ImGui::Spacing();
                 
                 static bool is_recording = false;
                 
@@ -627,46 +605,33 @@ void SettingsWindow::RenderContent(bool interactive) {
 
                 RenderHotkeySelector("Toggle Overlay Menu", GetOverlayConfig().hotkey_toggle_main, GetOverlayConfig().hotkey_toggle_modifier);
                 
-                ImGui::Dummy(ImVec2(0.0f, 6.0f));
+                ImGui::Dummy(ImVec2(0.0f, 8.0f)); // Premium small spacing before secondary keybinds
                 
                 ImGui::TextDisabled("Quick Notes:          [Alt+N]");
                 ImGui::TextDisabled("Toggle Pin State:     [Alt+P]");
                 break;
             }
             case 2: { // Theme
-
                 RenderSettingsHeader("Appearance Settings");
 
-                ImGui::Spacing();
-
                 ImGui::Text("Current Theme: Steam Slate Blue");
-
-                ImGui::Spacing();
-
                 
-
                 auto RenderSlimSlider = [&](const char* label, float* value_ptr, auto onChangeCallback) {
                     ImVec2 pos = ImGui::GetCursorScreenPos();
                     float avail_w = ImGui::GetContentRegionAvail().x;
                     float height = 30.0f;
                     
-                    // Draw Label on the left - perfectly pixel-aligned and in standard text color
                     float text_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
                     ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 8.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), label);
                     
-                    // Layout specs for the right-aligned slider
                     const float slider_width = 120.0f;
                     const float pct_width = 36.0f;
                     const float right_margin = 8.0f;
                     
-                    // Calculate precise right-aligned cursor positions
                     float slider_x = pos.x + avail_w - slider_width - pct_width - right_margin - 8.0f;
                     float pct_x = pos.x + avail_w - pct_width - right_margin;
                     
-                    // Draw a dummy item to reserve height layout
                     ImGui::Dummy(ImVec2(avail_w, height));
-                    
-                    // Overlay standard transparent ImGui slider over our custom drawn layout
                     ImGui::SetCursorScreenPos(ImVec2(slider_x, pos.y + (height - ImGui::GetFrameHeight()) * 0.5f));
                     
                     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
@@ -681,14 +646,12 @@ void SettingsWindow::RenderContent(bool interactive) {
                     snprintf(slider_id_buf, sizeof(slider_id_buf), "##slider_%s", label);
                     
                     bool changed = ImGui::SliderFloat(slider_id_buf, value_ptr, 0.00f, 1.00f, "");
-                    
                     bool active = ImGui::IsItemActive();
                     bool hovered = ImGui::IsItemHovered();
                     
                     ImGui::PopStyleColor(5);
                     ImGui::PopStyleVar();
                     
-                    // Get metrics for rendering our beautiful custom track and grab circular indicator
                     float frame_height = ImGui::GetFrameHeight();
                     ImVec2 slider_pos = ImVec2(slider_x, pos.y + (height - frame_height) * 0.5f);
                     
@@ -702,28 +665,27 @@ void SettingsWindow::RenderContent(bool interactive) {
                         grab_color = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
                     }
                     
-                    // Draw modern slim background track
-                    float track_h = 3.0f;
-                    ImVec2 track_min = ImVec2(slider_pos.x, slider_pos.y + frame_height * 0.5f - track_h * 0.5f);
-                    ImVec2 track_max = ImVec2(slider_pos.x + slider_width, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
-                    ImGui::GetWindowDrawList()->AddRectFilled(track_min, track_max, ImGui::GetColorU32(ImVec4(1.00f, 1.00f, 1.00f, 0.15f)), 1.5f);
-
-                    // Draw active filled track (theme accent color matching notes premium slider)
-                    if (*value_ptr > 0.0f) {
-                        ImVec2 active_max = ImVec2(grab_center_x, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
-                        ImGui::GetWindowDrawList()->AddRectFilled(track_min, active_max, ImGui::GetColorU32(ImVec4(0.118f, 0.478f, 0.812f, 0.90f)), 1.5f);
-                    }
+                    ImGui::GetWindowDrawList()->AddLine(
+                        ImVec2(slider_pos.x, grab_center_y),
+                        ImVec2(slider_pos.x + slider_width, grab_center_y),
+                        ImGui::GetColorU32(ImVec4(1.00f, 1.00f, 1.00f, 0.12f)),
+                        2.5f
+                    );
                     
-                    // Draw premium grab indicator
+                    ImGui::GetWindowDrawList()->AddLine(
+                        ImVec2(slider_pos.x, grab_center_y),
+                        ImVec2(grab_center_x, grab_center_y),
+                        ImGui::GetColorU32(ImVec4(0.118f, 0.478f, 0.812f, 1.00f)),
+                        2.5f
+                    );
+                    
                     ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
                     
-                    // Draw percentage text
                     char pct_buf[16];
                     snprintf(pct_buf, sizeof(pct_buf), "%3.0f%%", (*value_ptr) * 100.0f);
                     float pct_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
                     ImGui::GetWindowDrawList()->AddText(ImVec2(pct_x, pct_y), ImGui::GetColorU32(ImGuiCol_TextDisabled), pct_buf);
                     
-                    // Restore cursor to normal vertical layout flow
                     ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height + ImGui::GetStyle().ItemSpacing.y));
                     
                     if (changed) {
@@ -731,34 +693,17 @@ void SettingsWindow::RenderContent(bool interactive) {
                     }
                 };
 
-
-
                 RenderSlimSlider("Window Opacity", &GetOverlayConfig().global_window_alpha, [&]() {
-
                     m_bg_alpha = GetOverlayConfig().global_window_alpha;
-
                     notes::GetNotesWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
-
                     GameStorage::Get().SaveConfig();
-
                 });
-
                 
-
-                ImGui::Dummy(ImVec2(0.0f, 6.0f));
-
-                
-
                 RenderSlimSlider("Overlay Opacity", &GetOverlayConfig().overlay_bg_alpha, []() {
-
                     GameStorage::Get().SaveConfig();
-
                 });
-
                 break;
-
             }
-
             case 3: { // About
 
                 RenderSettingsHeader("dOverlay");
@@ -783,7 +728,7 @@ void SettingsWindow::RenderContent(bool interactive) {
 
     
 
-    ImGui::PopStyleVar(3);
+    ImGui::PopStyleVar(4);
 
     ImGui::PopStyleColor(5);
 
