@@ -55,7 +55,7 @@ static bool ToggleCheckbox(const char* label, bool* value_ptr) {
 
     float avail_w = ImGui::GetContentRegionAvail().x;
 
-    float height = 32.0f; // Premium row height matching the 28.0f icon
+    float height = 26.0f; // Premium row height matching the 28.0f icon
 
     
 
@@ -460,7 +460,7 @@ void SettingsWindow::RenderContent(bool interactive) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16.0f, 16.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8.0f, 3.0f));
 
     
 
@@ -520,7 +520,7 @@ void SettingsWindow::RenderContent(bool interactive) {
                 auto RenderHotkeySelector = [&](const char* label, int& main_key, int& modifier_key) {
                     ImVec2 pos = ImGui::GetCursorScreenPos();
                     float avail_w = ImGui::GetContentRegionAvail().x;
-                    float height = 30.0f;
+                    float height = 26.0f;
                     
                     bool hovered = ImGui::IsMouseHoveringRect(pos, ImVec2(pos.x + avail_w, pos.y + height));
                     ImVec4 bg_color = hovered ? ImVec4(1.0f, 1.0f, 1.0f, 0.04f) : ImVec4(0,0,0,0);
@@ -619,7 +619,7 @@ void SettingsWindow::RenderContent(bool interactive) {
                 auto RenderSlimSlider = [&](const char* label, float* value_ptr, auto onChangeCallback) {
                     ImVec2 pos = ImGui::GetCursorScreenPos();
                     float avail_w = ImGui::GetContentRegionAvail().x;
-                    float height = 30.0f;
+                    float height = 26.0f;
                     
                     float text_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
                     ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 8.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), label);

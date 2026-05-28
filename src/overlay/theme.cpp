@@ -21,6 +21,7 @@ ImFont* g_fonts_preview_bold_italic[5] = {};
 ImFont* g_fonts_preview_h1[5] = {};
 ImFont* g_fonts_preview_h2[5] = {};
 ImFont* g_fonts_preview_h3[5] = {};
+ImFont* g_fonts_preview_h4[5] = {};
 
 
 
@@ -90,11 +91,13 @@ void SetupImGuiTheme() {
           // 2. Define 5 sizes for editor and preview styles
           float editor_sizes[5]  = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
           float preview_sizes[5] = { 13.0f, 15.0f, 18.0f, 22.0f, 26.0f };
-          float h3_sizes[5]      = { 15.0f, 18.0f, 21.0f, 26.0f, 30.0f };
-          float h2_sizes[5]      = { 18.0f, 21.0f, 25.0f, 31.0f, 36.0f };
-          float h1_sizes[5]      = { 23.0f, 26.0f, 32.0f, 39.0f, 46.0f };
+          float h1_sizes[5], h2_sizes[5], h3_sizes[5], h4_sizes[5];
 
           for (int i = 0; i < 5; ++i) {
+            h1_sizes[i] = preview_sizes[i] * 2.00f;
+            h2_sizes[i] = preview_sizes[i] * 1.65f;
+            h3_sizes[i] = preview_sizes[i] * 1.35f;
+            h4_sizes[i] = preview_sizes[i] * 1.15f;
             // Editor Font (JetBrainsMono - Monospace for code/typing)
             g_fonts_editor[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_mono_data, g_font_mono_data_size, editor_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_editor[i]) g_fonts_editor[i] = g_font_gui;
@@ -124,6 +127,9 @@ void SetupImGuiTheme() {
 
             g_fonts_preview_h3[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h3_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
             if (!g_fonts_preview_h3[i]) g_fonts_preview_h3[i] = g_fonts_preview[i];
+
+            g_fonts_preview_h4[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h4_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+            if (!g_fonts_preview_h4[i]) g_fonts_preview_h4[i] = g_fonts_preview[i];
           }
         }
       }
@@ -140,6 +146,7 @@ void SetupImGuiTheme() {
         g_fonts_preview_h1[i] = g_font_gui;
         g_fonts_preview_h2[i] = g_font_gui;
         g_fonts_preview_h3[i] = g_font_gui;
+        g_fonts_preview_h4[i] = g_font_gui;
       }
     }
 

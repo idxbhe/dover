@@ -14,6 +14,7 @@ namespace dover::overlay {
   extern ImFont* g_fonts_preview_h1[5];
   extern ImFont* g_fonts_preview_h2[5];
   extern ImFont* g_fonts_preview_h3[5];
+  extern ImFont* g_fonts_preview_h4[5];
 }
 
 namespace dover::overlay::notes {
@@ -54,7 +55,6 @@ struct CustomListInfo {
 struct DoverMarkdownRenderer : public imgui_md {
   int m_zoom_idx = 2;
   int m_list_level = 0;
-  int m_li_indent_level = 0;
 
   // Code block state
   bool m_code_block_active = false;
@@ -67,15 +67,20 @@ struct DoverMarkdownRenderer : public imgui_md {
   // Custom list tracking (Fixed static array, no vector allocations)
   CustomListInfo m_custom_list_stack[32];
   size_t m_custom_list_depth = 0;
+  
+  bool m_last_block_was_heading = false;
+  bool m_first_list_item = false;
 
-  static constexpr float kListIndent = 18.0f;
+  static constexpr float kListIndent = 15.0f;
 
   // ---- Font Selection ----
   ImFont* get_font() const override {
     if (m_is_code) return g_fonts_editor[m_zoom_idx];
     if (m_hlevel == 1) return g_fonts_preview_h1[m_zoom_idx];
     if (m_hlevel == 2) return g_fonts_preview_h2[m_zoom_idx];
-    if (m_hlevel >= 3) return g_fonts_preview_h3[m_zoom_idx];
+    if (m_hlevel == 3) return g_fonts_preview_h3[m_zoom_idx];
+    if (m_hlevel == 4) return g_fonts_preview_h4[m_zoom_idx];
+    if (m_hlevel >= 5) return g_fonts_preview_bold[m_zoom_idx];
     if (m_is_strong && m_is_em) return g_fonts_preview_bold_italic[m_zoom_idx];
     if (m_is_strong) return g_fonts_preview_bold[m_zoom_idx];
     if (m_is_em) return g_fonts_preview_italic[m_zoom_idx];
@@ -160,44 +165,20 @@ struct DoverMarkdownRenderer : public imgui_md {
     }
   }
 
-  // ---- Headings (per-level color, symmetric spacing, separator for H1/H2) ----
+  // ---- Headings (clean, no artificial spacing/lines) ----
   void BLOCK_H(const MD_BLOCK_H_DETAIL* d, bool e) override {
     if (e) {
+      ImGui::Dummy(ImVec2(0.0f, 3.0f));
       m_hlevel = d->level;
-
-      // Proportional top spacing per heading level
-      float top_gap = 18.0f;
-      if (d->level == 2) top_gap = 14.0f;
-      else if (d->level == 3) top_gap = 10.0f;
-      else if (d->level >= 4) top_gap = 8.0f;
-      ImGui::Dummy(ImVec2(0.0f, top_gap));
-
       ImGui::PushFont(get_font());
       ImGui::PushStyleColor(ImGuiCol_Text, get_color());
     } else {
       ImGui::PopStyleColor();
       ImGui::PopFont();
-
-      // Bottom spacing
-      float bot_gap = 10.0f;
-      if (d->level == 2) bot_gap = 8.0f;
-      else if (d->level == 3) bot_gap = 6.0f;
-      else if (d->level >= 4) bot_gap = 4.0f;
-
-      // Custom separator line for H1/H2 (subtle, not ImGui::Separator)
-      if (d->level <= 2) {
-        ImGui::NewLine();
-        ImVec2 pos = ImGui::GetCursorScreenPos();
-        float left  = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x;
-        float right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
-        float y = pos.y + 2.0f;
-        ImGui::GetWindowDrawList()->AddLine(
-          ImVec2(left, y), ImVec2(right, y),
-          ImGui::GetColorU32(palette::kHSep), 1.0f);
-      }
-
-      ImGui::Dummy(ImVec2(0.0f, bot_gap));
+      ImGui::NewLine();
+      ImGui::Dummy(ImVec2(0.0f, 3.0f));
       m_hlevel = 0;
+      m_last_block_was_heading = true;
     }
   }
 
@@ -205,11 +186,16 @@ struct DoverMarkdownRenderer : public imgui_md {
   void BLOCK_UL(const MD_BLOCK_UL_DETAIL* d, bool e) override {
     if (e) {
       m_list_level++;
+      if (m_list_level == 1) {
+        m_first_list_item = true;
+      }
+      ImGui::Indent(15.0f);
       if (m_custom_list_depth < 32) {
         m_custom_list_stack[m_custom_list_depth++] = {false, 0};
       }
     } else {
       m_list_level--;
+      ImGui::Unindent(15.0f);
       if (m_custom_list_depth > 0) m_custom_list_depth--;
     }
     imgui_md::BLOCK_UL(d, e);
@@ -218,11 +204,16 @@ struct DoverMarkdownRenderer : public imgui_md {
   void BLOCK_OL(const MD_BLOCK_OL_DETAIL* d, bool e) override {
     if (e) {
       m_list_level++;
+      if (m_list_level == 1) {
+        m_first_list_item = true;
+      }
+      ImGui::Indent(15.0f);
       if (m_custom_list_depth < 32) {
         m_custom_list_stack[m_custom_list_depth++] = {true, d->start};
       }
     } else {
       m_list_level--;
+      ImGui::Unindent(15.0f);
       if (m_custom_list_depth > 0) m_custom_list_depth--;
     }
     imgui_md::BLOCK_OL(d, e);
@@ -230,7 +221,10 @@ struct DoverMarkdownRenderer : public imgui_md {
 
   void BLOCK_LI(const MD_BLOCK_LI_DETAIL*, bool e) override {
     if (e) {
-      ImGui::NewLine();
+      if (!m_first_list_item) {
+        ImGui::NewLine();
+      }
+      m_first_list_item = false;
 
       ImDrawList* dl = ImGui::GetWindowDrawList();
       ImVec2 pos = ImGui::GetCursorScreenPos();
@@ -270,12 +264,8 @@ struct DoverMarkdownRenderer : public imgui_md {
       }
 
       ImGui::Indent(kListIndent);
-      m_li_indent_level++;
     } else {
-      if (m_li_indent_level > 0) {
-        ImGui::Unindent(kListIndent);
-        m_li_indent_level--;
-      }
+      ImGui::Unindent(kListIndent);
     }
   }
 
@@ -296,9 +286,17 @@ struct DoverMarkdownRenderer : public imgui_md {
 
   // ---- Paragraph Spacing ----
   void BLOCK_P(bool e) override {
-    if (m_list_level > 0) return;
+    if (m_list_level > 0) {
+      m_last_block_was_heading = false;
+      return;
+    }
     if (e) {
-      ImGui::Dummy(ImVec2(0.0f, 8.0f));
+      if (!m_last_block_was_heading) {
+        ImGui::Dummy(ImVec2(0.0f, 8.0f));
+      }
+      m_last_block_was_heading = false;
+    } else {
+      ImGui::NewLine();
     }
   }
 
@@ -328,10 +326,6 @@ struct DoverMarkdownRenderer : public imgui_md {
 
   // ---- Soft Break (newline without double-space) ----
   void soft_break() override {
-    if (m_li_indent_level > 0) {
-      ImGui::Unindent(kListIndent);
-      m_li_indent_level--;
-    }
     ImGui::NewLine();
   }
 
@@ -346,10 +340,11 @@ void RenderMarkdown(const char* content, int zoom_idx) {
 
   // Reset transient state per frame
   renderer.m_list_level = 0;
-  renderer.m_li_indent_level = 0;
   renderer.m_code_block_active = false;
   renderer.m_quote_depth = 0;
   renderer.m_custom_list_depth = 0; // Ensures safe bound check
+  renderer.m_last_block_was_heading = false;
+  renderer.m_first_list_item = false;
 
   ImGui::PushFont(g_fonts_preview[zoom_idx]);
   renderer.print(content, content + strlen(content));

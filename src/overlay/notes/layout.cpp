@@ -41,25 +41,33 @@ void NotesWindow::FlushEditBufferToNote() {
       static_cast<size_t>(m_synced_note_idx) >= notes.size()) return;
   auto& note = notes[m_synced_note_idx];
 
-  std::string clean_content;
-  const char* buf = m_edit_buffer;
-  int len = static_cast<int>(strlen(buf));
-  clean_content.reserve(len);
-  for (int i = 0; i < len; ) {
-    if (i + 1 < len && buf[i] == '\r' && buf[i+1] == '\n') {
-      clean_content += ' ';
-      i += 2;
-    } else if (i + 2 < len && buf[i] == '\r' && buf[i+1] == '-' && buf[i+2] == '\n') {
-      i += 3;
-    } else {
-      clean_content += buf[i];
-      i++;
-    }
+  char* dest = note.content.get();
+  const char* src = m_edit_buffer;
+  
+  bool is_different = false;
+  int d_idx = 0;
+  
+  for (int s_idx = 0; src[s_idx] != '\0'; ) {
+      if (d_idx >= MAX_NOTE_SIZE - 1) break;
+      
+      if (src[s_idx] == '\r' && src[s_idx+1] == '\n') {
+          if (dest[d_idx] != ' ') is_different = true;
+          dest[d_idx++] = ' ';
+          s_idx += 2;
+      } else if (src[s_idx] == '\r' && src[s_idx+1] == '-' && src[s_idx+2] == '\n') {
+          s_idx += 3;
+      } else {
+          if (dest[d_idx] != src[s_idx]) is_different = true;
+          dest[d_idx++] = src[s_idx];
+          s_idx++;
+      }
   }
+  
+  if (dest[d_idx] != '\0') is_different = true;
+  dest[d_idx] = '\0';
 
-  if (strcmp(note.content.get(), clean_content.c_str()) != 0) {
-    strncpy_s(note.content.get(), MAX_NOTE_SIZE, clean_content.c_str(), _TRUNCATE);
-    note.is_dirty = true;
+  if (is_different) {
+      note.is_dirty = true;
   }
 }
 
@@ -500,22 +508,32 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
 
     if (changed) {
         auto notes = GetNotes();
-        std::string clean_content;
-        int len = static_cast<int>(strlen(window->m_edit_buffer));
-        clean_content.reserve(len);
-        for (int i = 0; i < len; ) {
-            if (i + 1 < len && window->m_edit_buffer[i] == '\r' && window->m_edit_buffer[i+1] == '\n') {
-                clean_content += ' ';
-                i += 2;
-            } else if (i + 2 < len && window->m_edit_buffer[i] == '\r' && window->m_edit_buffer[i+1] == '-' && window->m_edit_buffer[i+2] == '\n') {
-                i += 3;
+        char* dest = notes[window->m_selected_note_idx].content.get();
+        const char* src = window->m_edit_buffer;
+        
+        bool is_different = false;
+        int d_idx = 0;
+        
+        for (int s_idx = 0; src[s_idx] != '\0'; ) {
+            if (d_idx >= MAX_NOTE_SIZE - 1) break;
+            
+            if (src[s_idx] == '\r' && src[s_idx+1] == '\n') {
+                if (dest[d_idx] != ' ') is_different = true;
+                dest[d_idx++] = ' ';
+                s_idx += 2;
+            } else if (src[s_idx] == '\r' && src[s_idx+1] == '-' && src[s_idx+2] == '\n') {
+                s_idx += 3;
             } else {
-                clean_content += window->m_edit_buffer[i];
-                i++;
+                if (dest[d_idx] != src[s_idx]) is_different = true;
+                dest[d_idx++] = src[s_idx];
+                s_idx++;
             }
         }
-        if (strcmp(notes[window->m_selected_note_idx].content.get(), clean_content.c_str()) != 0) {
-            strncpy_s(notes[window->m_selected_note_idx].content.get(), MAX_NOTE_SIZE, clean_content.c_str(), _TRUNCATE);
+        
+        if (dest[d_idx] != '\0') is_different = true;
+        dest[d_idx] = '\0';
+
+        if (is_different) {
             notes[window->m_selected_note_idx].is_dirty = true;
             MarkNoteChanged();
         }
@@ -724,7 +742,8 @@ void NotesWindow::RenderContent(bool interactive) {
   ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(1.0f, 1.0f, 1.0f, 0.30f));
   ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, ImVec4(1.0f, 1.0f, 1.0f, 0.45f));
   
-  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 24.0f));
+  ImVec2 padding = (m_view_mode == 0) ? ImVec2(0.0f, 24.0f) : ImVec2(24.0f, 24.0f);
+  ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, padding);
   ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
   
@@ -752,11 +771,7 @@ void NotesWindow::RenderContent(bool interactive) {
   if (m_view_mode == 0) {
     detail::RenderEditorInternal(this, content_h, avail_w);
   } else {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0f, 0.0f));
-    ImGui::BeginChild("MDPreview", ImVec2(-6.0f, content_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
     detail::RenderPreviewInternal(this, content_h);
-    ImGui::EndChild();
-    ImGui::PopStyleVar();
   }
 
   detail::FloatBtnAction btn_action = detail::RenderFloatingButtonsInternal(this);
@@ -770,6 +785,12 @@ void NotesWindow::RenderContent(bool interactive) {
   } else if (btn_action == detail::FloatBtnAction::DeleteNote) {
     if (!notes.empty()) {
       DeleteNote(m_selected_note_idx);
+      
+      // MENCEGAH BUFFER OVERWRITE: 
+      // Putuskan sinkronisasi buffer segera setelah delete agar FlushEditBufferToNote 
+      // tidak menimpa note lain yang bergeser naik ke index ini.
+      m_synced_note_idx = -1;
+      
       notes = GetNotes();
       if (m_selected_note_idx > 0) {
         m_selected_note_idx--;

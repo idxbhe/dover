@@ -29,7 +29,16 @@ void ReadFileContentInto(const fs::path& path, char* buffer, size_t buffer_size)
   std::ifstream f(path, std::ios::in | std::ios::binary);
   if (!f) return;
   f.read(buffer, buffer_size - 1);
-  buffer[f.gcount()] = '\0';
+  size_t bytes_read = static_cast<size_t>(f.gcount());
+  buffer[bytes_read] = '\0';
+
+  // Normalize CRLF to LF in-place
+  size_t w = 0;
+  for (size_t r = 0; r < bytes_read; ++r) {
+      if (buffer[r] == '\r') continue;
+      buffer[w++] = buffer[r];
+  }
+  buffer[w] = '\0';
 }
 
 bool WriteFileContent(const fs::path& path, const char* content) {
