@@ -267,14 +267,14 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
   if (msg == WM_KEYDOWN && wparam == (WPARAM)cfg.hotkey_toggle_main && modifier_pressed) {
     GetOverlayState().show_overlay = !GetOverlayState().show_overlay;
     
-    // Update ImGui cursor visibility state and gamepad navigation
+    // Update ImGui cursor visibility state and keyboard/gamepad navigation
     ImGuiIO& io = ImGui::GetIO();
     if (GetOverlayState().show_overlay) {
       io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
-      io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+      io.ConfigFlags |= (ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
     } else {
       io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-      io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
+      io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
     }
     
     return 1; // Block input to game
@@ -434,10 +434,10 @@ void PollGamepadToggle() {
       ImGuiIO& io = ImGui::GetIO();
       if (GetOverlayState().show_overlay) {
         io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+        io.ConfigFlags |= (ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
       } else {
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-        io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
+        io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
       }
     }
     g_prev_guide_pressed = guide_pressed;

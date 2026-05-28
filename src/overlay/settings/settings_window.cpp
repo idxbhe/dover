@@ -412,6 +412,14 @@ void SettingsWindow::RenderContent(bool interactive) {
 
 
     ImGui::PopStyleVar(2);
+    
+    if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) && m_selected_category > 0) {
+            m_selected_category--;
+        } else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow) && m_selected_category < 3) {
+            m_selected_category++;
+        }
+    }
 
     ImGui::EndChild();
 

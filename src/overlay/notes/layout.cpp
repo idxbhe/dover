@@ -464,6 +464,15 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
     }
 
     ImGui::PopStyleVar(2);
+
+    if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) && window->m_selected_note_idx > 0) {
+            new_selected_idx = window->m_selected_note_idx - 1;
+        } else if (ImGui::IsKeyPressed(ImGuiKey_DownArrow) && window->m_selected_note_idx < static_cast<int>(notes.size()) - 1) {
+            new_selected_idx = window->m_selected_note_idx + 1;
+        }
+    }
+
     return new_selected_idx;
 }
 

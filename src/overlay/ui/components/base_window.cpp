@@ -77,6 +77,11 @@ void BaseWindow::Render(bool interactive) {
     if (begin_ok) {
         m_is_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
         
+        // Handle Esc key to close the focused window
+        if (interactive && m_is_focused && ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            Close();
+        }
+        
         // Track the correct parent window size and position while windowed
         if (!m_is_maximized) {
             m_prev_pos = ImGui::GetWindowPos();
