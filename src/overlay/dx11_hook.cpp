@@ -69,6 +69,7 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
 
       IMGUI_CHECKVERSION();
       ImGui::CreateContext();
+      OverrideImGuiClipboardFunctions();
       InitializeOverlay();
 
       ImGui_ImplWin32_Init(g_game_hwnd);
@@ -91,7 +92,9 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
     ImGui_ImplDX11_NewFrame();
     
     g_allow_xinput = true;
+    g_allow_input_queries = true;
     ImGui_ImplWin32_NewFrame();
+    g_allow_input_queries = false;
     g_allow_xinput = false;
     
     ImGui::NewFrame();

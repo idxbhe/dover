@@ -40,6 +40,7 @@ static void WrapSelection(ImGuiInputTextCallbackData* data,
     data->SelectionStart = sel_s + plen;
     data->SelectionEnd   = sel_e + plen;
   }
+  g_formatter_state.text_was_formatted_this_frame = true;
 }
 
 static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
@@ -216,17 +217,41 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
     }
     g_formatter_state.pending_format = FORMAT_NONE;
   } else {
-    bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-    bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+    bool ctrl = ImGui::GetIO().KeyCtrl;
+    bool shift = ImGui::GetIO().KeyShift;
+    
+    static uint32_t s_prev_keys = 0;
+    uint32_t curr_keys = 0;
+    if (ImGui::IsKeyDown(ImGuiKey_B)) curr_keys |= (1 << 0);
+    if (ImGui::IsKeyDown(ImGuiKey_I)) curr_keys |= (1 << 1);
+    if (ImGui::IsKeyDown(ImGuiKey_K)) curr_keys |= (1 << 2);
+    if (ImGui::IsKeyDown(ImGuiKey_1)) curr_keys |= (1 << 3);
+    if (ImGui::IsKeyDown(ImGuiKey_2)) curr_keys |= (1 << 4);
+    if (ImGui::IsKeyDown(ImGuiKey_3)) curr_keys |= (1 << 5);
+    if (ImGui::IsKeyDown(ImGuiKey_4)) curr_keys |= (1 << 6);
+    if (ImGui::IsKeyDown(ImGuiKey_5)) curr_keys |= (1 << 7);
+    if (ImGui::IsKeyDown(ImGuiKey_X)) curr_keys |= (1 << 8);
+    if (ImGui::IsKeyDown(ImGuiKey_8)) curr_keys |= (1 << 9);
+    if (ImGui::IsKeyDown(ImGuiKey_GraveAccent)) curr_keys |= (1 << 10);
+    
+    uint32_t pressed = curr_keys & ~s_prev_keys;
+    s_prev_keys = curr_keys;
+
     if (ctrl) {
-      if (ImGui::IsKeyPressed(ImGuiKey_B, false) || ImGui::IsKeyPressed((ImGuiKey)'B', false)) {
-        WrapSelection(data, "**", "**");
-      } else if (ImGui::IsKeyPressed(ImGuiKey_I, false) || ImGui::IsKeyPressed((ImGuiKey)'I', false)) {
-        WrapSelection(data, "*", "*");
-      } else if (ImGui::IsKeyPressed(ImGuiKey_GraveAccent, false) || ImGui::IsKeyPressed((ImGuiKey)192, false)) {
-        WrapSelection(data, "`", "`");
-      } else if (shift && (ImGui::IsKeyPressed(ImGuiKey_X, false) || ImGui::IsKeyPressed((ImGuiKey)'X', false))) {
-        WrapSelection(data, "~~", "~~");
+      if (shift) {
+        if (pressed & (1 << 8)) WrapSelection(data, "~~", "~~"); // X
+        else if (pressed & (1 << 9)) WrapSelection(data, "- ", ""); // 8
+        else if (pressed & (1 << 10)) WrapSelection(data, "> ", ""); // GraveAccent
+      } else {
+        if (pressed & (1 << 0)) WrapSelection(data, "**", "**"); // B
+        else if (pressed & (1 << 1)) WrapSelection(data, "*", "*"); // I
+        else if (pressed & (1 << 2)) WrapSelection(data, "[", "](URL)"); // K
+        else if (pressed & (1 << 3)) WrapSelection(data, "# ", ""); // 1
+        else if (pressed & (1 << 4)) WrapSelection(data, "## ", ""); // 2
+        else if (pressed & (1 << 5)) WrapSelection(data, "### ", ""); // 3
+        else if (pressed & (1 << 6)) WrapSelection(data, "#### ", ""); // 4
+        else if (pressed & (1 << 7)) WrapSelection(data, "##### ", ""); // 5
+        else if (pressed & (1 << 10)) WrapSelection(data, "`", "`"); // GraveAccent
       }
     }
   }

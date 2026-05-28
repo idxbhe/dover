@@ -688,6 +688,28 @@ void NotesWindow::RenderToolbar(bool interactive) {
 void NotesWindow::RenderContent(bool interactive) {
   if (!interactive) return;
 
+  // Global shortcuts (Alt+V for toggle, Ctrl+N for new note)
+  static uint32_t s_prev_win_keys = 0;
+  uint32_t curr_win_keys = 0;
+  if (ImGui::IsKeyDown(ImGuiKey_V)) curr_win_keys |= (1 << 0);
+  if (ImGui::IsKeyDown(ImGuiKey_N)) curr_win_keys |= (1 << 1);
+  uint32_t win_pressed = curr_win_keys & ~s_prev_win_keys;
+  s_prev_win_keys = curr_win_keys;
+
+  bool trigger_toggle = ImGui::GetIO().KeyAlt && (win_pressed & (1 << 0));
+  bool trigger_new_note = ImGui::GetIO().KeyCtrl && (win_pressed & (1 << 1));
+
+  if (trigger_new_note) {
+    const char* new_title = CreateAutoNote();
+    if (new_title[0] != '\0') {
+      auto ns = GetNotes();
+      for (int i = 0; i < static_cast<int>(ns.size()); ++i) {
+        if (strcmp(ns[i].title, new_title) == 0) { SelectNote(i); break; }
+      }
+      SwitchToEditor();
+    }
+  }
+
   auto notes = GetNotes();
   if (!notes.empty() && m_selected_note_idx >= static_cast<int>(notes.size())) {
     m_selected_note_idx = static_cast<int>(notes.size()) - 1;
@@ -775,6 +797,10 @@ void NotesWindow::RenderContent(bool interactive) {
   }
 
   detail::FloatBtnAction btn_action = detail::RenderFloatingButtonsInternal(this);
+
+  if (trigger_toggle) {
+    btn_action = detail::FloatBtnAction::ToggleMode;
+  }
   if (btn_action == detail::FloatBtnAction::ToggleMode) {
     if (m_view_mode == 0) {
       FlushEditBufferToNote();

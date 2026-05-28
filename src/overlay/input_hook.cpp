@@ -4,6 +4,9 @@
 
 #include <windows.h>
 #include <cstring>
+#include <string>
+#include <thread>
+#include <chrono>
 #include <imgui.h>
 #include <xinput.h>
 
@@ -22,6 +25,7 @@ static bool g_xinput_initialized = false;
 static bool g_prev_guide_pressed = false;
 
 thread_local bool g_allow_xinput = false;
+thread_local bool g_allow_input_queries = false;
 
 namespace {
 using GetAsyncKeyStateFn = SHORT(WINAPI*)(int);
@@ -63,7 +67,7 @@ bool ProcessInputMessage(LPMSG lpMsg) {
 }
 
 SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
-  if (GetOverlayState().show_overlay) {
+  if (GetOverlayState().show_overlay && !g_allow_input_queries) {
     auto& cfg = GetOverlayConfig();
     if (vKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && vKey == cfg.hotkey_toggle_modifier)) {
       if (g_original_get_async_key_state) {
@@ -79,7 +83,7 @@ SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
 }
 
 SHORT WINAPI HookedGetKeyState(int nVirtKey) {
-  if (GetOverlayState().show_overlay) {
+  if (GetOverlayState().show_overlay && !g_allow_input_queries) {
     auto& cfg = GetOverlayConfig();
     if (nVirtKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && nVirtKey == cfg.hotkey_toggle_modifier)) {
       if (g_original_get_key_state) {
@@ -95,7 +99,7 @@ SHORT WINAPI HookedGetKeyState(int nVirtKey) {
 }
 
 BOOL WINAPI HookedGetKeyboardState(PBYTE lpKeyState) {
-  if (GetOverlayState().show_overlay && lpKeyState) {
+  if (GetOverlayState().show_overlay && !g_allow_input_queries && lpKeyState) {
     std::memset(lpKeyState, 0, 256);
     return TRUE;
   }
@@ -277,7 +281,11 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
   }
 
   if (GetOverlayState().show_overlay) {
-    if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam)) {
+    g_allow_input_queries = true;
+    bool imgui_processed = ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam);
+    g_allow_input_queries = false;
+    
+    if (imgui_processed) {
       return true; // ImGui processed, block from game
     }
 
@@ -474,6 +482,72 @@ void ShutdownInputHooks() {
     g_XInputGetStateEx = nullptr;
     g_xinput_initialized = false;
   }
+}
+
+static std::string g_clipboard_buffer;
+
+static const char* HookedGetClipboardText(void* /*user_data*/) {
+  g_clipboard_buffer.clear();
+  HWND hwnd = GetForegroundWindow();
+  
+  bool opened = false;
+  for (int i = 0; i < 5; ++i) {
+    if (OpenClipboard(hwnd) || OpenClipboard(nullptr)) {
+      opened = true;
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+  
+  if (!opened) return nullptr;
+  
+  HANDLE hData = GetClipboardData(CF_UNICODETEXT);
+  if (hData) {
+      wchar_t* wtext = (wchar_t*)GlobalLock(hData);
+      if (wtext) {
+          int len = WideCharToMultiByte(CP_UTF8, 0, wtext, -1, nullptr, 0, nullptr, nullptr);
+          if (len > 0) {
+              g_clipboard_buffer.resize(len - 1);
+              WideCharToMultiByte(CP_UTF8, 0, wtext, -1, &g_clipboard_buffer[0], len, nullptr, nullptr);
+          }
+          GlobalUnlock(hData);
+      }
+  }
+  CloseClipboard();
+  return g_clipboard_buffer.empty() ? nullptr : g_clipboard_buffer.c_str();
+}
+
+static void HookedSetClipboardText(void* /*user_data*/, const char* text) {
+  HWND hwnd = GetForegroundWindow();
+  
+  bool opened = false;
+  for (int i = 0; i < 5; ++i) {
+    if (OpenClipboard(hwnd) || OpenClipboard(nullptr)) {
+      opened = true;
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+  
+  if (!opened) return;
+  
+  EmptyClipboard();
+  int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, nullptr, 0);
+  HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, (wlen + 1) * sizeof(wchar_t));
+  if (hMem) {
+      wchar_t* dest = (wchar_t*)GlobalLock(hMem);
+      MultiByteToWideChar(CP_UTF8, 0, text, -1, dest, wlen);
+      dest[wlen] = L'\0';
+      GlobalUnlock(hMem);
+      SetClipboardData(CF_UNICODETEXT, hMem);
+  }
+  CloseClipboard();
+}
+
+void OverrideImGuiClipboardFunctions() {
+  ImGuiIO& io = ImGui::GetIO();
+  io.SetClipboardTextFn = HookedSetClipboardText;
+  io.GetClipboardTextFn = HookedGetClipboardText;
 }
 
 } // namespace dover::overlay
