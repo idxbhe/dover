@@ -35,21 +35,26 @@ void BaseWindow::Render(bool interactive) {
                      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing;
     }
     
-    if (m_is_maximized) {
+    if (m_is_fullscreen) {
+        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(display_size, ImGuiCond_Always);
+        win_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
+    } else if (m_is_maximized) {
         ImGui::SetNextWindowPos(ImVec2(0.0f, kNavBarHeight), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(display_size.x, display_size.y - kNavBarHeight), ImGuiCond_Always);
         win_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
     } else {
-        if (m_was_maximized) {
+        if (m_was_maximized || m_was_fullscreen) {
             ImGui::SetNextWindowPos(m_prev_pos, ImGuiCond_Always);
             ImGui::SetNextWindowSize(m_prev_size, ImGuiCond_Always);
             m_was_maximized = false;
+            m_was_fullscreen = false;
         } else {
             ImGui::SetNextWindowSize(m_default_size, ImGuiCond_FirstUseEver);
         }
     }
 
-    bool no_border = m_is_maximized || !interactive;
+    bool no_border = m_is_fullscreen || m_is_maximized || !interactive;
     ImGui::SetNextWindowSizeConstraints(ImVec2(150.0f, 150.0f), ImVec2(FLT_MAX, FLT_MAX));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, m_is_maximized ? 0.0f : 2.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
@@ -83,7 +88,7 @@ void BaseWindow::Render(bool interactive) {
         }
         
         // Track the correct parent window size and position while windowed
-        if (!m_is_maximized) {
+        if (!m_is_maximized && !m_is_fullscreen) {
             m_prev_pos = ImGui::GetWindowPos();
             m_prev_size = ImGui::GetWindowSize();
         }
@@ -145,7 +150,7 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary)
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0, 0, 0, 0));
         
-        bool was_pinned = (toggle_state && *toggle_state);
+        bool is_toggled = (toggle_state && *toggle_state);
         
         bool clicked = ImGui::Button(icon);
         
@@ -173,7 +178,7 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary)
         ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
         
         ImU32 text_col32;
-        if (was_pinned) {
+        if (is_toggled) {
             text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.80f, 0.20f, 1.00f));
         } else {
             text_col32 = ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_Text]);
@@ -205,14 +210,22 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary)
     };
 
     if (HasFeature(m_features, WindowFeature::Pin)) {
-        DrawCustomButton(ICON_WINDOW_PINNED, right_boundary - 86.0f, m_is_pinned ? "Unpin from screen" : "Pin to screen", &m_is_pinned);
+        DrawCustomButton(ICON_WINDOW_PINNED, right_boundary - 112.0f, m_is_pinned ? "Unpin from screen" : "Pin to screen", &m_is_pinned);
+    }
+
+    if (HasFeature(m_features, WindowFeature::Fullscreen)) {
+        if (DrawCustomButton(ICON_WINDOW_FULLSCREEN, right_boundary - 86.0f, m_is_fullscreen ? "Exit Fullscreen" : "Fullscreen", &m_is_fullscreen)) {
+            if (m_is_fullscreen && !m_is_maximized) {
+                m_was_fullscreen = true;
+            }
+        }
     }
 
     if (HasFeature(m_features, WindowFeature::Maximize)) {
-        const char* icon = m_is_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_FULL;
+        const char* icon = m_is_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_MAXIMIZE;
         const char* tooltip = m_is_maximized ? "Restore Window Size" : "Maximize Window";
         if (DrawCustomButton(icon, right_boundary - 60.0f, tooltip)) {
-            if (!m_is_maximized) {
+            if (!m_is_maximized && !m_is_fullscreen) {
                 m_was_maximized = true;
             }
             m_is_maximized = !m_is_maximized;

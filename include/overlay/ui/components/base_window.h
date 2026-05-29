@@ -7,12 +7,13 @@ namespace dover::overlay::ui {
 
 // Feature flags for window decorations (Lego blocks)
 enum class WindowFeature {
-    None     = 0,
-    Pin      = 1 << 0,
-    Maximize = 1 << 1,
-    Close    = 1 << 2,
-    Default  = Pin | Maximize | Close,
-    NoPin    = Maximize | Close
+    None       = 0,
+    Pin        = 1 << 0,
+    Maximize   = 1 << 1,
+    Close      = 1 << 2,
+    Fullscreen = 1 << 3,
+    Default    = Pin | Maximize | Fullscreen | Close,
+    NoPin      = Maximize | Fullscreen | Close
 };
 
 inline WindowFeature operator|(WindowFeature a, WindowFeature b) {
@@ -33,6 +34,8 @@ protected:
     bool m_is_pinned = false;
     bool m_is_maximized = false;
     bool m_was_maximized = false;
+    bool m_is_fullscreen = false;
+    bool m_was_fullscreen = false;
     bool m_is_focused = false;
     
     ImVec2 m_prev_pos{0.0f, 0.0f};
