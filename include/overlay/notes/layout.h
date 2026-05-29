@@ -36,6 +36,9 @@ public:
     int  GetZoomIndex() const { return m_zoom_idx; }
 
 
+    // Sync helper for interactive Read-Mode mutations
+    void SyncEditBufferFromNote(int idx);
+
 protected:
     void RenderToolbar(bool interactive) override;
     void RenderContent(bool interactive) override;
@@ -56,7 +59,6 @@ private:
     char m_edit_buffer[65536] = {};
 
     // Helper methods
-    void SyncEditBufferFromNote(int idx);
     void FlushEditBufferToNote();
     void SwitchToEditor();
 

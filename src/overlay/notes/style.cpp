@@ -1,11 +1,17 @@
 #include "overlay/notes/style.h"
+#include "overlay/notes/manager.h" // Added for GetNotes() and MarkNoteChanged()
+#include "overlay/notes/layout.h" // Added for GetNotesWindow() and SyncEditBufferFromNote()
+#include "overlay/icons.h"
 #include <imgui.h>
+#define private public
 #include <imgui_md.h>
+#undef private
 #include <cstdio>
 #include <cstring>
 
 namespace dover::overlay {
   // Extern references to the global overlay fonts
+  extern ImFont* g_font_gui;
   extern ImFont* g_fonts_editor[5];
   extern ImFont* g_fonts_preview[5];
   extern ImFont* g_fonts_preview_bold[5];
@@ -53,8 +59,19 @@ struct CustomListInfo {
 };
 
 struct DoverMarkdownRenderer : public imgui_md {
+  int (*m_original_text_callback)(MD_TEXTTYPE, const MD_CHAR*, MD_SIZE, void*) = nullptr;
+
+  DoverMarkdownRenderer() {
+    m_original_text_callback = m_md.text;
+    m_md.text = [](MD_TEXTTYPE t, const MD_CHAR* text, MD_SIZE size, void* u) {
+      auto* r = static_cast<DoverMarkdownRenderer*>(u);
+      return r->custom_text_callback(t, text, size);
+    };
+  }
+
   int m_zoom_idx = 2;
   int m_list_level = 0;
+  char* m_markdown_source = nullptr;
 
   // Code block state
   bool m_code_block_active = false;
@@ -70,6 +87,13 @@ struct DoverMarkdownRenderer : public imgui_md {
   
   bool m_last_block_was_heading = false;
   bool m_first_list_item = false;
+
+  // Table cell alignment & auto-expansion state
+  MD_ALIGN m_cell_align = MD_ALIGN_DEFAULT;
+  bool m_cell_text_aligned = false;
+  float m_cell_total_text_width = 0.0f;
+  float m_table_col_max_width[64] = {};
+  float m_table_col_current_width[64] = {};
 
   static constexpr float kListIndent = 15.0f;
 
@@ -219,19 +243,80 @@ struct DoverMarkdownRenderer : public imgui_md {
     imgui_md::BLOCK_OL(d, e);
   }
 
-  void BLOCK_LI(const MD_BLOCK_LI_DETAIL*, bool e) override {
+  void BLOCK_LI(const MD_BLOCK_LI_DETAIL* d, bool e) override {
     if (e) {
       if (!m_first_list_item) {
         ImGui::NewLine();
       }
       m_first_list_item = false;
 
-      ImDrawList* dl = ImGui::GetWindowDrawList();
-      ImVec2 pos = ImGui::GetCursorScreenPos();
-      float font_size = ImGui::GetFontSize();
-      ImU32 col = ImGui::GetColorU32(palette::kBullet);
-
-      if (m_custom_list_depth > 0 && m_custom_list_stack[m_custom_list_depth - 1].is_ol) {
+      if (d->is_task) {
+        bool is_checked = (d->task_mark == 'x' || d->task_mark == 'X');
+        
+        ImGui::PushID((int)d->task_mark_offset);
+        
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        float line_height = ImGui::GetTextLineHeight();
+        
+        // Compact premium size (14.0f pixels)
+        float size = 14.0f;
+        float cy = pos.y + (line_height - size) * 0.5f + 1.0f; // Vertically center with absolute precision
+        float cx = pos.x - 4.0f; // Shift to the left to avoid text crowding
+        
+        ImVec2 box_min(cx, cy);
+        ImVec2 box_max(cx + size, cy + size);
+        
+        // Bounding space in ImGui's layout matching the visual size
+        ImGui::Dummy(ImVec2(size, size));
+        
+        bool hovered = ImGui::IsItemHovered();
+        bool clicked = hovered && ImGui::IsMouseClicked(0);
+        
+        if (clicked) {
+            // Instant memory mutation in Read Mode!
+            if (m_markdown_source) {
+                m_markdown_source[d->task_mark_offset] = is_checked ? ' ' : 'x';
+                is_checked = !is_checked; // Update state for current frame render
+                
+                // Locate and mark the note as dirty for auto-saving
+                auto notes = GetNotes();
+                for (size_t i = 0; i < notes.size(); ++i) {
+                    if (notes[i].content.get() == m_markdown_source) {
+                        notes[i].is_dirty = true;
+                        GetNotesWindow().SyncEditBufferFromNote(static_cast<int>(i));
+                        break;
+                    }
+                }
+                MarkNoteChanged();
+            }
+        }
+        
+        // Render crisp high-performance custom checkbox geometry
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        if (is_checked) {
+            // Solid premium green with subtle hover highlight
+            ImU32 bg_col = hovered 
+                           ? ImGui::ColorConvertFloat4ToU32(ImVec4(0.25f, 0.85f, 0.25f, 1.00f))
+                           : ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.80f, 0.20f, 1.00f));
+            dl->AddRectFilled(box_min, box_max, bg_col, 2.5f);
+            
+            // Ultra-precise checked tick mark lines
+            ImU32 check_col = IM_COL32(255, 255, 255, 255);
+            dl->AddLine(ImVec2(cx + 3.0f, cy + size * 0.5f), ImVec2(cx + 6.0f, cy + size - 3.0f), check_col, 2.0f);
+            dl->AddLine(ImVec2(cx + 6.0f, cy + size - 3.0f), ImVec2(cx + size - 3.0f, cy + 3.0f), check_col, 2.0f);
+        } else {
+            // Premium Obsidian dark hollow square
+            ImU32 border_col = hovered
+                               ? ImGui::ColorConvertFloat4ToU32(ImVec4(0.60f, 0.65f, 0.75f, 0.95f))
+                               : ImGui::ColorConvertFloat4ToU32(ImVec4(0.40f, 0.45f, 0.55f, 0.75f));
+            dl->AddRect(box_min, box_max, border_col, 2.5f, 0, 1.2f);
+        }
+        
+        ImGui::PopID();
+        
+        // Push subsequent list text to a clean distance
+        ImGui::SameLine(0.0f, 12.0f);
+      } else if (m_custom_list_depth > 0 && m_custom_list_stack[m_custom_list_depth - 1].is_ol) {
         // Ordered list: render number
         auto& info = m_custom_list_stack[m_custom_list_depth - 1];
         char buf[16];
@@ -242,6 +327,11 @@ struct DoverMarkdownRenderer : public imgui_md {
         ImGui::SameLine();
       } else {
         // Unordered list: custom bullet based on nesting depth
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        float font_size = ImGui::GetFontSize();
+        ImU32 col = ImGui::GetColorU32(palette::kBullet);
+
         float cx = pos.x + 5.0f;
         float cy = pos.y + font_size * 0.5f;
 
@@ -329,6 +419,76 @@ struct DoverMarkdownRenderer : public imgui_md {
     ImGui::NewLine();
   }
 
+  // ---- Tables & Columns (Caching and Alignment) ----
+  void BLOCK_TABLE(const MD_BLOCK_TABLE_DETAIL* d, bool e) override {
+    if (e) {
+      memset(m_table_col_current_width, 0, sizeof(m_table_col_current_width));
+    }
+    imgui_md::BLOCK_TABLE(d, e);
+    if (!e) {
+      for (size_t i = 0; i < 64; ++i) {
+        m_table_col_max_width[i] = m_table_col_current_width[i];
+      }
+    }
+  }
+
+  void BLOCK_TH(const MD_BLOCK_TD_DETAIL* d, bool e) override {
+    imgui_md::BLOCK_TH(d, e);
+    if (e) { m_cell_align = d->align; m_cell_text_aligned = false; m_cell_total_text_width = 0.0f; }
+  }
+
+  void BLOCK_TD(const MD_BLOCK_TD_DETAIL* d, bool e) override {
+    imgui_md::BLOCK_TD(d, e);
+    if (e) { m_cell_align = d->align; m_cell_text_aligned = false; m_cell_total_text_width = 0.0f; }
+  }
+
+  int custom_text_callback(MD_TEXTTYPE type, const char* str, MD_SIZE size) {
+    bool is_text = (type == MD_TEXT_NORMAL || type == MD_TEXT_CODE);
+    
+    if ((m_is_table_header || m_is_table_body) && is_text) {
+      float text_width = ImGui::CalcTextSize(str, str + size).x;
+      size_t col_idx = m_table_next_column > 0 ? m_table_next_column - 1 : 0;
+      float col_left = m_table_col_pos.size() > col_idx ? m_table_col_pos[col_idx] : ImGui::GetCursorPosX();
+
+      // Accumulate intrinsic physical width for auto-expansion (ignore alignment shifts)
+      m_cell_total_text_width += text_width;
+      float required_width = m_cell_total_text_width + 16.0f; // 16px aesthetic padding
+      if (col_idx < 64 && required_width > m_table_col_current_width[col_idx]) {
+        m_table_col_current_width[col_idx] = required_width;
+      }
+
+      // Determine the maximum available column width from the cross-frame cache
+      float col_width = m_table_col_max_width[col_idx];
+      if (col_width == 0.0f) col_width = text_width; // Frame 1 fallback
+
+      // Handle horizontal alignment
+      if (m_cell_align != MD_ALIGN_DEFAULT && !m_cell_text_aligned && col_width > text_width) {
+        m_cell_text_aligned = true; // Only shift the first inline span
+        float extra_space = col_width - text_width;
+        if (m_cell_align == MD_ALIGN_CENTER) {
+          ImGui::SetCursorPosX(col_left + extra_space * 0.5f);
+        } else if (m_cell_align == MD_ALIGN_RIGHT) {
+          ImGui::SetCursorPosX(col_left + extra_space - 4.0f);
+        }
+      }
+
+      // Render the actual text
+      int res = m_original_text_callback(type, str, size, this);
+
+      // Force imgui_md to use our maximum tracked width for the column boundaries
+      if (m_is_table_header) {
+        float target_end_x = col_left + m_table_col_max_width[col_idx];
+        if (m_table_last_pos.x < target_end_x) {
+          m_table_last_pos.x = target_end_x;
+        }
+      }
+
+      return res;
+    }
+
+    return m_original_text_callback(type, str, size, this);
+  }
+
   void open_url() const override {}
   bool get_image(image_info&) const override { return false; }
 };
@@ -336,7 +496,15 @@ struct DoverMarkdownRenderer : public imgui_md {
 void RenderMarkdown(const char* content, int zoom_idx) {
   if (!content || content[0] == '\0') return;
   static DoverMarkdownRenderer renderer;
+  
+  // Enable task list flags in base class's public m_md parser
+  static bool flags_set = false;
+  if (!flags_set) {
+    renderer.m_md.flags |= MD_FLAG_TASKLISTS;
+    flags_set = true;
+  }
   renderer.m_zoom_idx = zoom_idx;
+  renderer.m_markdown_source = const_cast<char*>(content);
 
   // Reset transient state per frame
   renderer.m_list_level = 0;
