@@ -14,7 +14,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
 
 ICONS_DIR = os.path.join(SCRIPT_DIR, "icons")
-TEMPLATE_TTF = os.path.join(SCRIPT_DIR, "example.ttf")
+TEMPLATE_TTF = os.path.join(SCRIPT_DIR, "template.ttf")
 OUTPUT_TTF = os.path.join(SCRIPT_DIR, "fonts", "icons.ttf")
 MAPPING_JSON_OUTPUT = os.path.join(SCRIPT_DIR, "icons.json")
 CPP_HEADER_OUTPUT = os.path.join(PROJECT_ROOT, "include", "overlay", "icons.h")
@@ -50,7 +50,7 @@ def parse_svg_to_glyph(svg_filepath):
     # Simplify paths to handle intersections and correct winding directions
     path.simplify()
     
-    # TrueType parameters based on example.ttf
+    # TrueType parameters based on template.ttf
     UPEM = 1024
     ASCENT = 960
     
