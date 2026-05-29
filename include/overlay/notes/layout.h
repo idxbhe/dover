@@ -1,12 +1,13 @@
 #pragma once
 
 #include "overlay/ui/components/base_window.h"
+#include "overlay/notes/formatter.h"
 
 namespace dover::overlay::notes {
 class NotesWindow;
 namespace detail {
     enum class FloatBtnAction;
-    const char* RenderToolbarInternal(NotesWindow*, bool, float);
+    PendingFormat RenderToolbarInternal(NotesWindow*, bool, float);
     int RenderSidebarInternal(NotesWindow*, float, float);
     void RenderEditorInternal(NotesWindow*, float, float);
     void RenderPreviewInternal(NotesWindow*, float);
@@ -62,8 +63,7 @@ private:
     void FlushEditBufferToNote();
     void SwitchToEditor();
 
-    // Grant access to internal renderers
-    friend const char* detail::RenderToolbarInternal(NotesWindow*, bool, float);
+    friend PendingFormat detail::RenderToolbarInternal(NotesWindow*, bool, float);
     friend int detail::RenderSidebarInternal(NotesWindow*, float, float);
     friend void detail::RenderEditorInternal(NotesWindow*, float, float);
     friend void detail::RenderPreviewInternal(NotesWindow*, float);

@@ -49,7 +49,7 @@ namespace palette {
   static constexpr ImVec4 kQuoteText   = {0.70f, 0.72f, 0.76f, 1.00f};
 
   // Horizontal rule
-  static constexpr ImVec4 kHR = {0.40f, 0.42f, 0.50f, 0.40f};
+  static constexpr ImVec4 kHR = {0.60f, 0.63f, 0.72f, 0.60f};
 }
 
 // ---- Custom list tracking (base m_list_stack is private) ----
@@ -79,7 +79,8 @@ struct DoverMarkdownRenderer : public imgui_md {
 
   // Blockquote state
   int m_quote_depth = 0;
-  float m_quote_start_x = 0.0f;
+  float m_quote_x_stack[32] = {};
+  float m_quote_y_stack[32] = {};
 
   // Custom list tracking (Fixed static array, no vector allocations)
   CustomListInfo m_custom_list_stack[32];
@@ -130,9 +131,8 @@ struct DoverMarkdownRenderer : public imgui_md {
       m_is_code = true;
       m_code_block_active = true;
 
-      // Spacing before code block
-      ImGui::NewLine();
-      ImGui::Dummy(ImVec2(0, 4.0f));
+      // Spacing before code block (Outer Top Gap of 3px)
+      ImGui::Dummy(ImVec2(0.0f, 3.0f));
 
       // Record start position for background rect
       m_code_block_start = ImGui::GetCursorScreenPos();
@@ -163,17 +163,18 @@ struct DoverMarkdownRenderer : public imgui_md {
       ImVec2 min_r(left, m_code_block_start.y);
       ImVec2 max_r(right, end_pos.y);
 
-      // Draw background on channel 0 (behind text)
+      // Draw background on channel 0 (behind text) with reduced rounding
       dl->ChannelsSetCurrent(0);
-      dl->AddRectFilled(min_r, max_r, ImGui::GetColorU32(palette::kCodeBlockBg), 6.0f);
-      dl->AddRect(min_r, max_r, ImGui::GetColorU32(palette::kCodeBlockBd), 6.0f, 0, 1.0f);
+      dl->AddRectFilled(min_r, max_r, ImGui::GetColorU32(palette::kCodeBlockBg), 3.0f);
+      dl->AddRect(min_r, max_r, ImGui::GetColorU32(palette::kCodeBlockBd), 3.0f, 0, 1.0f);
       dl->ChannelsMerge();
 
-      // Spacing after code block
-      ImGui::Dummy(ImVec2(0, 4.0f));
+      // Spacing after code block (Outer Bottom Gap of 3px)
+      ImGui::Dummy(ImVec2(0.0f, 3.0f));
 
       m_is_code = false;
       m_code_block_active = false;
+      m_last_block_was_heading = true; // Prevents subsequent paragraph from inserting a double top-margin of 8px
     }
   }
 
@@ -363,14 +364,32 @@ struct DoverMarkdownRenderer : public imgui_md {
   void BLOCK_QUOTE(bool e) override {
     if (e) {
       m_quote_depth++;
-      ImGui::NewLine();
-      m_quote_start_x = ImGui::GetCursorScreenPos().x;
+      ImGui::Dummy(ImVec2(0.0f, 4.0f));
+      if (m_quote_depth <= 32) {
+        m_quote_x_stack[m_quote_depth - 1] = ImGui::GetCursorScreenPos().x;
+        m_quote_y_stack[m_quote_depth - 1] = ImGui::GetCursorScreenPos().y;
+      }
       ImGui::Indent(16.0f);
       ImGui::PushStyleColor(ImGuiCol_Text, palette::kQuoteText);
     } else {
       ImGui::PopStyleColor();
       ImGui::Unindent(16.0f);
+      if (m_quote_depth > 0 && m_quote_depth <= 32) {
+        float start_x = m_quote_x_stack[m_quote_depth - 1];
+        float start_y = m_quote_y_stack[m_quote_depth - 1];
+        float end_y = ImGui::GetCursorScreenPos().y;
+
+        // Draw an Obsidian-like solid left vertical bar in the indented gap area
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilled(
+          ImVec2(start_x + 4.0f, start_y), 
+          ImVec2(start_x + 7.0f, end_y), 
+          ImGui::GetColorU32(palette::kQuoteBorder), 
+          1.5f
+        );
+      }
       m_quote_depth--;
+      ImGui::Dummy(ImVec2(0.0f, 4.0f));
     }
   }
 
@@ -393,24 +412,17 @@ struct DoverMarkdownRenderer : public imgui_md {
   // ---- Horizontal Rule (custom rendered) ----
   void BLOCK_HR(bool e) override {
     if (!e) {
-      ImGui::NewLine();
-      ImGui::Dummy(ImVec2(0, 6.0f));
+      ImGui::Dummy(ImVec2(0.0f, 4.0f));
 
       ImVec2 pos = ImGui::GetCursorScreenPos();
       float left  = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMin().x;
       float right = ImGui::GetWindowPos().x + ImGui::GetWindowContentRegionMax().x;
-      float center = (left + right) * 0.5f;
-      float half_w = (right - left) * 0.5f;
 
       ImDrawList* dl = ImGui::GetWindowDrawList();
-      // Gradient: fade from center outward
-      ImU32 col_center = ImGui::GetColorU32(palette::kHR);
-      ImU32 col_edge   = ImGui::GetColorU32(ImVec4(palette::kHR.x, palette::kHR.y, palette::kHR.z, 0.05f));
-      dl->AddLine(ImVec2(left, pos.y), ImVec2(center, pos.y), col_edge, 1.0f);
-      dl->AddLine(ImVec2(left + half_w * 0.3f, pos.y), ImVec2(right - half_w * 0.3f, pos.y), col_center, 1.0f);
-      dl->AddLine(ImVec2(center, pos.y), ImVec2(right, pos.y), col_edge, 1.0f);
+      ImU32 col = ImGui::GetColorU32(palette::kHR);
+      dl->AddLine(ImVec2(left, pos.y), ImVec2(right, pos.y), col, 1.0f);
 
-      ImGui::Dummy(ImVec2(0, 6.0f));
+      ImGui::Dummy(ImVec2(0.0f, 4.0f));
     }
   }
 
@@ -429,6 +441,18 @@ struct DoverMarkdownRenderer : public imgui_md {
       for (size_t i = 0; i < 64; ++i) {
         m_table_col_max_width[i] = m_table_col_current_width[i];
       }
+    }
+  }
+
+  void BLOCK_TR(bool e) override {
+    ImGui::SetCursorPosY(m_table_last_pos.y);
+    if (e) {
+      m_table_next_column = 0;
+      // Skip the default ImGui::NewLine() on the very first row to remove the ugly gap above the table.
+      if (!m_table_row_pos.empty()) {
+        ImGui::NewLine();
+      }
+      m_table_row_pos.push_back(ImGui::GetCursorPosY());
     }
   }
 

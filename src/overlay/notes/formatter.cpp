@@ -28,6 +28,86 @@ static void WrapSelection(ImGuiInputTextCallbackData* data,
   int sel_e = data->SelectionEnd;
   if (sel_s > sel_e) { int t = sel_s; sel_s = sel_e; sel_e = t; }
 
+  // Automatic Line Detection & Toggle for Headings (e.g. prefix starts with '#')
+  bool is_heading = (plen > 0 && prefix[0] == '#');
+  if (is_heading) {
+    int len = data->BufTextLen;
+    int start = sel_s;
+    while (start > 0 && data->Buf[start - 1] != '\n') {
+      start--;
+    }
+    int end = sel_e;
+    while (end < len && data->Buf[end] != '\r' && data->Buf[end] != '\n') {
+      end++;
+    }
+
+    int old_h_count = 0;
+    while (start + old_h_count < len && data->Buf[start + old_h_count] == '#') {
+      old_h_count++;
+    }
+    
+    bool has_space = (start + old_h_count < len && data->Buf[start + old_h_count] == ' ');
+    int strip_len = old_h_count + (has_space ? 1 : 0);
+
+    int new_h_count = 0;
+    for (int i = 0; i < plen; i++) {
+      if (prefix[i] == '#') new_h_count++;
+    }
+
+    if (old_h_count > 0) {
+      data->DeleteChars(start, strip_len);
+      len = data->BufTextLen;
+      end = (end >= start + strip_len) ? (end - strip_len) : start;
+
+      if (old_h_count == new_h_count) {
+        data->SelectionStart = start;
+        data->SelectionEnd = end;
+        data->CursorPos = end;
+        g_formatter_state.text_was_formatted_this_frame = true;
+        return;
+      }
+    }
+
+    sel_s = start;
+    sel_e = end;
+  }
+
+  // Automatic Word Detection when no selection exists (only for enclosing styles)
+  if (sel_s == sel_e && slen > 0) {
+    int cur = data->CursorPos;
+    int len = data->BufTextLen;
+
+    auto IsWordChar = [](char c) -> bool {
+      return c != ' ' && c != '\t' && c != '\r' && c != '\n' &&
+             c != ',' && c != ';' && c != '(' && c != ')' &&
+             c != '{' && c != '}' && c != '[' && c != ']' &&
+             c != '|' && c != '.' && c != '!' && c != '`' &&
+             c != '*' && c != '~' && c != '<' && c != '>';
+    };
+
+    bool on_word = false;
+    if (cur > 0 && IsWordChar(data->Buf[cur - 1])) {
+      on_word = true;
+    } else if (cur < len && IsWordChar(data->Buf[cur])) {
+      on_word = true;
+    }
+
+    if (on_word) {
+      int start = cur;
+      while (start > 0 && IsWordChar(data->Buf[start - 1])) {
+        start--;
+      }
+      int end = cur;
+      while (end < len && IsWordChar(data->Buf[end])) {
+        end++;
+      }
+      if (start < end) {
+        sel_s = start;
+        sel_e = end;
+      }
+    }
+  }
+
   if (sel_s == sel_e) {
     data->InsertChars(sel_s, suffix, suffix + slen);
     data->InsertChars(sel_s, prefix, prefix + plen);
@@ -36,9 +116,9 @@ static void WrapSelection(ImGuiInputTextCallbackData* data,
   } else {
     data->InsertChars(sel_e, suffix, suffix + slen);
     data->InsertChars(sel_s, prefix, prefix + plen);
-    data->CursorPos      = sel_e + plen + slen;
     data->SelectionStart = sel_s + plen;
     data->SelectionEnd   = sel_e + plen;
+    data->CursorPos      = sel_e + plen;
   }
   g_formatter_state.text_was_formatted_this_frame = true;
 }
@@ -190,6 +270,43 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
 int FormatCallback(ImGuiInputTextCallbackData* data) {
   g_formatter_state.text_was_formatted_this_frame = false;
 
+  if (ImGui::IsMouseDoubleClicked(0) && data->HasSelection()) {
+    int s_start = data->SelectionStart;
+    int s_end = data->SelectionEnd;
+    bool reversed = false;
+    if (s_start > s_end) {
+      std::swap(s_start, s_end);
+      reversed = true;
+    }
+    while (s_end > s_start) {
+      char c = data->Buf[s_end - 1];
+      if (c == '\n' || c == '\r') {
+        s_end--;
+      } else if (c == '-' && s_end >= 2 && data->Buf[s_end - 2] == '\r') {
+        s_end--;
+      } else {
+        break;
+      }
+    }
+    while (s_start < s_end) {
+      char c = data->Buf[s_start];
+      if (c == '\n' || c == '\r') {
+        s_start++;
+      } else {
+        break;
+      }
+    }
+    if (reversed) {
+      data->SelectionStart = s_end;
+      data->SelectionEnd = s_start;
+      data->CursorPos = s_start;
+    } else {
+      data->SelectionStart = s_start;
+      data->SelectionEnd = s_end;
+      data->CursorPos = s_end;
+    }
+  }
+
   if (g_formatter_state.focus_editor_restore_frames > 0 && g_formatter_state.has_saved_state) {
     data->SelectionStart          = g_formatter_state.saved_selection_start;
     data->SelectionEnd            = g_formatter_state.saved_selection_end;
@@ -213,6 +330,54 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
       case FORMAT_LIST_BULLET: WrapSelection(data, "- ", ""); break;
       case FORMAT_LIST_NUMBER: WrapSelection(data, "1. ", ""); break;
       case FORMAT_INDENT: WrapSelection(data, "\t", ""); break;
+      case FORMAT_COPY: {
+        if (data->HasSelection()) {
+          int s_start = data->SelectionStart;
+          int s_end = data->SelectionEnd;
+          if (s_start > s_end) std::swap(s_start, s_end);
+          char backup = data->Buf[s_end];
+          data->Buf[s_end] = '\0';
+          ImGui::SetClipboardText(data->Buf + s_start);
+          data->Buf[s_end] = backup;
+        } else {
+          ImGui::SetClipboardText("");
+        }
+        break;
+      }
+      case FORMAT_CUT: {
+        if (data->HasSelection()) {
+          int s_start = data->SelectionStart;
+          int s_end = data->SelectionEnd;
+          if (s_start > s_end) std::swap(s_start, s_end);
+          char backup = data->Buf[s_end];
+          data->Buf[s_end] = '\0';
+          ImGui::SetClipboardText(data->Buf + s_start);
+          data->Buf[s_end] = backup;
+          data->DeleteChars(s_start, s_end - s_start);
+          data->SelectionEnd = s_start;
+          data->CursorPos = s_start;
+        } else {
+          ImGui::SetClipboardText("");
+        }
+        break;
+      }
+      case FORMAT_PASTE: {
+        const char* clip = ImGui::GetClipboardText();
+        if (clip && clip[0] != '\0') {
+          int s_start = data->SelectionStart;
+          int s_end = data->SelectionEnd;
+          if (s_start > s_end) std::swap(s_start, s_end);
+          if (s_start != s_end) {
+            data->DeleteChars(s_start, s_end - s_start);
+          }
+          data->InsertChars(s_start, clip);
+          int paste_len = static_cast<int>(strlen(clip));
+          data->CursorPos = s_start + paste_len;
+          data->SelectionStart = data->CursorPos;
+          data->SelectionEnd = data->CursorPos;
+        }
+        break;
+      }
       default: break;
     }
     g_formatter_state.pending_format = FORMAT_NONE;
@@ -266,39 +431,7 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
   return 0;
 }
 
-void ApplyToolbarFormat(const char* prefix, const char* suffix, char* edit_buffer, size_t buffer_size) {
-  int s_start = g_formatter_state.saved_selection_start;
-  int s_end   = g_formatter_state.saved_selection_end;
-  if (s_start > s_end) std::swap(s_start, s_end);
-  
-  size_t len = strlen(edit_buffer);
-  size_t plen = strlen(prefix);
-  size_t slen = strlen(suffix);
-
-  if (s_start >= 0 && static_cast<size_t>(s_start) <= len && s_end >= 0 && static_cast<size_t>(s_end) <= len) {
-    if (len + plen + slen < buffer_size) {
-      memmove(edit_buffer + s_end + slen, edit_buffer + s_end, len - s_end + 1);
-      memcpy(edit_buffer + s_end, suffix, slen);
-      
-      len += slen;
-      
-      memmove(edit_buffer + s_start + plen, edit_buffer + s_start, len - s_start + 1);
-      memcpy(edit_buffer + s_start, prefix, plen);
-      
-      if (s_start == s_end) {
-          g_formatter_state.saved_cursor_pos = s_start + static_cast<int>(plen);
-          g_formatter_state.saved_selection_start = g_formatter_state.saved_cursor_pos;
-          g_formatter_state.saved_selection_end   = g_formatter_state.saved_cursor_pos;
-      } else {
-          g_formatter_state.saved_cursor_pos      = s_end + static_cast<int>(plen + slen);
-          g_formatter_state.saved_selection_start = s_start + static_cast<int>(plen);
-          g_formatter_state.saved_selection_end   = s_end + static_cast<int>(plen);
-      }
-    }
-  }
-  g_formatter_state.focus_editor_restore_frames = 3;
-  g_formatter_state.has_saved_state = true;
-}
+// Removed ApplyToolbarFormat
 
 void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, ImFont* font) {
   if (strlen(edit_buffer) == 0 || !font) return;

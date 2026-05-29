@@ -8,6 +8,7 @@
 #include "shared/log.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <string>
 #include <sstream>
 
@@ -142,13 +143,14 @@ namespace detail {
 
 enum class FloatBtnAction { None, ToggleMode, DeleteNote };
 
-const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, float win_w) {
-    auto notes = GetNotes();
-    bool show_format_buttons = win_w >= 550.0f;
-    bool show_opacity = win_w >= 470.0f;
+PendingFormat RenderToolbarInternal(NotesWindow* window, bool interactive, float win_w) {
+    if (!interactive) return FORMAT_NONE;
+
+    bool show_opacity = win_w >= 500.0f;
+    bool show_format_buttons = win_w >= 650.0f;
     bool show_size = win_w >= 320.0f;
     bool show_add_new = win_w >= 170.0f;
-    const char* format_ptr = nullptr;
+    PendingFormat format_ptr = FORMAT_NONE;
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 3.0f));
 
@@ -290,30 +292,30 @@ const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, flo
     if (show_format_buttons && window->m_view_mode == 0) {
       ImGui::TextDisabled("|"); ImGui::SameLine();
 
-      if (ImGui::Button(ICON_TEXT_FORMAT_BOLD)) format_ptr = "**";
+      if (ImGui::Button(ICON_TEXT_FORMAT_BOLD)) format_ptr = FORMAT_BOLD;
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Bold (Ctrl+B)"); ImGui::SameLine();
 
-      if (ImGui::Button(ICON_TEXT_FORMAT_ITALIC)) format_ptr = "*";
+      if (ImGui::Button(ICON_TEXT_FORMAT_ITALIC)) format_ptr = FORMAT_ITALIC;
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Italic (Ctrl+I)"); ImGui::SameLine();
 
-      if (ImGui::Button(ICON_TEXT_FORMAT_STRIKETHROUGH)) format_ptr = "~~";
+      if (ImGui::Button(ICON_TEXT_FORMAT_STRIKETHROUGH)) format_ptr = FORMAT_STRIKETHROUGH;
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Strikethrough (Ctrl+Shift+X)"); ImGui::SameLine();
 
-      if (ImGui::Button(ICON_TEXT_FORMAT_CODE)) format_ptr = "`";
+      if (ImGui::Button(ICON_TEXT_FORMAT_CODE)) format_ptr = FORMAT_CODE;
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code (Ctrl+`)"); ImGui::SameLine();
 
-      if (ImGui::Button(ICON_TEXT_FORMAT_CODE_BLOCK)) format_ptr = "\n```\n";
+      if (ImGui::Button(ICON_TEXT_FORMAT_CODE_BLOCK)) format_ptr = FORMAT_CODE_BLOCK;
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Code Block"); ImGui::SameLine();
 
       ImGui::SetNextItemWidth(35.0f);
       ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
       ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
       if (ImGui::BeginCombo("##h", ICON_TEXT_FORMAT_HEADINGS, ImGuiComboFlags_NoArrowButton)) {
-        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_ONE " Heading 1")) format_ptr = "# ";
-        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_TWO " Heading 2")) format_ptr = "## ";
-        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_THREE " Heading 3")) format_ptr = "### ";
-        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FOUR " Heading 4")) format_ptr = "#### ";
-        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FIVE " Heading 5")) format_ptr = "##### ";
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_ONE " Heading 1")) format_ptr = FORMAT_H1;
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_TWO " Heading 2")) format_ptr = FORMAT_H2;
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_THREE " Heading 3")) format_ptr = FORMAT_H3;
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FOUR " Heading 4")) format_ptr = FORMAT_H4;
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_H_FIVE " Heading 5")) format_ptr = FORMAT_H5;
         ImGui::EndCombo();
       }
       ImGui::PopStyleColor(2);
@@ -324,8 +326,8 @@ const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, flo
       ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
       ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
       if (ImGui::BeginCombo("##l", ICON_TEXT_FORMAT_LISTS, ImGuiComboFlags_NoArrowButton)) {
-        if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_BULLETS " Bullet List")) format_ptr = "- ";
-        if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_NUMBERS " Numbered List")) format_ptr = "1. ";
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_BULLETS " Bullet List")) format_ptr = FORMAT_LIST_BULLET;
+        if (ImGui::Selectable(ICON_TEXT_FORMAT_LIST_NUMBERS " Numbered List")) format_ptr = FORMAT_LIST_NUMBER;
         ImGui::EndCombo();
       }
       ImGui::PopStyleColor(2);
@@ -333,6 +335,7 @@ const char* RenderToolbarInternal(NotesWindow* window, bool /*interactive*/, flo
       ImGui::SameLine();
     }
     
+    auto notes = GetNotes();
     bool any_dirty = false;
     for (const auto& n : notes) { if (n.is_dirty) { any_dirty = true; break; } }
     bool show_saved = !any_dirty && ShouldShowSavedStatus();
@@ -414,7 +417,6 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
         ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0.33f, 0.50f, 0.75f, 1.00f));
       }
 
-      ImGui::PushFont(g_fonts_preview_bold[2]);
       ImVec2 pos = ImGui::GetCursorScreenPos();
       
       char id_buf[24];
@@ -436,6 +438,23 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
       bool is_active = ImGui::IsItemActive();
       
       ImGui::PopStyleColor(3);
+
+      if (ImGui::BeginPopupContextItem()) {
+          ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
+          if (ImGui::MenuItem(ICON_DELETE " Delete Note")) {
+              DeleteNote(i);
+              if (window->m_selected_note_idx == i) {
+                  new_selected_idx = (i > 0) ? i - 1 : 0;
+              } else if (window->m_selected_note_idx > i) {
+                  new_selected_idx = window->m_selected_note_idx - 1;
+              }
+              ImGui::PopStyleColor();
+              ImGui::EndPopup();
+              break;
+          }
+          ImGui::PopStyleColor();
+          ImGui::EndPopup();
+      }
       
       if (is_sel || is_hovered || is_active) {
         ImVec4 highlight_color = ImVec4(0, 0, 0, 0);
@@ -452,6 +471,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
         }
       }
       
+      ImGui::PushFont(g_fonts_preview_bold[2]);
       float text_y = pos.y + (32.0f - ImGui::GetFontSize()) * 0.5f;
       ImGui::GetWindowDrawList()->AddText(g_fonts_preview_bold[2], g_fonts_preview_bold[2]->FontSize, ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), title_buf);
       ImGui::PopFont();
@@ -489,6 +509,9 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
     ImGui::PushFont(g_fonts_editor[window->m_zoom_idx]);
 
     if (window->m_force_focus_frames > 0) {
+        ImGuiID editor_id = ImGui::GetID("##ed");
+        ImGui::FocusWindow(ImGui::GetCurrentWindow());
+        ImGui::SetActiveID(editor_id, ImGui::GetCurrentWindow());
         ImGui::SetKeyboardFocusHere(0);
         window->m_force_focus_frames--;
     }
@@ -503,6 +526,41 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
         ImVec2(-6.0f, content_h),
         input_flags,
         FormatCallback);
+        
+    ImGui::PopFont();
+        
+    if (ImGui::BeginPopupContextItem("##editor_ctx")) {
+        int sel_start = GetFormatterState().saved_selection_start;
+        int sel_end = GetFormatterState().saved_selection_end;
+        if (sel_start > sel_end) std::swap(sel_start, sel_end);
+        size_t len = strlen(window->m_edit_buffer);
+
+        if (ImGui::MenuItem(ICON_COPY " Copy")) {
+            GetFormatterState().pending_format = FORMAT_COPY;
+            GetFormatterState().focus_editor_restore_frames = 1;
+            window->m_force_focus_frames = 1;
+        }
+        if (ImGui::MenuItem(ICON_CUT " Cut")) {
+            GetFormatterState().pending_format = FORMAT_CUT;
+            GetFormatterState().focus_editor_restore_frames = 1;
+            window->m_force_focus_frames = 1;
+        }
+        if (ImGui::MenuItem(ICON_PASTE " Paste")) {
+            GetFormatterState().pending_format = FORMAT_PASTE;
+            GetFormatterState().focus_editor_restore_frames = 1;
+            window->m_force_focus_frames = 1;
+        }
+        ImGui::Separator();
+        if (ImGui::MenuItem("Select All")) {
+            GetFormatterState().saved_selection_start = 0;
+            GetFormatterState().saved_selection_end = static_cast<int>(len);
+            GetFormatterState().saved_cursor_pos = static_cast<int>(len);
+            GetFormatterState().focus_editor_restore_frames = 1;
+            GetFormatterState().text_was_formatted_this_frame = true;
+        }
+        ImGui::EndPopup();
+    }
+    
     ImGui::Unindent(24.0f);
     ImGui::PopStyleColor();
 
@@ -512,8 +570,6 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
     if (GetFormatterState().text_was_formatted_this_frame) {
         window->m_force_focus_frames = 1;
     }
-
-    ImGui::PopFont();
 
     if (changed) {
         auto notes = GetNotes();
@@ -677,20 +733,11 @@ void NotesWindow::RenderToolbar(bool interactive) {
     if (!interactive) return;
 
     float win_w = ImGui::GetWindowWidth();
-    const char* format_ptr = detail::RenderToolbarInternal(this, interactive, win_w);
+    PendingFormat format_ptr = detail::RenderToolbarInternal(this, interactive, win_w);
     
-    if (format_ptr) {
-        const char* suffix = format_ptr;
-        if (strstr(format_ptr, "# ") || strstr(format_ptr, "- ") || strstr(format_ptr, "1. ")) suffix = "";
-        
-        ApplyToolbarFormat(format_ptr, suffix, m_edit_buffer, sizeof(m_edit_buffer));
-        
-        auto ns = GetNotes();
-        if (m_selected_note_idx >= 0 && m_selected_note_idx < static_cast<int>(ns.size())) {
-            ns[m_selected_note_idx].is_dirty = true;
-            MarkNoteChanged();
-        }
-        m_force_focus_frames = 3;
+    if (format_ptr != FORMAT_NONE) {
+        GetFormatterState().pending_format = format_ptr;
+        m_force_focus_frames = 1;
     }
 }
 
