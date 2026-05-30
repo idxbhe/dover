@@ -152,6 +152,7 @@ void SetupImGuiTheme() {
 
   ImGuiStyle& style = ImGui::GetStyle();
   style.WindowRounding = 8.0f;
+  style.PopupRounding = 4.0f; // Subtle rounded corners for dropdowns and context menus
   style.FrameRounding = 2.0f; // Minimal round corners for all boxes
   style.ItemSpacing.y = 4.0f; // Reduce vertical spacing globally
   style.Colors[ImGuiCol_Text] = ImVec4(0.960f, 0.965f, 0.973f, 1.0f); // #f5f6f7 dominant crisp white

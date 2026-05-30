@@ -40,6 +40,9 @@ public:
     // Sync helper for interactive Read-Mode mutations
     void SyncEditBufferFromNote(int idx);
 
+    // Call this immediately after any mutation to the underlying notes array (sort, create, delete)
+    void FixupIndicesAfterMutation();
+
 protected:
     void RenderToolbar(bool interactive) override;
     void RenderContent(bool interactive) override;
@@ -55,6 +58,8 @@ private:
     
     int m_selected_note_idx = 0;
     int m_synced_note_idx = -1;
+    char m_selected_note_filename[64] = {};
+    char m_synced_note_filename[64] = {};
     float m_editor_wrap_width = 400.0f;
     
     char m_edit_buffer[65536] = {};

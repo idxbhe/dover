@@ -13,7 +13,25 @@ struct NoteFile {
   char title[64];
   std::unique_ptr<char[]> content; // Pre-allocated 64KB heap buffer, zero re-allocations
   bool is_dirty = false;
+  uint64_t date_created = 0;
+  uint64_t date_modified = 0;
 };
+
+enum class NoteSortCriteria {
+  Name,
+  DateCreated,
+  DateModified
+};
+
+// Sort state getters
+NoteSortCriteria GetSortCriteria();
+bool IsSortAscending();
+
+// Changes sort mode and sorts the array
+void SetSortMode(NoteSortCriteria criteria, bool ascending);
+
+// Sorts the array using current criteria (used internally and when new notes are added)
+void SortNotesArray();
 
 // Must be called once after ImGui context is created.
 // notes_dir: full path to the per-game notes directory (from GameStorage)

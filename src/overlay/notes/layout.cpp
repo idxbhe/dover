@@ -31,15 +31,62 @@ NotesWindow& GetNotesWindow() {
 void NotesWindow::SyncEditBufferFromNote(int idx) {
   auto notes = GetNotes();
   if (idx < 0 || static_cast<size_t>(idx) >= notes.size()) return;
-  strncpy_s(m_edit_buffer, sizeof(m_edit_buffer),
-            notes[idx].content.get(), _TRUNCATE);
+  strncpy_s(m_edit_buffer, sizeof(m_edit_buffer), notes[idx].content.get(), _TRUNCATE);
   m_synced_note_idx = idx;
+  strncpy_s(m_synced_note_filename, sizeof(m_synced_note_filename), notes[idx].filename, _TRUNCATE);
+}
+
+void NotesWindow::FixupIndicesAfterMutation() {
+    auto notes = GetNotes();
+    if (notes.empty()) {
+        m_selected_note_idx = 0;
+        m_synced_note_idx = -1;
+        m_selected_note_filename[0] = '\0';
+        m_synced_note_filename[0] = '\0';
+        return;
+    }
+
+    bool sel_found = false;
+    if (m_selected_note_filename[0] != '\0') {
+        for (size_t i = 0; i < notes.size(); ++i) {
+            if (strcmp(notes[i].filename, m_selected_note_filename) == 0) {
+                m_selected_note_idx = static_cast<int>(i);
+                sel_found = true;
+                break;
+            }
+        }
+    }
+    
+    if (!sel_found) {
+        if (m_selected_note_idx >= static_cast<int>(notes.size())) {
+            m_selected_note_idx = static_cast<int>(notes.size() - 1);
+        }
+        if (m_selected_note_idx < 0) m_selected_note_idx = 0;
+        strncpy_s(m_selected_note_filename, sizeof(m_selected_note_filename), notes[m_selected_note_idx].filename, _TRUNCATE);
+    }
+
+    if (m_synced_note_filename[0] != '\0') {
+        bool syn_found = false;
+        for (size_t i = 0; i < notes.size(); ++i) {
+            if (strcmp(notes[i].filename, m_synced_note_filename) == 0) {
+                m_synced_note_idx = static_cast<int>(i);
+                syn_found = true;
+                break;
+            }
+        }
+        if (!syn_found) {
+            m_synced_note_idx = -1;
+            m_synced_note_filename[0] = '\0';
+        }
+    } else {
+        m_synced_note_idx = -1;
+    }
 }
 
 void NotesWindow::FlushEditBufferToNote() {
   auto notes = GetNotes();
-  if (m_synced_note_idx < 0 ||
-      static_cast<size_t>(m_synced_note_idx) >= notes.size()) return;
+  if (m_synced_note_idx < 0 || static_cast<size_t>(m_synced_note_idx) >= notes.size()) return;
+
   auto& note = notes[m_synced_note_idx];
 
   char* dest = note.content.get();
@@ -75,6 +122,12 @@ void NotesWindow::FlushEditBufferToNote() {
 void NotesWindow::SelectNote(int idx, bool save_state) {
   FlushEditBufferToNote();
   m_selected_note_idx = idx;
+  auto notes = GetNotes();
+  if (idx >= 0 && static_cast<size_t>(idx) < notes.size()) {
+    strncpy_s(m_selected_note_filename, sizeof(m_selected_note_filename), notes[idx].filename, _TRUNCATE);
+  } else {
+    m_selected_note_filename[0] = '\0';
+  }
   SyncEditBufferFromNote(idx);
   m_view_mode = 1;
   if (save_state) {
@@ -84,34 +137,20 @@ void NotesWindow::SelectNote(int idx, bool save_state) {
 
 void NotesWindow::SelectNoteByFilename(const char* filename) {
   auto notes = GetNotes();
-  {
-    char msg[512];
-    snprintf(msg, sizeof(msg), "NotesWindow::SelectNoteByFilename - Searching for filename: '%s', total notes loaded: %zu", filename, notes.size());
-    shared::LogInfo(msg);
-  }
   for (size_t i = 0; i < notes.size(); ++i) {
-    {
-      char msg[512];
-      snprintf(msg, sizeof(msg), "  Note [%zu]: filename='%s', title='%s'", i, notes[i].filename, notes[i].title);
-      shared::LogInfo(msg);
-    }
     if (strcmp(notes[i].filename, filename) == 0) {
-      {
-        char msg[512];
-        snprintf(msg, sizeof(msg), "NotesWindow::SelectNoteByFilename - MATCH found at index %zu. Selecting note.", i);
-        shared::LogInfo(msg);
-      }
+      strncpy_s(m_selected_note_filename, sizeof(m_selected_note_filename), filename, _TRUNCATE);
       SelectNote(static_cast<int>(i), false);
       return;
     }
   }
-  shared::LogInfo("NotesWindow::SelectNoteByFilename - NO MATCH found. Falling back to note index 0.");
   if (!notes.empty()) {
     SelectNote(0, false);
   }
 }
 
 const char* NotesWindow::GetSelectedNoteFilename() const {
+  if (m_selected_note_filename[0] != '\0') return m_selected_note_filename;
   auto notes = GetNotes();
   if (m_selected_note_idx >= 0 && static_cast<size_t>(m_selected_note_idx) < notes.size()) {
     return notes[m_selected_note_idx].filename;
@@ -361,9 +400,12 @@ PendingFormat RenderToolbarInternal(NotesWindow* window, bool interactive, float
     return format_ptr;
 }
 
-int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
+int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
     auto notes = GetNotes();
     int new_selected_idx = -1;
+    int note_to_delete = -1;
+
+    int cur_selected_idx = window->m_selected_note_idx;
 
     ImVec2 min_p = ImGui::GetWindowPos();
     ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
@@ -373,12 +415,21 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
     ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.063f, 0.071f, 0.086f, window->GetBgAlpha()));
     ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
 
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 10.0f);
+    // Inner scrollable child window for the note items
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::BeginChild("NoteList", ImVec2(sb_w, win_h), false, ImGuiWindowFlags_NoScrollbar);
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+
+    ImGui::SetCursorPosY(6.0f); // Spacing from top of child window
+
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 3.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(16.0f, 8.0f));
 
     for (int i = 0; i < static_cast<int>(notes.size()); ++i) {
-      bool is_sel = (i == window->m_selected_note_idx);
+      ImGui::PushID(i);
+      bool is_sel = (i == cur_selected_idx);
 
       int max_chars = static_cast<int>((sb_w - 24.0f) / 7.0f);
       if (max_chars < 8) max_chars = 8;
@@ -430,27 +481,22 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
       ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0, 0, 0, 0));
       
       ImGui::SetCursorPosX(6.0f);
+      // Reduce width to avoid capturing clicks intended for the floating sort button on the right
       bool selected_now = ImGui::Selectable(id_buf, is_sel,
-                            ImGuiSelectableFlags_None,
-                            ImVec2(sb_w - 12.0f, 32.0f));
+                             ImGuiSelectableFlags_None,
+                             ImVec2(sb_w - 48.0f, 32.0f));
                             
       bool is_hovered = ImGui::IsItemHovered();
       bool is_active = ImGui::IsItemActive();
       
       ImGui::PopStyleColor(3);
 
-      if (ImGui::BeginPopupContextItem()) {
+      char popup_id[64];
+      snprintf(popup_id, sizeof(popup_id), "##popup_note_%d", i);
+      if (ImGui::BeginPopupContextItem(popup_id)) {
           ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
           if (ImGui::MenuItem(ICON_DELETE " Delete Note")) {
-              DeleteNote(i);
-              if (window->m_selected_note_idx == i) {
-                  new_selected_idx = (i > 0) ? i - 1 : 0;
-              } else if (window->m_selected_note_idx > i) {
-                  new_selected_idx = window->m_selected_note_idx - 1;
-              }
-              ImGui::PopStyleColor();
-              ImGui::EndPopup();
-              break;
+              note_to_delete = i;
           }
           ImGui::PopStyleColor();
           ImGui::EndPopup();
@@ -481,9 +527,111 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float /*win_h*/) {
       }
 
       if (is_sel) ImGui::PopStyleColor(3);
+      ImGui::PopID();
     }
 
     ImGui::PopStyleVar(2);
+
+    // Floating circular sort button styled to match other premium UI elements
+    float btn_size = 28.0f;
+    float scroll_y = ImGui::GetScrollY();
+    ImVec2 btn_pos = ImVec2(sb_w - btn_size - 12.0f, 6.0f + scroll_y); // Float top-right of sidebar, adjusted higher
+    ImGui::SetCursorPos(btn_pos);
+
+    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0, 0, 0, 0));
+
+    bool clicked = ImGui::Button("##floating_sort", ImVec2(btn_size, btn_size));
+
+    ImGui::PopStyleColor(4);
+
+    ImVec2 btn_min = ImGui::GetItemRectMin();
+    ImVec2 btn_max = ImGui::GetItemRectMax();
+    ImVec2 btn_center = ImVec2(btn_min.x + btn_size * 0.5f, btn_min.y + btn_size * 0.5f);
+
+    bool btn_hovered = ImGui::IsItemHovered();
+    bool btn_active = btn_hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+
+    ImVec4 bg_color = ImVec4(0.13f, 0.16f, 0.22f, 0.90f);
+    ImVec4 border_color = ImVec4(0.20f, 0.24f, 0.32f, 0.80f);
+
+    if (btn_active) {
+        bg_color = ImVec4(0.25f, 0.35f, 0.50f, 1.00f);
+        border_color = ImVec4(0.35f, 0.48f, 0.68f, 1.00f);
+    } else if (btn_hovered) {
+        bg_color = ImVec4(0.18f, 0.22f, 0.30f, 0.95f);
+        border_color = ImVec4(0.26f, 0.32f, 0.42f, 0.90f);
+    }
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    draw_list->AddCircleFilled(btn_center, btn_size * 0.5f, ImGui::ColorConvertFloat4ToU32(bg_color), 32);
+    draw_list->AddCircle(btn_center, btn_size * 0.5f, ImGui::ColorConvertFloat4ToU32(border_color), 32, 1.0f);
+
+    // Draw Sort Icon with custom visual centering offset (+1.0f x, -1.0f y)
+    ImGui::PushFont(g_font_gui);
+    ImVec2 icon_size = ImGui::CalcTextSize(ICON_SORT);
+    ImVec2 icon_pos = ImVec2(btn_center.x - icon_size.x * 0.5f + 1.0f, btn_center.y - icon_size.y * 0.5f - 1.0f);
+    draw_list->AddText(icon_pos, ImGui::ColorConvertFloat4ToU32(ImVec4(0.90f, 0.92f, 0.96f, 1.00f)), ICON_SORT);
+    ImGui::PopFont();
+
+    if (btn_hovered) {
+        ImGui::SetTooltip("Sort Notes");
+    }
+
+    if (clicked) {
+        ImGui::OpenPopup("SortMenuPopup");
+    }
+
+    if (ImGui::BeginPopup("SortMenuPopup")) {
+        auto criteria = GetSortCriteria();
+        bool asc = IsSortAscending();
+        
+        auto sort_item = [&](const char* label, NoteSortCriteria c, bool default_asc) {
+            bool selected = (criteria == c);
+            
+            // Pass spaces as a shortcut placeholder to reserve width on the right column
+            if (ImGui::MenuItem(label, "    ")) {
+                if (selected) {
+                    SetSortMode(c, !asc);
+                } else {
+                    SetSortMode(c, default_asc);
+                }
+            }
+            
+            if (selected) {
+                const char* icon = asc ? ICON_SORT_ASCENDING : ICON_SORT_DESCENDING;
+                ImVec2 item_min = ImGui::GetItemRectMin();
+                ImVec2 item_max = ImGui::GetItemRectMax();
+                float item_h = item_max.y - item_min.y;
+                
+                ImGui::PushFont(g_font_gui);
+                ImVec2 icon_size = ImGui::CalcTextSize(icon);
+                // Perfect far-right alignment with 12px padding
+                ImVec2 icon_pos = ImVec2(item_max.x - icon_size.x - 12.0f, item_min.y + (item_h - icon_size.y) * 0.5f);
+                ImGui::GetWindowDrawList()->AddText(icon_pos, ImGui::ColorConvertFloat4ToU32(ImVec4(0.90f, 0.92f, 0.96f, 0.85f)), icon);
+                ImGui::PopFont();
+            }
+        };
+        
+        sort_item("Name", NoteSortCriteria::Name, true);
+        sort_item("Date Created", NoteSortCriteria::DateCreated, false);
+        sort_item("Date Modified", NoteSortCriteria::DateModified, false);
+        
+        ImGui::EndPopup();
+    }
+
+    ImGui::EndChild(); // End NoteList child window context
+
+    if (note_to_delete != -1) {
+        DeleteNote(note_to_delete);
+        // FixupIndicesAfterMutation is automatically called by DeleteNote()
+        
+        // Force SelectNote to be called to sync state and buffers
+        new_selected_idx = window->m_selected_note_idx;
+        window->m_selected_note_idx = -1;
+    }
 
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
         if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) && window->m_selected_note_idx > 0) {
@@ -529,35 +677,43 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
         
     ImGui::PopFont();
         
-    if (ImGui::BeginPopupContextItem("##editor_ctx")) {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(14.0f, 8.0f));
+    bool open_ctx = ImGui::BeginPopupContextItem("##editor_ctx");
+    ImGui::PopStyleVar();
+    
+    if (open_ctx) {
+        ImGui::PushFont(g_font_gui);
+        
         int sel_start = GetFormatterState().saved_selection_start;
         int sel_end = GetFormatterState().saved_selection_end;
         if (sel_start > sel_end) std::swap(sel_start, sel_end);
         size_t len = strlen(window->m_edit_buffer);
 
-        if (ImGui::MenuItem(ICON_COPY " Copy")) {
+        if (ImGui::MenuItem(ICON_COPY " Copy", "Ctrl+C")) {
             GetFormatterState().pending_format = FORMAT_COPY;
             GetFormatterState().focus_editor_restore_frames = 1;
             window->m_force_focus_frames = 1;
         }
-        if (ImGui::MenuItem(ICON_CUT " Cut")) {
+        if (ImGui::MenuItem(ICON_CUT " Cut", "Ctrl+X")) {
             GetFormatterState().pending_format = FORMAT_CUT;
             GetFormatterState().focus_editor_restore_frames = 1;
             window->m_force_focus_frames = 1;
         }
-        if (ImGui::MenuItem(ICON_PASTE " Paste")) {
+        if (ImGui::MenuItem(ICON_PASTE " Paste", "Ctrl+V")) {
             GetFormatterState().pending_format = FORMAT_PASTE;
             GetFormatterState().focus_editor_restore_frames = 1;
             window->m_force_focus_frames = 1;
         }
         ImGui::Separator();
-        if (ImGui::MenuItem("Select All")) {
+        if (ImGui::MenuItem(ICON_SQUARE " Select All", "Ctrl+A")) {
             GetFormatterState().saved_selection_start = 0;
             GetFormatterState().saved_selection_end = static_cast<int>(len);
             GetFormatterState().saved_cursor_pos = static_cast<int>(len);
             GetFormatterState().focus_editor_restore_frames = 1;
             GetFormatterState().text_was_formatted_this_frame = true;
         }
+        
+        ImGui::PopFont();
         ImGui::EndPopup();
     }
     
@@ -573,7 +729,9 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
 
     if (changed) {
         auto notes = GetNotes();
-        char* dest = notes[window->m_selected_note_idx].content.get();
+        int sel_idx = window->m_selected_note_idx;
+        if (sel_idx < 0 || static_cast<size_t>(sel_idx) >= notes.size()) return;
+        char* dest = notes[sel_idx].content.get();
         const char* src = window->m_edit_buffer;
         
         bool is_different = false;
@@ -599,18 +757,20 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
         dest[d_idx] = '\0';
 
         if (is_different) {
-            notes[window->m_selected_note_idx].is_dirty = true;
-            MarkNoteChanged();
+          notes[sel_idx].is_dirty = true;
+          MarkNoteChanged();
         }
     }
 }
 
 void RenderPreviewInternal(NotesWindow* window, float /*content_h*/) {
-    auto notes = GetNotes();
-    const auto& content = notes[window->m_selected_note_idx].content;
-    if (content && content[0] != '\0') {
-        RenderMarkdown(content.get(), window->m_zoom_idx);
-    }
+  auto notes = GetNotes();
+  int sel_idx = window->m_selected_note_idx;
+  if (sel_idx < 0 || static_cast<size_t>(sel_idx) >= notes.size()) return;
+  const auto& content = notes[sel_idx].content;
+  if (content && content[0] != '\0') {
+    RenderMarkdown(content.get(), window->m_zoom_idx);
+  }
 }
 
 FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {

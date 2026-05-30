@@ -281,184 +281,202 @@
         "codepoint_hex": "U+F12E",
         "utf8_cpp": "\\xef\\x84\\xae"
     },
-    "square": {
-        "macro": "ICON_SQUARE",
+    "sort-ascending": {
+        "macro": "ICON_SORT_ASCENDING",
         "codepoint_dec": 61743,
         "codepoint_hex": "U+F12F",
         "utf8_cpp": "\\xef\\x84\\xaf"
     },
-    "text-format-bold": {
-        "macro": "ICON_TEXT_FORMAT_BOLD",
+    "sort-descending": {
+        "macro": "ICON_SORT_DESCENDING",
         "codepoint_dec": 61744,
         "codepoint_hex": "U+F130",
         "utf8_cpp": "\\xef\\x84\\xb0"
     },
-    "text-format-code-block": {
-        "macro": "ICON_TEXT_FORMAT_CODE_BLOCK",
+    "sort": {
+        "macro": "ICON_SORT",
         "codepoint_dec": 61745,
         "codepoint_hex": "U+F131",
         "utf8_cpp": "\\xef\\x84\\xb1"
     },
-    "text-format-code": {
-        "macro": "ICON_TEXT_FORMAT_CODE",
+    "square": {
+        "macro": "ICON_SQUARE",
         "codepoint_dec": 61746,
         "codepoint_hex": "U+F132",
         "utf8_cpp": "\\xef\\x84\\xb2"
     },
-    "text-format-h-five": {
-        "macro": "ICON_TEXT_FORMAT_H_FIVE",
+    "text-format-bold": {
+        "macro": "ICON_TEXT_FORMAT_BOLD",
         "codepoint_dec": 61747,
         "codepoint_hex": "U+F133",
         "utf8_cpp": "\\xef\\x84\\xb3"
     },
-    "text-format-h-four": {
-        "macro": "ICON_TEXT_FORMAT_H_FOUR",
+    "text-format-code-block": {
+        "macro": "ICON_TEXT_FORMAT_CODE_BLOCK",
         "codepoint_dec": 61748,
         "codepoint_hex": "U+F134",
         "utf8_cpp": "\\xef\\x84\\xb4"
     },
-    "text-format-h-one": {
-        "macro": "ICON_TEXT_FORMAT_H_ONE",
+    "text-format-code": {
+        "macro": "ICON_TEXT_FORMAT_CODE",
         "codepoint_dec": 61749,
         "codepoint_hex": "U+F135",
         "utf8_cpp": "\\xef\\x84\\xb5"
     },
-    "text-format-h-three": {
-        "macro": "ICON_TEXT_FORMAT_H_THREE",
+    "text-format-h-five": {
+        "macro": "ICON_TEXT_FORMAT_H_FIVE",
         "codepoint_dec": 61750,
         "codepoint_hex": "U+F136",
         "utf8_cpp": "\\xef\\x84\\xb6"
     },
-    "text-format-h-two": {
-        "macro": "ICON_TEXT_FORMAT_H_TWO",
+    "text-format-h-four": {
+        "macro": "ICON_TEXT_FORMAT_H_FOUR",
         "codepoint_dec": 61751,
         "codepoint_hex": "U+F137",
         "utf8_cpp": "\\xef\\x84\\xb7"
     },
-    "text-format-headings": {
-        "macro": "ICON_TEXT_FORMAT_HEADINGS",
+    "text-format-h-one": {
+        "macro": "ICON_TEXT_FORMAT_H_ONE",
         "codepoint_dec": 61752,
         "codepoint_hex": "U+F138",
         "utf8_cpp": "\\xef\\x84\\xb8"
     },
-    "text-format-indent": {
-        "macro": "ICON_TEXT_FORMAT_INDENT",
+    "text-format-h-three": {
+        "macro": "ICON_TEXT_FORMAT_H_THREE",
         "codepoint_dec": 61753,
         "codepoint_hex": "U+F139",
         "utf8_cpp": "\\xef\\x84\\xb9"
     },
-    "text-format-italic": {
-        "macro": "ICON_TEXT_FORMAT_ITALIC",
+    "text-format-h-two": {
+        "macro": "ICON_TEXT_FORMAT_H_TWO",
         "codepoint_dec": 61754,
         "codepoint_hex": "U+F13A",
         "utf8_cpp": "\\xef\\x84\\xba"
     },
-    "text-format-list-bullets": {
-        "macro": "ICON_TEXT_FORMAT_LIST_BULLETS",
+    "text-format-headings": {
+        "macro": "ICON_TEXT_FORMAT_HEADINGS",
         "codepoint_dec": 61755,
         "codepoint_hex": "U+F13B",
         "utf8_cpp": "\\xef\\x84\\xbb"
     },
-    "text-format-list-numbers": {
-        "macro": "ICON_TEXT_FORMAT_LIST_NUMBERS",
+    "text-format-indent": {
+        "macro": "ICON_TEXT_FORMAT_INDENT",
         "codepoint_dec": 61756,
         "codepoint_hex": "U+F13C",
         "utf8_cpp": "\\xef\\x84\\xbc"
     },
-    "text-format-lists": {
-        "macro": "ICON_TEXT_FORMAT_LISTS",
+    "text-format-italic": {
+        "macro": "ICON_TEXT_FORMAT_ITALIC",
         "codepoint_dec": 61757,
         "codepoint_hex": "U+F13D",
         "utf8_cpp": "\\xef\\x84\\xbd"
     },
-    "text-format-outdent": {
-        "macro": "ICON_TEXT_FORMAT_OUTDENT",
+    "text-format-list-bullets": {
+        "macro": "ICON_TEXT_FORMAT_LIST_BULLETS",
         "codepoint_dec": 61758,
         "codepoint_hex": "U+F13E",
         "utf8_cpp": "\\xef\\x84\\xbe"
     },
-    "text-format-strikethrough": {
-        "macro": "ICON_TEXT_FORMAT_STRIKETHROUGH",
+    "text-format-list-numbers": {
+        "macro": "ICON_TEXT_FORMAT_LIST_NUMBERS",
         "codepoint_dec": 61759,
         "codepoint_hex": "U+F13F",
         "utf8_cpp": "\\xef\\x84\\xbf"
     },
-    "text-format-underline": {
-        "macro": "ICON_TEXT_FORMAT_UNDERLINE",
+    "text-format-lists": {
+        "macro": "ICON_TEXT_FORMAT_LISTS",
         "codepoint_dec": 61760,
         "codepoint_hex": "U+F140",
         "utf8_cpp": "\\xef\\x85\\x80"
     },
-    "toggle-edit": {
-        "macro": "ICON_TOGGLE_EDIT",
+    "text-format-outdent": {
+        "macro": "ICON_TEXT_FORMAT_OUTDENT",
         "codepoint_dec": 61761,
         "codepoint_hex": "U+F141",
         "utf8_cpp": "\\xef\\x85\\x81"
     },
-    "toggle-hide-sidebar": {
-        "macro": "ICON_TOGGLE_HIDE_SIDEBAR",
+    "text-format-strikethrough": {
+        "macro": "ICON_TEXT_FORMAT_STRIKETHROUGH",
         "codepoint_dec": 61762,
         "codepoint_hex": "U+F142",
         "utf8_cpp": "\\xef\\x85\\x82"
     },
-    "toggle-off": {
-        "macro": "ICON_TOGGLE_OFF",
+    "text-format-underline": {
+        "macro": "ICON_TEXT_FORMAT_UNDERLINE",
         "codepoint_dec": 61763,
         "codepoint_hex": "U+F143",
         "utf8_cpp": "\\xef\\x85\\x83"
     },
-    "toggle-on": {
-        "macro": "ICON_TOGGLE_ON",
+    "toggle-edit": {
+        "macro": "ICON_TOGGLE_EDIT",
         "codepoint_dec": 61764,
         "codepoint_hex": "U+F144",
         "utf8_cpp": "\\xef\\x85\\x84"
     },
-    "toggle-read": {
-        "macro": "ICON_TOGGLE_READ",
+    "toggle-hide-sidebar": {
+        "macro": "ICON_TOGGLE_HIDE_SIDEBAR",
         "codepoint_dec": 61765,
         "codepoint_hex": "U+F145",
         "utf8_cpp": "\\xef\\x85\\x85"
     },
-    "toggle-show-sidebar": {
-        "macro": "ICON_TOGGLE_SHOW_SIDEBAR",
+    "toggle-off": {
+        "macro": "ICON_TOGGLE_OFF",
         "codepoint_dec": 61766,
         "codepoint_hex": "U+F146",
         "utf8_cpp": "\\xef\\x85\\x86"
     },
-    "wiki-fandom": {
-        "macro": "ICON_WIKI_FANDOM",
+    "toggle-on": {
+        "macro": "ICON_TOGGLE_ON",
         "codepoint_dec": 61767,
         "codepoint_hex": "U+F147",
         "utf8_cpp": "\\xef\\x85\\x87"
     },
-    "window-close": {
-        "macro": "ICON_WINDOW_CLOSE",
+    "toggle-read": {
+        "macro": "ICON_TOGGLE_READ",
         "codepoint_dec": 61768,
         "codepoint_hex": "U+F148",
         "utf8_cpp": "\\xef\\x85\\x88"
     },
-    "window-fullscreen": {
-        "macro": "ICON_WINDOW_FULLSCREEN",
+    "toggle-show-sidebar": {
+        "macro": "ICON_TOGGLE_SHOW_SIDEBAR",
         "codepoint_dec": 61769,
         "codepoint_hex": "U+F149",
         "utf8_cpp": "\\xef\\x85\\x89"
     },
-    "window-maximize": {
-        "macro": "ICON_WINDOW_MAXIMIZE",
+    "wiki-fandom": {
+        "macro": "ICON_WIKI_FANDOM",
         "codepoint_dec": 61770,
         "codepoint_hex": "U+F14A",
         "utf8_cpp": "\\xef\\x85\\x8a"
     },
-    "window-pinned": {
-        "macro": "ICON_WINDOW_PINNED",
+    "window-close": {
+        "macro": "ICON_WINDOW_CLOSE",
         "codepoint_dec": 61771,
         "codepoint_hex": "U+F14B",
         "utf8_cpp": "\\xef\\x85\\x8b"
     },
-    "window-windowed": {
-        "macro": "ICON_WINDOW_WINDOWED",
+    "window-fullscreen": {
+        "macro": "ICON_WINDOW_FULLSCREEN",
         "codepoint_dec": 61772,
         "codepoint_hex": "U+F14C",
         "utf8_cpp": "\\xef\\x85\\x8c"
+    },
+    "window-maximize": {
+        "macro": "ICON_WINDOW_MAXIMIZE",
+        "codepoint_dec": 61773,
+        "codepoint_hex": "U+F14D",
+        "utf8_cpp": "\\xef\\x85\\x8d"
+    },
+    "window-pinned": {
+        "macro": "ICON_WINDOW_PINNED",
+        "codepoint_dec": 61774,
+        "codepoint_hex": "U+F14E",
+        "utf8_cpp": "\\xef\\x85\\x8e"
+    },
+    "window-windowed": {
+        "macro": "ICON_WINDOW_WINDOWED",
+        "codepoint_dec": 61775,
+        "codepoint_hex": "U+F14F",
+        "utf8_cpp": "\\xef\\x85\\x8f"
     }
 }

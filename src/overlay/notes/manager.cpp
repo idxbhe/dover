@@ -24,6 +24,9 @@ Clock::time_point g_last_dirty_time{};
 bool g_has_pending_save = false;
 Clock::time_point g_save_status_show_until{};
 
+NoteSortCriteria g_sort_criteria = NoteSortCriteria::Name;
+bool g_sort_ascending = true;
+
 void ReadFileContentInto(const fs::path& path, char* buffer, size_t buffer_size) {
   buffer[0] = '\0';
   std::ifstream f(path, std::ios::in | std::ios::binary);
@@ -70,16 +73,52 @@ void LoadNotesFromDisk() {
     
     ReadFileContentInto(entry.path(), note.content.get(), MAX_NOTE_SIZE);
     note.is_dirty = false;
+    
+    WIN32_FILE_ATTRIBUTE_DATA file_info;
+    if (GetFileAttributesExA(entry.path().string().c_str(), GetFileExInfoStandard, &file_info)) {
+        note.date_created = (static_cast<uint64_t>(file_info.ftCreationTime.dwHighDateTime) << 32) | file_info.ftCreationTime.dwLowDateTime;
+        note.date_modified = (static_cast<uint64_t>(file_info.ftLastWriteTime.dwHighDateTime) << 32) | file_info.ftLastWriteTime.dwLowDateTime;
+    } else {
+        note.date_created = 0;
+        note.date_modified = 0;
+    }
+    
     g_active_notes_count++;
   }
 
-  // Sort ONLY the active notes (bounded sorting)
-  std::sort(g_notes.begin(), g_notes.begin() + g_active_notes_count, [](const NoteFile& a, const NoteFile& b) {
-    return strcmp(a.title, b.title) < 0;
-  });
+  SortNotesArray();
 }
 
 } // namespace
+
+#include "overlay/notes/layout.h"
+
+NoteSortCriteria GetSortCriteria() { return g_sort_criteria; }
+bool IsSortAscending() { return g_sort_ascending; }
+
+void SortNotesArray() {
+    if (g_active_notes_count == 0) return;
+    std::sort(g_notes.begin(), g_notes.begin() + g_active_notes_count, [](const NoteFile& a, const NoteFile& b) {
+        if (g_sort_criteria == NoteSortCriteria::Name) {
+            int cmp = _stricmp(a.title, b.title);
+            if (cmp == 0) cmp = strcmp(a.title, b.title);
+            return g_sort_ascending ? (cmp < 0) : (cmp > 0);
+        } else if (g_sort_criteria == NoteSortCriteria::DateCreated) {
+            if (a.date_created == b.date_created) return strcmp(a.title, b.title) < 0;
+            return g_sort_ascending ? (a.date_created < b.date_created) : (a.date_created > b.date_created);
+        } else {
+            if (a.date_modified == b.date_modified) return strcmp(a.title, b.title) < 0;
+            return g_sort_ascending ? (a.date_modified < b.date_modified) : (a.date_modified > b.date_modified);
+        }
+    });
+    GetNotesWindow().FixupIndicesAfterMutation();
+}
+
+void SetSortMode(NoteSortCriteria criteria, bool ascending) {
+    g_sort_criteria = criteria;
+    g_sort_ascending = ascending;
+    SortNotesArray();
+}
 
 bool InitializeNotesManager(const fs::path& notes_dir) {
   g_notes_dir = notes_dir;
@@ -152,12 +191,18 @@ bool CreateNote(const char* title) {
   WriteFileContent(g_notes_dir / note.filename, note.content.get());
   note.is_dirty = false;
 
+  WIN32_FILE_ATTRIBUTE_DATA file_info;
+  if (GetFileAttributesExA((g_notes_dir / note.filename).string().c_str(), GetFileExInfoStandard, &file_info)) {
+      note.date_created = (static_cast<uint64_t>(file_info.ftCreationTime.dwHighDateTime) << 32) | file_info.ftCreationTime.dwLowDateTime;
+      note.date_modified = (static_cast<uint64_t>(file_info.ftLastWriteTime.dwHighDateTime) << 32) | file_info.ftLastWriteTime.dwLowDateTime;
+  } else {
+      note.date_created = 0;
+      note.date_modified = 0;
+  }
+
   g_active_notes_count++;
   
-  // Sort ONLY the active notes
-  std::sort(g_notes.begin(), g_notes.begin() + g_active_notes_count, [](const NoteFile& a, const NoteFile& b) {
-    return strcmp(a.title, b.title) < 0;
-  });
+  SortNotesArray();
   return true;
 }
 
@@ -176,8 +221,11 @@ bool DeleteNote(size_t index) {
       strncpy_s(g_notes[i].title, sizeof(g_notes[i].title), g_notes[i + 1].title, _TRUNCATE);
       strncpy_s(g_notes[i].filename, sizeof(g_notes[i].filename), g_notes[i + 1].filename, _TRUNCATE);
       g_notes[i].is_dirty = g_notes[i + 1].is_dirty;
+      g_notes[i].date_created = g_notes[i + 1].date_created;
+      g_notes[i].date_modified = g_notes[i + 1].date_modified;
   }
   g_active_notes_count--;
+  GetNotesWindow().FixupIndicesAfterMutation();
   return true;
 }
 
@@ -188,6 +236,11 @@ bool SaveNote(size_t index) {
   if (ok) {
     g_notes[index].is_dirty = false;
     g_save_status_show_until = Clock::now() + std::chrono::seconds(3);
+    
+    WIN32_FILE_ATTRIBUTE_DATA file_info;
+    if (GetFileAttributesExA((g_notes_dir / g_notes[index].filename).string().c_str(), GetFileExInfoStandard, &file_info)) {
+        g_notes[index].date_modified = (static_cast<uint64_t>(file_info.ftLastWriteTime.dwHighDateTime) << 32) | file_info.ftLastWriteTime.dwLowDateTime;
+    }
   }
   return ok;
 }
