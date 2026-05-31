@@ -115,9 +115,7 @@ void BaseWindow::Render(bool interactive) {
                 
                 RenderWindowDecorations(interactive, right_boundary);
 
-                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-                ImGui::Separator();
-                ImGui::PopStyleVar();
+                // Separator removed per design request
             }
         }
 

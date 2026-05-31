@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.1"
+   id="svg344"
+   width="32"
+   height="40"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <path
+     stroke="none"
+     fill="#333333"
+     d="m 26,0 h 6 V 2 H 28 V 40 H 26 V 0 M 8,28 v -2 h 16 v 2 H 8 M 4,2 H 0 V 0 H 6 V 40 H 4 V 2 m 4,12 v -2 h 16 v 2 H 8"
+     id="path339"
+     style="fill:#ffffff;fill-opacity:1" />
+</svg>

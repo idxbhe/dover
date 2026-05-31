@@ -469,36 +469,42 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::Spacing();
 
     // Position Offset Widget (X, Y Inputs & Reset Button) directly under Monitor Preview Box
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 4.0f));
     
     // Inject elegant dark backgrounds for coordinate fields
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.10f, 0.14f, 0.80f));
     ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.12f, 0.15f, 0.22f, 0.95f));
     ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.16f, 0.20f, 0.28f, 1.00f));
-
-    ImGui::TextDisabled("Position Offset (px)");
     
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 0.0f));
-    // Divide availability: X takes 38%, Y takes 38%, Reset takes remaining 24%
-    float input_w = (avail_w - 12.0f) * 0.38f;
+    float input_w = 90.0f; // 90px gives ample space for numeric entry + step buttons (+/-) without stretching
     
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("X");
+    ImGui::SameLine();
     ImGui::PushItemWidth(input_w);
-    if (ImGui::InputFloat("X##PosX", &m_pos_x, 1.0f, 10.0f, "%.0f")) {
+    if (ImGui::InputFloat("##PosX", &m_pos_x, 1.0f, 10.0f, "%.0f")) {
         dover::overlay::GameStorage::Get().SaveState();
     }
+    ImGui::PopItemWidth();
+    
+    ImGui::SameLine(0.0f, 12.0f);
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Y");
     ImGui::SameLine();
-    if (ImGui::InputFloat("Y##PosY", &m_pos_y, 1.0f, 10.0f, "%.0f")) {
+    ImGui::PushItemWidth(input_w);
+    if (ImGui::InputFloat("##PosY", &m_pos_y, 1.0f, 10.0f, "%.0f")) {
         dover::overlay::GameStorage::Get().SaveState();
     }
     ImGui::PopItemWidth();
     ImGui::PopStyleColor(3); // Pop coordinates FrameBg overrides
     
-    ImGui::SameLine();
+    ImGui::SameLine(0.0f, 12.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.24f, 0.32f, 0.50f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.30f, 0.40f, 0.75f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.30f, 0.36f, 0.48f, 1.00f));
-    if (ImGui::Button("Reset", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
+    if (ImGui::Button("Reset", ImVec2(70.0f, 0))) {
         m_pos_x = 0.0f;
         m_pos_y = 0.0f;
         dover::overlay::GameStorage::Get().SaveState();
@@ -511,6 +517,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::Spacing();
 
     // Right Panel Header & Controls (Scrollable Area)
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
     ImGui::BeginChild("SettingsScroll", ImVec2(0, 0), false, ImGuiWindowFlags_None);
 
     // Apply premium Slate Blue styles dynamically to all controls inside the Settings Area
@@ -525,7 +532,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
         ImGui::PushFont(dover::overlay::g_fonts_preview_bold[3]);
     }
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
-    ImGui::Text("SETTINGS & CONFIGURATION");
+    ImGui::Text("CONFIGURATION");
     ImGui::PopStyleColor();
     if (dover::overlay::g_fonts_preview_bold[3]) {
         ImGui::PopFont();
@@ -537,36 +544,46 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 4.0f));
 
-    if (ToggleCheckbox("Enable Crosshair Overlay", &m_active)) {
+    float right_x = ImGui::GetContentRegionAvail().x - 140.0f - 8.0f; // Align right, leaving 140px width + 8px padding
+    float frame_h = ImGui::GetFrameHeight();
+    
+    if (ToggleCheckbox("Enable Crosshair", &m_active)) {
         dover::overlay::GameStorage::Get().SaveState();
     }
     
-    if (m_active) {
-        ImGui::Dummy(ImVec2(0.0f, 2.0f));
-        ImGui::TextDisabled("Crosshair Color");
-        ImGui::SameLine(ImGui::GetWindowWidth() * 0.618f - 40.0f); // Position color picker cleanly on the right
-        ImGui::ColorEdit4("##Color", (float*)&m_color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
-    }
+    ImGui::Dummy(ImVec2(0.0f, 2.0f));
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8.0f);
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Crosshair Color");
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - frame_h - 8.0f + ImGui::GetCursorPosX()); 
+    ImGui::ColorEdit4("##Color", (float*)&m_color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
     
     ImGui::Dummy(ImVec2(0.0f, 4.0f));
 
-    if (ToggleCheckbox("Enable Outline Shadow", &m_outline_enabled)) {
+    if (ToggleCheckbox("Outline", &m_outline_enabled)) {
         dover::overlay::GameStorage::Get().SaveState();
     }
     
-    if (m_outline_enabled) {
-        ImGui::Dummy(ImVec2(0.0f, 2.0f));
-        ImGui::TextDisabled("Outline Shadow Color");
-        ImGui::SameLine(ImGui::GetWindowWidth() * 0.618f - 40.0f); // Position outline color picker cleanly on the right
-        ImGui::ColorEdit4("##Outline Color", (float*)&m_outline_color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
-    }
+    ImGui::Dummy(ImVec2(0.0f, 2.0f));
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8.0f);
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Outline Color");
+    ImGui::SameLine(ImGui::GetContentRegionAvail().x - frame_h - 8.0f + ImGui::GetCursorPosX()); 
+    ImGui::ColorEdit4("##Outline Color", (float*)&m_outline_color, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
     
     ImGui::Dummy(ImVec2(0.0f, 6.0f));
-    ImGui::SliderFloat("Scale", &m_scale, 0.3f, 3.0f, "%.1fx");
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8.0f);
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("Scale");
+    ImGui::SameLine(right_x + ImGui::GetCursorPosX());
+    ImGui::PushItemWidth(140.0f);
+    ImGui::SliderFloat("##Scale", &m_scale, 0.3f, 3.0f, "%.1fx");
+    ImGui::PopItemWidth();
 
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor(6); // Pop active Settings area slate blue color palette
     ImGui::EndChild();
+    ImGui::PopStyleVar(); // Pop scrollbar size
 
     ImGui::Columns(1);
 }

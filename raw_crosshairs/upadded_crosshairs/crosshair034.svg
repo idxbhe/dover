@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.1"
+   id="svg344"
+   width="48"
+   height="40"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <g
+     id="g371"
+     transform="translate(-1322.5263,-817.80702)"
+     style="fill:#ffffff;fill-opacity:1">
+    <path
+       stroke="none"
+       fill="#333333"
+       d="m 1348.5263,837.80702 q 0,0.85 -0.6,1.4 -0.55,0.6 -1.4,0.6 -0.85,0 -1.45,-0.6 -0.55,-0.55 -0.55,-1.4 0,-0.85 0.55,-1.45 0.6,-0.55 1.45,-0.55 0.85,0 1.4,0.55 0.6,0.6 0.6,1.45"
+       id="path330"
+       style="fill:#ffffff;fill-opacity:1" />
+    <path
+       stroke="none"
+       fill="#333333"
+       d="m 1360.5263,817.80702 h 10 v 2 h -10 v -2 m 0,16 h 6 v 2 h -6 v -2 m -4,-16 h 2 v 40 h -2 v -40 m 4,32 h 2 v 2 h -2 v -2"
+       id="path331"
+       style="fill:#ffffff;fill-opacity:1" />
+    <path
+       stroke="none"
+       fill="#333333"
+       d="m 1332.5263,849.80702 v 2 h -2 v -2 h 2 m 4,-32 v 40 h -2 v -40 h 2 m -4,0 v 2 h -10 v -2 h 10 m 0,16 v 2 h -6 v -2 h 6"
+       id="path332"
+       style="fill:#ffffff;fill-opacity:1" />
+  </g>
+</svg>
