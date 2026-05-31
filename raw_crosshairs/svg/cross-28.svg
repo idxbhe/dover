@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg:svg height="64" id="svg344" version="1.1" viewBox="0 0 64 64" width="64" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><g transform="translate(8.0000, 8.0000) scale(1.5000)">
-<svg:defs id="defs1"/>
-<svg:path d="M 32,2 22,12 H 20 V 10 L 30,0 32,2 M 0,2 2,0 12,10 v 2 H 10 L 0,2 M 0,30 10,20 h 2 v 2 L 2,32 0,30 m 32,0 -2,2 -10,-10 v -2 h 2 l 10,10" fill="#333333" id="path184" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
-</g></svg:svg>

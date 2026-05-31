@@ -99,6 +99,20 @@ CrosshairWindow::CrosshairWindow()
     : ui::BaseWindow("Crosshairs", ui::WindowFeature::Default, ImVec2(600, 450)) {
 }
 
+void CrosshairWindow::PreRender(bool /*interactive*/) {
+    ImVec2 min_p = ImGui::GetWindowPos();
+    ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
+    
+    // Premium custom futuristic dark Slate-Blue to Dark Nebula Purple gradient
+    // Incorporates a gorgeous cyberpunk/obsidian dark-ambient aesthetic
+    ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.120f, 0.140f, 0.200f, m_bg_alpha)); // Top-Left: Midnight Slate Blue (#1e2433)
+    ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.080f, 0.090f, 0.130f, m_bg_alpha)); // Top-Right: Deep Obsidian Core (#141721)
+    ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.160f, 0.080f, 0.160f, m_bg_alpha)); // Bottom-Right: Rich Nebula Purple (#291429)
+    ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.060f, 0.070f, 0.100f, m_bg_alpha)); // Bottom-Left: Pure Deep Velvet Black (#0f111a)
+    
+    ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
+}
+
 void CrosshairWindow::Initialize() {
     assets::AssetStorage::Get().Initialize();
 }
@@ -272,27 +286,43 @@ void CrosshairWindow::RenderContent(bool interactive) {
             float ph = 64.0f * (m_scale * 0.5f);
             
             // Perfect color matching for dark Obsidian theme base
-            ImGui::GetWindowDrawList()->AddRectFilled(
+            ImDrawList* box_dl = ImGui::GetWindowDrawList();
+            box_dl->AddRectFilled(
                 ImVec2(center.x - avail.x*0.5f, center.y - avail.y*0.5f), 
                 ImVec2(center.x + avail.x*0.5f, center.y + avail.y*0.5f), 
                 IM_COL32(10, 12, 16, 255)); // Obsidian dark core (#0a0c10)
+                
+            // Draw professional tactical grid guides behind the reticle
+            ImU32 guide_col = IM_COL32(255, 255, 255, 10);
+            ImU32 guide_bold = IM_COL32(255, 255, 255, 20);
+            box_dl->AddLine(ImVec2(center.x - avail.x * 0.5f, center.y), ImVec2(center.x + avail.x * 0.5f, center.y), guide_bold);
+            box_dl->AddLine(ImVec2(center.x, center.y - avail.y * 0.5f), ImVec2(center.x, center.y + avail.y * 0.5f), guide_bold);
+            box_dl->AddCircle(center, 16.0f, guide_col, 32, 1.0f);
+            box_dl->AddCircle(center, 32.0f, guide_col, 32, 1.0f);
+            box_dl->AddCircle(center, 48.0f, guide_col, 32, 1.0f);
+
+            // Tactical Label Overlay
+            ImGui::SetCursorPos(ImVec2(8.0f, 6.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.40f, 0.45f, 0.55f, 0.60f));
+            ImGui::Text("PREVIEW");
+            ImGui::PopStyleColor();
                 
             ImVec2 p_min(center.x - pw * 0.5f, center.y - ph * 0.5f);
             ImVec2 p_max(center.x + pw * 0.5f, center.y + ph * 0.5f);
 
             if (m_outline_enabled) {
                 ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(m_outline_color);
-                ImGui::GetWindowDrawList()->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y), ImVec2(p_max.x - 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                ImGui::GetWindowDrawList()->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y), ImVec2(p_max.x + 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                ImGui::GetWindowDrawList()->AddImage(tex_id, ImVec2(p_min.x, p_min.y - 1), ImVec2(p_max.x, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                ImGui::GetWindowDrawList()->AddImage(tex_id, ImVec2(p_min.x, p_min.y + 1), ImVec2(p_max.x, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                ImGui::GetWindowDrawList()->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y - 1), ImVec2(p_max.x - 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                ImGui::GetWindowDrawList()->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y + 1), ImVec2(p_max.x + 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                ImGui::GetWindowDrawList()->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y + 1), ImVec2(p_max.x - 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                ImGui::GetWindowDrawList()->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y - 1), ImVec2(p_max.x + 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y), ImVec2(p_max.x - 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y), ImVec2(p_max.x + 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage(tex_id, ImVec2(p_min.x, p_min.y - 1), ImVec2(p_max.x, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage(tex_id, ImVec2(p_min.x, p_min.y + 1), ImVec2(p_max.x, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y - 1), ImVec2(p_max.x - 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y + 1), ImVec2(p_max.x + 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y + 1), ImVec2(p_max.x - 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y - 1), ImVec2(p_max.x + 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
             }
                 
-            ImGui::GetWindowDrawList()->AddImage(tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), ImGui::ColorConvertFloat4ToU32(m_color));
+            box_dl->AddImage(tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), ImGui::ColorConvertFloat4ToU32(m_color));
         }
     }
     ImGui::EndChild();
@@ -305,6 +335,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.063f, 0.071f, 0.086f, m_bg_alpha));
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f); // Beautiful defined button borders
     
     ImGui::BeginChild("CrosshairGrid", ImVec2(0, 0), true);
     // Calculate columns based on absolute window width to prevent scrollbar flicker loops
@@ -325,26 +356,25 @@ void CrosshairWindow::RenderContent(bool interactive) {
             
             bool is_selected = (m_selected_index == (int)i);
             if (is_selected) {
-                // Highlighting with Slate Blue theme accent colors
+                // Highlighting with Slate Blue theme accent colors & definite glowing borders
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.38f, 0.62f, 0.85f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f, 0.44f, 0.68f, 0.95f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.33f, 0.50f, 0.75f, 1.00f));
+                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.33f, 0.55f, 0.85f, 0.90f)); 
             } else {
                 // Subtle dark transparent button for grid items
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.17f, 0.22f, 0.25f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.26f, 0.32f, 0.45f));
                 ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.29f, 0.38f, 0.52f, 0.70f));
+                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.15f, 0.17f, 0.22f, 0.40f));
             }
             
             ImGui::PushID((int)i);
             void* tex_id = crosshairs[i].texture_id;
             if (tex_id) {
-                // Push transparent border to keep grid extremely premium and clean
-                ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(1.0f, 1.0f, 1.0f, 0.05f));
                 if (ImGui::ImageButton("##ch", tex_id, ImVec2(48, 48), ImVec2(0, 0), ImVec2(1, 1), ImVec4(0,0,0,0), m_color)) {
                     m_selected_index = (int)i;
                 }
-                ImGui::PopStyleColor();
                 if (ImGui::IsItemHovered()) {
                     ImGui::SetTooltip("%s", crosshairs[i].name.c_str());
                 }
@@ -354,12 +384,12 @@ void CrosshairWindow::RenderContent(bool interactive) {
                 }
             }
             ImGui::PopID();
-            ImGui::PopStyleColor(3); // Pop the custom Button/Hovered/Active colors
+            ImGui::PopStyleColor(4); // Pop Custom Button background and border states
         }
         ImGui::EndTable();
     }
     ImGui::EndChild();
-    ImGui::PopStyleVar(2);
+    ImGui::PopStyleVar(3); // Pop rounding, padding, and border size
     ImGui::PopStyleColor(); // Pop ChildBg
 
     ImGui::NextColumn();
@@ -372,6 +402,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     
     ImVec2 cursor_p = ImGui::GetCursorScreenPos();
     ImGui::InvisibleButton("##MonitorPreview", ImVec2(avail_w, box_h));
+    bool is_preview_hovered = ImGui::IsItemHovered();
     
     float scale_f = avail_w / display_size.x;
     
@@ -385,9 +416,22 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImVec2 min_p = cursor_p;
     ImVec2 max_p = ImVec2(cursor_p.x + avail_w, cursor_p.y + box_h);
     
-    // Draw monitor background
-    dl->AddRectFilled(min_p, max_p, IM_COL32(10, 12, 16, 255), 6.0f); // Match deep obsidian theme
-    dl->AddRect(min_p, max_p, IM_COL32(45, 55, 75, 120), 6.0f); // Subtle border
+    // Draw monitor background with premium responsive hover borders
+    ImU32 monitor_bg = is_preview_hovered ? IM_COL32(14, 16, 22, 255) : IM_COL32(10, 12, 16, 255);
+    ImU32 monitor_border = is_preview_hovered ? IM_COL32(56, 120, 220, 200) : IM_COL32(45, 55, 75, 120);
+    dl->AddRectFilled(min_p, max_p, monitor_bg, 6.0f);
+    dl->AddRect(min_p, max_p, monitor_border, 6.0f, 0, 1.0f);
+    
+    // Tactical Screen and Coordinates Specs
+    char monitor_label[64];
+    snprintf(monitor_label, sizeof(monitor_label), "MONITOR (%.0fx%.0f)", display_size.x, display_size.y);
+    dl->AddText(ImVec2(min_p.x + 8.0f, min_p.y + 6.0f), IM_COL32(255, 255, 255, 90), monitor_label);
+    
+    char offset_label[64];
+    snprintf(offset_label, sizeof(offset_label), "X: %+.0f Y: %+.0f", m_pos_x, m_pos_y);
+    dl->AddText(ImVec2(max_p.x - ImGui::CalcTextSize(offset_label).x - 8.0f, min_p.y + 6.0f), 
+                 is_preview_hovered ? IM_COL32(56, 150, 250, 200) : IM_COL32(255, 255, 255, 90), 
+                 offset_label);
     
     // Draw center guides
     ImVec2 box_center = ImVec2(cursor_p.x + avail_w * 0.5f, cursor_p.y + box_h * 0.5f);
@@ -428,6 +472,11 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 4.0f));
     
+    // Inject elegant dark backgrounds for coordinate fields
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.10f, 0.14f, 0.80f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.12f, 0.15f, 0.22f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.16f, 0.20f, 0.28f, 1.00f));
+
     ImGui::TextDisabled("Position Offset (px)");
     
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 0.0f));
@@ -443,6 +492,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
         dover::overlay::GameStorage::Get().SaveState();
     }
     ImGui::PopItemWidth();
+    ImGui::PopStyleColor(3); // Pop coordinates FrameBg overrides
     
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.24f, 0.32f, 0.50f));
@@ -462,6 +512,14 @@ void CrosshairWindow::RenderContent(bool interactive) {
 
     // Right Panel Header & Controls (Scrollable Area)
     ImGui::BeginChild("SettingsScroll", ImVec2(0, 0), false, ImGuiWindowFlags_None);
+
+    // Apply premium Slate Blue styles dynamically to all controls inside the Settings Area
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.10f, 0.14f, 0.80f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.12f, 0.15f, 0.22f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.18f, 0.24f, 0.35f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.22f, 0.50f, 0.85f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0.22f, 0.38f, 0.62f, 0.85f));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0.33f, 0.50f, 0.75f, 1.00f));
 
     if (dover::overlay::g_fonts_preview_bold[3]) {
         ImGui::PushFont(dover::overlay::g_fonts_preview_bold[3]);
@@ -507,6 +565,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::SliderFloat("Scale", &m_scale, 0.3f, 3.0f, "%.1fx");
 
     ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(6); // Pop active Settings area slate blue color palette
     ImGui::EndChild();
 
     ImGui::Columns(1);

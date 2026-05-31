@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg:svg height="64" id="svg344" version="1.1" viewBox="0 0 64 64" width="64" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><g transform="translate(8.0000, 8.0000) scale(0.8000)">
-<svg:defs id="defs1"/>
-<svg:g id="g344" style="fill:#ffffff;fill-opacity:1" transform="translate(-554,-2)">
-<svg:path d="m 592,30 h 20 v 4 H 592 V 30 M 586,4 v 20 h -4 V 4 h 4 m -30,26 h 20 v 4 h -20 v -4 m 30,10 v 20 h -4 V 40 h 4" fill="#333333" id="path7" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
-<svg:path d="M 602.4,13.6 Q 594.8,6 584,6 573.2,6 565.6,13.6 558,21.2 558,32 q 0,10.8 7.6,18.4 7.6,7.6 18.4,7.6 10.8,0 18.4,-7.6 Q 610,42.8 610,32 610,21.2 602.4,13.6 M 614,32 q 0,12.45 -8.8,21.2 Q 596.45,62 584,62 571.55,62 562.75,53.2 554,44.45 554,32 554,19.55 562.75,10.75 571.55,2 584,2 q 12.45,0 21.2,8.75 8.8,8.8 8.8,21.25" fill="#333333" id="path8" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
-<svg:path d="m 582,30 h 4 v 4 h -4 v -4" fill="#333333" id="path9" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
-</svg:g>
-</g></svg:svg>

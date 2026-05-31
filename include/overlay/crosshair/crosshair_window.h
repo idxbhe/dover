@@ -47,6 +47,9 @@ public:
     const ImVec4& GetOutlineColor() const { return m_outline_color; }
     void SetOutlineColor(const ImVec4& c) { m_outline_color = c; }
 
+protected:
+    void PreRender(bool interactive) override;
+
 private:
     bool m_active = false;
     int m_selected_index = 0;

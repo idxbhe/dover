@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg:svg height="64" id="svg344" version="1.1" viewBox="0 0 64 64" width="64" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><g transform="translate(8.0000, 8.0000) scale(0.7500)">
-<svg:defs id="defs1"/>
-<svg:g id="g364" style="fill:#ffffff;fill-opacity:1" transform="translate(-624.52632,-322.80702)">
-<svg:path d="m 658.52632,322.80702 v 16 h -4 v -16 h 4 m 14,30 h 16 v 4 h -16 v -4 m -48,0 h 16 v 4 h -16 v -4 m 34,18 v 16 h -4 v -16 h 4" fill="#333333" id="path1" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
-<svg:path d="m 686.52632,354.80702 q 0,12.45 -8.8,21.2 -8.75,8.8 -21.2,8.8 -12.45,0 -21.25,-8.8 -8.75,-8.75 -8.75,-21.2 0,-12.45 8.75,-21.25 8.8,-8.75 21.25,-8.75 12.45,0 21.2,8.75 8.8,8.8 8.8,21.25 m -11.6,-18.4 q -7.6,-7.6 -18.4,-7.6 -10.8,0 -18.4,7.6 -7.6,7.6 -7.6,18.4 0,10.8 7.6,18.4 7.6,7.6 18.4,7.6 10.8,0 18.4,-7.6 7.6,-7.6 7.6,-18.4 0,-10.8 -7.6,-18.4" fill="#333333" id="path2" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
-</svg:g>
-</g></svg:svg>
