@@ -271,7 +271,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
 
     // Live Preview Box Style
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.043f, 0.051f, 0.066f, m_bg_alpha)); // Deep obsidian background
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 2.0f);
     
     ImGui::BeginChild("PreviewBox", ImVec2(0, preview_h), true);
     if (!crosshairs.empty() && m_selected_index >= 0 && m_selected_index < (int)crosshairs.size()) {
@@ -333,7 +333,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     
     // Style variables for child window
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.063f, 0.071f, 0.086f, m_bg_alpha));
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 2.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f); // Beautiful defined button borders
     
@@ -419,8 +419,8 @@ void CrosshairWindow::RenderContent(bool interactive) {
     // Draw monitor background with premium responsive hover borders
     ImU32 monitor_bg = is_preview_hovered ? IM_COL32(14, 16, 22, 255) : IM_COL32(10, 12, 16, 255);
     ImU32 monitor_border = is_preview_hovered ? IM_COL32(56, 120, 220, 200) : IM_COL32(45, 55, 75, 120);
-    dl->AddRectFilled(min_p, max_p, monitor_bg, 6.0f);
-    dl->AddRect(min_p, max_p, monitor_border, 6.0f, 0, 1.0f);
+    dl->AddRectFilled(min_p, max_p, monitor_bg, 2.0f);
+    dl->AddRect(min_p, max_p, monitor_border, 2.0f, 0, 1.0f);
     
     // Tactical Screen and Coordinates Specs
     char monitor_label[64];
