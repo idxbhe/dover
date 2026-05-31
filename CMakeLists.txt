@@ -158,6 +158,8 @@ add_library(dover_overlay SHARED
   src/overlay/notes/formatter.cpp
   src/overlay/notes/style.cpp
   src/overlay/settings/settings_window.cpp
+  src/overlay/crosshair/crosshair_window.cpp
+  src/overlay/assets/asset_storage.cpp
 )
 
 target_include_directories(dover_overlay PRIVATE

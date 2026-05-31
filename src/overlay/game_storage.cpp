@@ -6,6 +6,7 @@
 #include "overlay/notes/layout.h"
 #include "overlay/notes/manager.h"
 #include "overlay/settings/settings_window.h"
+#include "overlay/crosshair/crosshair_window.h"
 
 #include <windows.h>
 #include <cstdio>
@@ -122,6 +123,38 @@ void GameStorage::LoadState() {
 
     bool settings_open = shared::ReadIniBool(st, "settings", "is_open", false);
     settings::GetSettingsWindow().SetOpenDirect(settings_open);
+
+    bool crosshair_open = shared::ReadIniBool(st, "crosshair", "is_open", false);
+    crosshair::GetCrosshairWindow().SetOpenDirect(crosshair_open);
+    
+    bool crosshair_active = shared::ReadIniBool(st, "crosshair", "is_active", false);
+    crosshair::GetCrosshairWindow().SetCrosshairActive(crosshair_active);
+    
+    int crosshair_idx = shared::ReadIniInt(st, "crosshair", "selected_index", 0);
+    crosshair::GetCrosshairWindow().SetSelectedIndex(crosshair_idx);
+    
+    float cr = shared::ReadIniFloat(st, "crosshair", "color_r", 1.0f);
+    float cg = shared::ReadIniFloat(st, "crosshair", "color_g", 1.0f);
+    float cb = shared::ReadIniFloat(st, "crosshair", "color_b", 1.0f);
+    float ca = shared::ReadIniFloat(st, "crosshair", "color_a", 1.0f);
+    crosshair::GetCrosshairWindow().SetColor(ImVec4(cr, cg, cb, ca));
+    
+    bool coutline = shared::ReadIniBool(st, "crosshair", "outline_enabled", false);
+    crosshair::GetCrosshairWindow().SetOutlineEnabled(coutline);
+    
+    float ocr = shared::ReadIniFloat(st, "crosshair", "outline_r", 0.0f);
+    float ocg = shared::ReadIniFloat(st, "crosshair", "outline_g", 0.0f);
+    float ocb = shared::ReadIniFloat(st, "crosshair", "outline_b", 0.0f);
+    float oca = shared::ReadIniFloat(st, "crosshair", "outline_a", 1.0f);
+    crosshair::GetCrosshairWindow().SetOutlineColor(ImVec4(ocr, ocg, ocb, oca));
+    
+    float cscale = shared::ReadIniFloat(st, "crosshair", "scale", 1.0f);
+    crosshair::GetCrosshairWindow().SetScale(cscale);
+    
+    float cpos_x = shared::ReadIniFloat(st, "crosshair", "pos_x", 0.0f);
+    float cpos_y = shared::ReadIniFloat(st, "crosshair", "pos_y", 0.0f);
+    crosshair::GetCrosshairWindow().SetPosX(cpos_x);
+    crosshair::GetCrosshairWindow().SetPosY(cpos_y);
 }
 
 void GameStorage::SaveState() {
@@ -142,6 +175,27 @@ void GameStorage::SaveState() {
 
     shared::WriteIniBool(st, "notes", "is_open",            notes::GetNotesWindow().IsOpen());
     shared::WriteIniBool(st, "settings", "is_open",         settings::GetSettingsWindow().IsOpen());
+    shared::WriteIniBool(st, "crosshair", "is_open",        crosshair::GetCrosshairWindow().IsOpen());
+    
+    shared::WriteIniBool(st, "crosshair", "is_active",      crosshair::GetCrosshairWindow().IsCrosshairActive());
+    shared::WriteIniInt(st, "crosshair", "selected_index",  crosshair::GetCrosshairWindow().GetSelectedIndex());
+    
+    const ImVec4& ccolor = crosshair::GetCrosshairWindow().GetColor();
+    shared::WriteIniFloat(st, "crosshair", "color_r",       ccolor.x);
+    shared::WriteIniFloat(st, "crosshair", "color_g",       ccolor.y);
+    shared::WriteIniFloat(st, "crosshair", "color_b",       ccolor.z);
+    shared::WriteIniFloat(st, "crosshair", "color_a",       ccolor.w);
+    
+    shared::WriteIniBool(st, "crosshair", "outline_enabled",crosshair::GetCrosshairWindow().IsOutlineEnabled());
+    const ImVec4& ocolor = crosshair::GetCrosshairWindow().GetOutlineColor();
+    shared::WriteIniFloat(st, "crosshair", "outline_r",     ocolor.x);
+    shared::WriteIniFloat(st, "crosshair", "outline_g",     ocolor.y);
+    shared::WriteIniFloat(st, "crosshair", "outline_b",     ocolor.z);
+    shared::WriteIniFloat(st, "crosshair", "outline_a",     ocolor.w);
+    
+    shared::WriteIniFloat(st, "crosshair", "scale",         crosshair::GetCrosshairWindow().GetScale());
+    shared::WriteIniFloat(st, "crosshair", "pos_x",         crosshair::GetCrosshairWindow().GetPosX());
+    shared::WriteIniFloat(st, "crosshair", "pos_y",         crosshair::GetCrosshairWindow().GetPosY());
 }
 
 } // namespace dover::overlay

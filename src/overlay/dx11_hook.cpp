@@ -254,4 +254,8 @@ void ShutdownDx11Hook() {
   }
 }
 
+ID3D11Device* GetDx11Device() {
+  return g_d3d11_device;
+}
+
 } // namespace dover::overlay

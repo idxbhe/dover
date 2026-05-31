@@ -31,6 +31,7 @@ std::atomic<bool> g_reset_hooked{false};
 std::atomic<bool> g_imgui_initialized{false};
 
 HWND g_game_hwnd = nullptr;
+IDirect3DDevice9* g_d3d9_device = nullptr;
 
 HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
   if (!device) {
@@ -44,6 +45,7 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
     D3DDEVICE_CREATION_PARAMETERS params = {};
     if (SUCCEEDED(device->GetCreationParameters(&params)) && params.hFocusWindow) {
       g_game_hwnd = params.hFocusWindow;
+      g_d3d9_device = device;
       
       IMGUI_CHECKVERSION();
       ImGui::CreateContext();
@@ -196,10 +198,13 @@ void ShutdownDx9Hook() {
   DisableAndRemoveHook(reinterpret_cast<void*>(g_original_end_scene));
   DisableAndRemoveHook(reinterpret_cast<void*>(g_original_reset));
 
-  g_original_end_scene = nullptr;
-  g_original_reset = nullptr;
   g_end_scene_hooked = false;
   g_reset_hooked = false;
+  g_d3d9_device = nullptr;
+}
+
+IDirect3DDevice9* GetDx9Device() {
+  return g_d3d9_device;
 }
 
 } // namespace dover::overlay

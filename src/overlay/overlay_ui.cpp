@@ -3,6 +3,7 @@
 #include "overlay/notes/layout.h"
 #include "overlay/notes/manager.h"
 #include "overlay/settings/settings_window.h"
+#include "overlay/crosshair/crosshair_window.h"
 #include "overlay/game_storage.h"
 #include "overlay/icons.h"
 #include "overlay/fonts.h"
@@ -232,7 +233,7 @@ void RenderImGuiUI() {
     ImGui::PushFont(g_font_panel);
 
     const float icon_btn_width = 34.0f;
-    const float button_group_width = (icon_btn_width * 2.0f) + button_spacing; // Group of 2 icon buttons
+    const float button_group_width = (icon_btn_width * 3.0f) + (button_spacing * 2.0f); // Group of 3 icon buttons
     const float brand_y = (bar_height - ImGui::GetTextLineHeight()) * 0.5f;
     const float button_y = (bar_height - button_height) * 0.5f;
 
@@ -293,6 +294,30 @@ void RenderImGuiUI() {
       }
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Settings");
+    
+    // B2. Crosshair Button Rendering
+    ImGui::SameLine(0.0f, button_spacing);
+    {
+      bool is_ch_open = crosshair::GetCrosshairWindow().IsOpen();
+      bool is_ch_focused = crosshair::GetCrosshairWindow().IsFocused();
+      NavButtonState ch_state{is_ch_open, is_ch_focused};
+      RenderNavButton(
+          ICON_PANEL_RETICLE, ch_state,
+          ImVec4(0.90f, 0.40f, 0.30f, 0.85f),  // active shadow
+          ImVec4(0.95f, 0.55f, 0.45f, 0.85f),  // active border
+          icon_btn_width, icon_box_height
+      );
+    }
+    if (ImGui::Button(ICON_PANEL_RETICLE, ImVec2(icon_btn_width, icon_box_height))) {
+      if (!crosshair::GetCrosshairWindow().IsOpen()) {
+        crosshair::GetCrosshairWindow().Open();
+        ImGui::SetWindowFocus("Crosshairs");
+      } else if (!crosshair::GetCrosshairWindow().IsFocused()) {
+        ImGui::SetWindowFocus("Crosshairs");
+      }
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Crosshair");
+
     ImGui::PopStyleColor(); // Pop ImGuiCol_Text to restore icon text visibility
 
     // C. Close Button Rendering (Flat, Dark Slate with subtle Red hovered accent - Pixel Perfect Alignment)
@@ -361,7 +386,10 @@ void RenderImGuiUI() {
   // Render modular windows universally. BaseWindow handles visibility/pin logic internally.
   notes::GetNotesWindow().Render(GetOverlayState().show_overlay);
   settings::GetSettingsWindow().Render(GetOverlayState().show_overlay);
-
+  crosshair::GetCrosshairWindow().Render(GetOverlayState().show_overlay);
+  
+  // Render the crosshair directly on the background draw list
+  crosshair::GetCrosshairWindow().RenderCrosshairOverlay();
 }
 
 void InitializeOverlay() {
@@ -384,6 +412,7 @@ void InitializeOverlay() {
     notes::InitializeNotesManager(GameStorage::Get().GetNotesDir());
     notes::GetNotesWindow().Initialize();
     settings::GetSettingsWindow().Initialize();
+    crosshair::GetCrosshairWindow().Initialize();
 
     // 6. Load persistent config/state
     GameStorage::Get().LoadConfig();

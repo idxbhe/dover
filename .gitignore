@@ -6,7 +6,9 @@ docs/
 refactor-plan/
 .agents/
 plans/
-
+raw_crosshairs/unified.svg
+raw_crosshairs/svg/
+raw_crosshairs/pad_svgs.py
 
 # IDE Workspace Settings & Metadata
 .vscode/

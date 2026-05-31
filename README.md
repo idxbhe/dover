@@ -8,6 +8,7 @@ Dover is a high-performance in-game overlay alternative to the Steam Overlay. It
 
 *   **Universal Compatibility:** Supports DirectX 9 and DirectX 11 games on both 32-bit (x86) and 64-bit (x64) architectures.
 *   **In-Game Notes:** Create, edit, and view text notes directly over the game. Supports Markdown rendering, dynamic text sizes, and a pin feature to keep notes visible during gameplay.
+*   **Customizable Crosshair Overlay:** Render highly premium customizable crosshair reticles loaded via a zero-copy memory-mapped binary container format (`.pak`). Offers dynamic aspect-ratio monitor preview box positioning, manual pixel offsets, outline shadow stamping, real-time scaling, and alpha color customizations.
 *   **Global Opacity Control:** Adjust the transparency of all floating windows and configure the background dimming level of the overlay.
 *   **Auto-Save Layout:** Automatically saves window positions, sizes, and setting configurations to `%LOCALAPPDATA%\dover\imgui.ini`.
 *   **Zero Input Leakage:** Safely intercepts and blocks all game-bound keyboard and mouse inputs when the overlay is active.

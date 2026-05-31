@@ -6,6 +6,7 @@
 #include "overlay/game_storage.h"
 #include "overlay/notes/manager.h"
 #include "overlay/notes/layout.h"
+#include "overlay/crosshair/crosshair_window.h"
 #include "shared/ipc.h"
 #include "shared/log.h"
 
@@ -75,6 +76,7 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   }
 
   notes::GetNotesWindow().Shutdown();
+  crosshair::GetCrosshairWindow().Shutdown();
   notes::AutoSaveAll();
   GameStorage::Get().SaveState();
   GameStorage::Get().SaveConfig();
