@@ -96,7 +96,7 @@ CrosshairWindow& GetCrosshairWindow() {
 }
 
 CrosshairWindow::CrosshairWindow() 
-    : ui::BaseWindow("Crosshairs", ui::WindowFeature::Default, ImVec2(600, 450)) {
+    : ui::BaseWindow("Crosshairs", ui::WindowFeature::NoPin, ImVec2(600, 450)) {
 }
 
 void CrosshairWindow::PreRender(bool /*interactive*/) {
@@ -336,6 +336,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 2.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f); // Beautiful defined button borders
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f); // Tiny premium scrollbar size
     
     ImGui::BeginChild("CrosshairGrid", ImVec2(0, 0), true);
     // Calculate columns based on absolute window width to prevent scrollbar flicker loops
@@ -389,7 +390,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
         ImGui::EndTable();
     }
     ImGui::EndChild();
-    ImGui::PopStyleVar(3); // Pop rounding, padding, and border size
+    ImGui::PopStyleVar(4); // Pop rounding, padding, border size, scrollbar size
     ImGui::PopStyleColor(); // Pop ChildBg
 
     ImGui::NextColumn();

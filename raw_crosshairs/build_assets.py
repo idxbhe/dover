@@ -8,9 +8,9 @@ except ImportError:
     exit(1)
 
 def build_pak():
-    input_dir = "crosshairs.png"
+    input_dir = "png"
     # Output to the project root, from where it can be distributed
-    output_path = os.path.join("..", "dover_assets.pak")
+    output_path = os.path.join("..", "build_x64", "bin", "Release", "dover_assets.pak")
     
     os.makedirs(input_dir, exist_ok=True)
     

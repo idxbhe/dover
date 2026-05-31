@@ -108,6 +108,7 @@ void BaseWindow::Render(bool interactive) {
         // Standardized Header / Toolbar
         if (interactive) {
             if (m_window_name != "Settings") {
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f); // Move decorations & toolbar 3px lower
                 RenderToolbar(interactive);
                 
                 float avail_x = ImGui::GetContentRegionAvail().x;
@@ -141,6 +142,10 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary)
         ImGui::SameLine(same_line_pos);
         if (m_window_name == "Settings") {
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 6.0f);
+        } else {
+            if (ImGui::GetCursorPosY() < 8.0f) {
+                ImGui::SetCursorPosY(8.0f);
+            }
         }
         
         ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0, 0, 0, 0));
@@ -207,33 +212,38 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary)
         return clicked;
     };
 
-    if (HasFeature(m_features, WindowFeature::Pin)) {
-        DrawCustomButton(ICON_WINDOW_PINNED, right_boundary - 112.0f, m_is_pinned ? "Unpin from screen" : "Pin to screen", &m_is_pinned);
-    }
-
-    if (HasFeature(m_features, WindowFeature::Fullscreen)) {
-        if (DrawCustomButton(ICON_WINDOW_FULLSCREEN, right_boundary - 86.0f, m_is_fullscreen ? "Exit Fullscreen" : "Fullscreen", &m_is_fullscreen)) {
-            if (m_is_fullscreen && !m_is_maximized) {
-                m_was_fullscreen = true;
-            }
+    float offset = 34.0f;
+    if (HasFeature(m_features, WindowFeature::Close)) {
+        if (DrawCustomButton(ICON_WINDOW_CLOSE, right_boundary - offset, "Close")) {
+            Close();
         }
+        offset += 26.0f;
     }
 
     if (HasFeature(m_features, WindowFeature::Maximize)) {
         const char* icon = m_is_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_MAXIMIZE;
         const char* tooltip = m_is_maximized ? "Restore Window Size" : "Maximize Window";
-        if (DrawCustomButton(icon, right_boundary - 60.0f, tooltip)) {
+        if (DrawCustomButton(icon, right_boundary - offset, tooltip)) {
             if (!m_is_maximized && !m_is_fullscreen) {
                 m_was_maximized = true;
             }
             m_is_maximized = !m_is_maximized;
         }
+        offset += 26.0f;
     }
 
-    if (HasFeature(m_features, WindowFeature::Close)) {
-        if (DrawCustomButton(ICON_WINDOW_CLOSE, right_boundary - 34.0f, "Close")) {
-            Close();
+    if (HasFeature(m_features, WindowFeature::Fullscreen)) {
+        if (DrawCustomButton(ICON_WINDOW_FULLSCREEN, right_boundary - offset, m_is_fullscreen ? "Exit Fullscreen" : "Fullscreen", &m_is_fullscreen)) {
+            if (m_is_fullscreen && !m_is_maximized) {
+                m_was_fullscreen = true;
+            }
         }
+        offset += 26.0f;
+    }
+
+    if (HasFeature(m_features, WindowFeature::Pin)) {
+        DrawCustomButton(ICON_WINDOW_PINNED, right_boundary - offset, m_is_pinned ? "Unpin from screen" : "Pin to screen", &m_is_pinned);
+        offset += 26.0f;
     }
 }
 
