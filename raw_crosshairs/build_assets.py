@@ -8,11 +8,14 @@ except ImportError:
     exit(1)
 
 def build_pak():
-    input_dir = "png"
-    # Output to the project root, from where it can be distributed
-    output_path = os.path.join("..", "build_x64", "bin", "Release", "dover_assets.pak")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    
+    input_dir = os.path.join(script_dir, "png")
+    output_path = os.path.join(project_root, "build_x64", "bin", "Release", "dover_assets.pak")
     
     os.makedirs(input_dir, exist_ok=True)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
     
     png_files = glob.glob(os.path.join(input_dir, "*.png"))
     

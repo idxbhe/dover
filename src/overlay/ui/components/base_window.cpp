@@ -93,13 +93,13 @@ void BaseWindow::Render(bool interactive) {
             m_prev_size = ImGui::GetWindowSize();
         }
         
-        // Draw Slate-Blue gradient background base
+        // Draw Premium Balanced Dark Slate-Blue gradient background base
         ImVec2 min_p = ImGui::GetWindowPos();
         ImVec2 max_p = ImVec2(min_p.x + ImGui::GetWindowSize().x, min_p.y + ImGui::GetWindowSize().y);
-        ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.110f, 0.125f, 0.161f, m_bg_alpha)); // #1c2029
-        ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.090f, 0.102f, 0.130f, m_bg_alpha)); // #171a21
-        ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.071f, 0.082f, 0.106f, m_bg_alpha)); // #12151b
-        ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.094f, 0.106f, 0.137f, m_bg_alpha)); // #181b23
+        ImU32 col_tl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.082f, 0.094f, 0.125f, m_bg_alpha)); // Top-Left: Dark Slate-Blue (#151820)
+        ImU32 col_tr = ImGui::ColorConvertFloat4ToU32(ImVec4(0.067f, 0.075f, 0.102f, m_bg_alpha)); // Top-Right: Deep Obsidian Core (#11131a)
+        ImU32 col_br = ImGui::ColorConvertFloat4ToU32(ImVec4(0.051f, 0.055f, 0.078f, m_bg_alpha)); // Bottom-Right: Dark Velvet Onyx (#0d0e14)
+        ImU32 col_bl = ImGui::ColorConvertFloat4ToU32(ImVec4(0.071f, 0.082f, 0.110f, m_bg_alpha)); // Bottom-Left: Balanced Charcoal Blue (#12151c)
         ImGui::GetWindowDrawList()->AddRectFilledMultiColor(min_p, max_p, col_tl, col_tr, col_br, col_bl);
 
         // Pre-render hooks (like internal backgrounds/shadows)
