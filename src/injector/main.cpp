@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <iostream>
 #include <windows.h>
+#include <shellapi.h>
 
 namespace {
 constexpr DWORD kOverlayReadyTimeoutMs = 10000;
@@ -29,7 +30,27 @@ int wmain(int argc, wchar_t** argv) {
   PROCESS_INFORMATION process_info{};
   const auto working_directory = ResolveWorkingDirectory(argv[1]);
   if (!dover::shared::StartSuspendedProcess(argv[1], working_directory, command_line, process_info)) {
-    dover::shared::LogError("Failed to launch target process.");
+    DWORD err = GetLastError();
+    if (err == ERROR_ELEVATION_REQUIRED) {
+      dover::shared::LogError("Target game requires Administrator privileges. Restarting Injector as Administrator...");
+      
+      wchar_t injector_path[MAX_PATH];
+      GetModuleFileNameW(nullptr, injector_path, MAX_PATH);
+
+      SHELLEXECUTEINFOW sei = { sizeof(sei) };
+      sei.lpVerb = L"runas";
+      sei.lpFile = injector_path;
+      sei.lpParameters = command_line.c_str();
+      sei.nShow = SW_NORMAL;
+      
+      if (ShellExecuteExW(&sei)) {
+        return 0;
+      } else {
+        dover::shared::LogError("Failed to elevate Injector privileges.");
+      }
+    } else {
+      dover::shared::LogError("Failed to launch target process.");
+    }
     return 1;
   }
 

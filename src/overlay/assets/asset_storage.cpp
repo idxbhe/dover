@@ -44,11 +44,11 @@ bool AssetStorage::Initialize() {
         return false;
     }
 
-    std::filesystem::path pak_path = std::filesystem::path(dll_path).parent_path() / L"dover_assets.pak";
+    std::filesystem::path pak_path = std::filesystem::path(dll_path).parent_path() / L"assets.pak";
 
     // Fallback error handling: If file is missing, do not panic.
     if (!std::filesystem::exists(pak_path)) {
-        shared::LogInfo("AssetStorage: dover_assets.pak not found. Crosshair features will be disabled.");
+        shared::LogInfo("AssetStorage: assets.pak not found. Crosshair features will be disabled.");
         return false;
     }
 
@@ -64,7 +64,14 @@ bool AssetStorage::Initialize() {
     );
 
     if (hFile == INVALID_HANDLE_VALUE) {
-        shared::LogError("AssetStorage: Failed to open dover_assets.pak.");
+        shared::LogError("AssetStorage: Failed to open assets.pak.");
+        return false;
+    }
+
+    DWORD file_size = GetFileSize(hFile, nullptr);
+    if (file_size == INVALID_FILE_SIZE || file_size < sizeof(PakHeader)) {
+        shared::LogError("AssetStorage: File is too small to be a valid assets.pak.");
+        CloseHandle(hFile);
         return false;
     }
 
@@ -107,7 +114,21 @@ bool AssetStorage::Initialize() {
     const PakHeader* header = reinterpret_cast<const PakHeader*>(base_ptr);
 
     if (std::strncmp(header->magic, "DPAK", 4) != 0 || header->version != 1) {
-        shared::LogError("AssetStorage: Invalid dover_assets.pak format or version.");
+        shared::LogError("AssetStorage: Invalid assets.pak format or version.");
+        Shutdown();
+        return false;
+    }
+
+    uint64_t expected_toc_size = static_cast<uint64_t>(header->count) * sizeof(PakTocEntry);
+    if (file_size < sizeof(PakHeader) + expected_toc_size) {
+        shared::LogError("AssetStorage: File size is too small to contain the reported TOC.");
+        Shutdown();
+        return false;
+    }
+    
+    constexpr uint32_t MAX_ASSETS = 10000;
+    if (header->count > MAX_ASSETS) {
+        shared::LogError("AssetStorage: asset count exceeds arbitrary safety limits.");
         Shutdown();
         return false;
     }
@@ -116,6 +137,13 @@ bool AssetStorage::Initialize() {
 
     m_crosshairs.reserve(header->count);
     for (uint32_t i = 0; i < header->count; ++i) {
+        if (toc[i].data_offset + toc[i].data_size < toc[i].data_offset || 
+            toc[i].data_offset + toc[i].data_size > file_size) {
+            shared::LogError("AssetStorage: Asset TOC entry extends beyond EOF. Pak is corrupted.");
+            Shutdown();
+            return false;
+        }
+
         CrosshairData data;
         // Ensure null-termination
         char safe_name[33] = {0};
@@ -134,7 +162,7 @@ bool AssetStorage::Initialize() {
     }
 
     m_initialized = true;
-    shared::LogInfo("AssetStorage: dover_assets.pak memory-mapped successfully.");
+    shared::LogInfo("AssetStorage: assets.pak memory-mapped successfully.");
     return true;
 }
 

@@ -150,6 +150,9 @@ void GameStorage::LoadState() {
     
     float cscale = shared::ReadIniFloat(st, "crosshair", "scale", 1.0f);
     crosshair::GetCrosshairWindow().SetScale(cscale);
+
+    float copacity = shared::ReadIniFloat(st, "crosshair", "opacity", 1.0f);
+    crosshair::GetCrosshairWindow().SetOpacity(copacity);
     
     float cpos_x = shared::ReadIniFloat(st, "crosshair", "pos_x", 0.0f);
     float cpos_y = shared::ReadIniFloat(st, "crosshair", "pos_y", 0.0f);
@@ -194,6 +197,7 @@ void GameStorage::SaveState() {
     shared::WriteIniFloat(st, "crosshair", "outline_a",     ocolor.w);
     
     shared::WriteIniFloat(st, "crosshair", "scale",         crosshair::GetCrosshairWindow().GetScale());
+    shared::WriteIniFloat(st, "crosshair", "opacity",       crosshair::GetCrosshairWindow().GetOpacity());
     shared::WriteIniFloat(st, "crosshair", "pos_x",         crosshair::GetCrosshairWindow().GetPosX());
     shared::WriteIniFloat(st, "crosshair", "pos_y",         crosshair::GetCrosshairWindow().GetPosY());
 }

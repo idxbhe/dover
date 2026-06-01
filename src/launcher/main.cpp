@@ -7,6 +7,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <windows.h>
+#include <shellapi.h>
 
 namespace {
 constexpr DWORD kOverlayReadyTimeoutMs = 10000;
@@ -78,10 +80,10 @@ bool LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv) 
 
   if (!is_64bit) {
     const auto executable_dir = dover::shared::GetExecutableDirectory();
-    const auto injector32_path = executable_dir / L"dover_injector32.exe";
+    const auto injector32_path = executable_dir / L"injector32.exe";
 
     if (!std::filesystem::exists(injector32_path)) {
-      dover::shared::LogError("32-bit helper injector (dover_injector32.exe) not found beside launcher.");
+      dover::shared::LogError("32-bit helper injector (injector32.exe) not found beside launcher.");
       return false;
     }
 
@@ -91,7 +93,7 @@ bool LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv) 
     si.cb = sizeof(si);
     PROCESS_INFORMATION pi = {};
 
-    dover::shared::LogInfo("32-bit target game detected. Spawning dover_injector32.exe...");
+    dover::shared::LogInfo("32-bit target game detected. Spawning injector32.exe...");
     if (CreateProcessW(nullptr, full_command_line.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
       CloseHandle(pi.hThread);
       CloseHandle(pi.hProcess);
@@ -111,7 +113,28 @@ bool LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv) 
   PROCESS_INFORMATION process_info{};
   const auto working_directory = ResolveWorkingDirectory(target_path);
   if (!dover::shared::StartSuspendedProcess(target_path, working_directory, command_line, process_info)) {
-    dover::shared::LogError("Failed to launch target process.");
+    DWORD err = GetLastError();
+    if (err == ERROR_ELEVATION_REQUIRED) {
+      dover::shared::LogError("Target game requires Administrator privileges. Restarting Launcher as Administrator...");
+      
+      wchar_t launcher_path[MAX_PATH];
+      GetModuleFileNameW(nullptr, launcher_path, MAX_PATH);
+
+      SHELLEXECUTEINFOW sei = { sizeof(sei) };
+      sei.lpVerb = L"runas";
+      sei.lpFile = launcher_path;
+      std::wstring args = L"\"" + target_path + L"\"";
+      sei.lpParameters = args.c_str();
+      sei.nShow = SW_NORMAL;
+      
+      if (ShellExecuteExW(&sei)) {
+        exit(0);
+      } else {
+        dover::shared::LogError("Failed to elevate Launcher privileges.");
+      }
+    } else {
+      dover::shared::LogError("Failed to launch target process.");
+    }
     return false;
   }
 

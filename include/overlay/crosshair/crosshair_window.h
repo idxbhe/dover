@@ -35,6 +35,9 @@ public:
     float GetScale() const { return m_scale; }
     void SetScale(float s) { m_scale = s; }
 
+    float GetOpacity() const { return m_opacity; }
+    void SetOpacity(float o) { m_opacity = o; }
+
     float GetPosX() const { return m_pos_x; }
     void SetPosX(float x) { m_pos_x = x; }
 
@@ -55,6 +58,7 @@ private:
     int m_selected_index = 0;
     ImVec4 m_color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
     float m_scale = 1.0f;
+    float m_opacity = 1.0f;
     float m_pos_x = 0.0f;
     float m_pos_y = 0.0f;
     

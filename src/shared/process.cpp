@@ -23,9 +23,9 @@ std::filesystem::path GetOverlayDllPath() {
   }
 
 #ifdef _WIN64
-  return executable_directory / L"dover_overlay64.dll";
+  return executable_directory / L"overlay64.dll";
 #else
-  return executable_directory / L"dover_overlay32.dll";
+  return executable_directory / L"overlay32.dll";
 #endif
 }
 
@@ -59,13 +59,15 @@ bool InjectDll(HANDLE process, const std::filesystem::path& dll_path) {
 
   void* remote_buffer = VirtualAllocEx(process, nullptr, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
   if (!remote_buffer) {
-    LogError("VirtualAllocEx failed for DLL path.");
+    DWORD err = GetLastError();
+    LogError(("VirtualAllocEx failed for DLL path. Error: " + std::to_string(err)).c_str());
     return false;
   }
 
   const BOOL wrote = WriteProcessMemory(process, remote_buffer, dll_string.c_str(), bytes, nullptr);
   if (!wrote) {
-    LogError("WriteProcessMemory failed for DLL path.");
+    DWORD err = GetLastError();
+    LogError(("WriteProcessMemory failed for DLL path. Error: " + std::to_string(err)).c_str());
     VirtualFreeEx(process, remote_buffer, 0, MEM_RELEASE);
     return false;
   }
@@ -86,7 +88,8 @@ bool InjectDll(HANDLE process, const std::filesystem::path& dll_path) {
 
   HANDLE remote_thread = CreateRemoteThread(process, nullptr, 0, load_library, remote_buffer, 0, nullptr);
   if (!remote_thread) {
-    LogError("CreateRemoteThread failed.");
+    DWORD err = GetLastError();
+    LogError(("CreateRemoteThread failed. Error: " + std::to_string(err)).c_str());
     VirtualFreeEx(process, remote_buffer, 0, MEM_RELEASE);
     return false;
   }

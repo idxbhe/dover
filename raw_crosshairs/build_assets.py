@@ -12,10 +12,18 @@ def build_pak():
     project_root = os.path.dirname(script_dir)
     
     input_dir = os.path.join(script_dir, "png")
-    output_path = os.path.join(project_root, "build_x64", "bin", "Release", "dover_assets.pak")
+    
+    # Target all build folders to ensure assets are always present
+    output_paths = [
+        os.path.join(project_root, "build_x64", "bin", "Release", "assets.pak"),
+        os.path.join(project_root, "build_x64", "bin", "Debug", "assets.pak"),
+        os.path.join(project_root, "build_x86", "bin", "Release", "assets.pak"),
+        os.path.join(project_root, "build_x86", "bin", "Debug", "assets.pak"),
+    ]
     
     os.makedirs(input_dir, exist_ok=True)
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    for p in output_paths:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
     
     png_files = glob.glob(os.path.join(input_dir, "*.png"))
     
@@ -72,14 +80,14 @@ def build_pak():
         
         current_data_offset += data_size
         
-    with open(output_path, "wb") as f:
-        f.write(struct.pack(header_fmt, magic, version, count))
-        for toc in toc_entries:
-            f.write(toc)
-        for data in data_blocks:
-            f.write(data)
-            
-    print(f"[SUCCESS] Generated {output_path} with {count} crosshairs. Size: {current_data_offset / 1024 / 1024:.2f} MB")
+    for output_path in output_paths:
+        with open(output_path, "wb") as f:
+            f.write(struct.pack(header_fmt, magic, version, count))
+            for toc in toc_entries:
+                f.write(toc)
+            for data in data_blocks:
+                f.write(data)
+        print(f"[SUCCESS] Generated {output_path} with {count} crosshairs. Size: {current_data_offset / 1024 / 1024:.2f} MB")
 
 if __name__ == "__main__":
     build_pak()

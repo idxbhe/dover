@@ -221,8 +221,14 @@ void CrosshairWindow::RenderCrosshairOverlay() {
     ImVec2 p_min(center.x - w * 0.5f, center.y - h * 0.5f);
     ImVec2 p_max(center.x + w * 0.5f, center.y + h * 0.5f);
 
+    ImVec4 final_color = m_color;
+    final_color.w *= m_opacity;
+    ImU32 final_color_u32 = ImGui::ColorConvertFloat4ToU32(final_color);
+
     if (m_outline_enabled) {
-        ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(m_outline_color);
+        ImVec4 final_outline = m_outline_color;
+        final_outline.w *= m_opacity;
+        ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(final_outline);
         // Shadow Stamping (The Carmack Way): 4 directional draw calls
         draw_list->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y), ImVec2(p_max.x - 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
         draw_list->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y), ImVec2(p_max.x + 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
@@ -236,7 +242,7 @@ void CrosshairWindow::RenderCrosshairOverlay() {
     }
 
     // Main Draw Call
-    draw_list->AddImage(tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), ImGui::ColorConvertFloat4ToU32(m_color));
+    draw_list->AddImage(tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), final_color_u32);
 }
 
 void CrosshairWindow::RenderContent(bool interactive) {
@@ -245,7 +251,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     auto& crosshairs = assets::AssetStorage::Get().GetCrosshairs();
     
     if (crosshairs.empty()) {
-        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "dover_assets.pak not found or empty.");
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "assets.pak not found or empty.");
         ImGui::Text("Please ensure the asset pak is in the same directory as the DLL.");
         return;
     }
@@ -298,8 +304,14 @@ void CrosshairWindow::RenderContent(bool interactive) {
             ImVec2 p_min(center.x - pw * 0.5f, center.y - ph * 0.5f);
             ImVec2 p_max(center.x + pw * 0.5f, center.y + ph * 0.5f);
 
+            ImVec4 final_color = m_color;
+            final_color.w *= m_opacity;
+            ImU32 final_color_u32 = ImGui::ColorConvertFloat4ToU32(final_color);
+
             if (m_outline_enabled) {
-                ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(m_outline_color);
+                ImVec4 final_outline = m_outline_color;
+                final_outline.w *= m_opacity;
+                ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(final_outline);
                 box_dl->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y), ImVec2(p_max.x - 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
                 box_dl->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y), ImVec2(p_max.x + 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
                 box_dl->AddImage(tex_id, ImVec2(p_min.x, p_min.y - 1), ImVec2(p_max.x, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
@@ -310,7 +322,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
                 box_dl->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y - 1), ImVec2(p_max.x + 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
             }
                 
-            box_dl->AddImage(tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), ImGui::ColorConvertFloat4ToU32(m_color));
+            box_dl->AddImage(tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), final_color_u32);
         }
     }
     ImGui::EndChild();
@@ -453,14 +465,20 @@ void CrosshairWindow::RenderContent(bool interactive) {
             ImVec2 ch_min(cx - ch_w * 0.5f, cy - ch_h * 0.5f);
             ImVec2 ch_max(cx + ch_w * 0.5f, cy + ch_h * 0.5f);
             
+            ImVec4 final_color = m_color;
+            final_color.w *= m_opacity;
+            ImU32 final_color_u32 = ImGui::ColorConvertFloat4ToU32(final_color);
+
             if (m_outline_enabled) {
-                ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(m_outline_color);
+                ImVec4 final_outline = m_outline_color;
+                final_outline.w *= m_opacity;
+                ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(final_outline);
                 dl->AddImage(tex_id, ImVec2(ch_min.x-1, ch_min.y), ImVec2(ch_max.x-1, ch_max.y), ImVec2(0,0), ImVec2(1,1), outline_col);
                 dl->AddImage(tex_id, ImVec2(ch_min.x+1, ch_min.y), ImVec2(ch_max.x+1, ch_max.y), ImVec2(0,0), ImVec2(1,1), outline_col);
                 dl->AddImage(tex_id, ImVec2(ch_min.x, ch_min.y-1), ImVec2(ch_max.x, ch_max.y-1), ImVec2(0,0), ImVec2(1,1), outline_col);
                 dl->AddImage(tex_id, ImVec2(ch_min.x, ch_min.y+1), ImVec2(ch_max.x, ch_max.y+1), ImVec2(0,0), ImVec2(1,1), outline_col);
             }
-            dl->AddImage(tex_id, ch_min, ch_max, ImVec2(0,0), ImVec2(1,1), ImGui::ColorConvertFloat4ToU32(m_color));
+            dl->AddImage(tex_id, ch_min, ch_max, ImVec2(0,0), ImVec2(1,1), final_color_u32);
         }
     }
     ImGui::Spacing();
@@ -469,11 +487,13 @@ void CrosshairWindow::RenderContent(bool interactive) {
     // Position Offset Widget (X, Y Inputs & Reset Button) directly under Monitor Preview Box
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f, 4.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
     
     // Inject elegant dark backgrounds for coordinate fields
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.10f, 0.14f, 0.80f));
     ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.12f, 0.15f, 0.22f, 0.95f));
     ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.16f, 0.20f, 0.28f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.16f, 0.20f, 0.28f, 0.80f));
     
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6.0f, 0.0f));
     float input_w = 110.0f; // 110px gives ample space for numeric entry + step buttons (+/-) without stretching
@@ -496,7 +516,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
         dover::overlay::GameStorage::Get().SaveState();
     }
     ImGui::PopItemWidth();
-    ImGui::PopStyleColor(3); // Pop coordinates FrameBg overrides
+    ImGui::PopStyleColor(4); // Pop coordinates FrameBg & Border overrides
     
     ImGui::SameLine(0.0f, 12.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.20f, 0.24f, 0.32f, 0.50f));
@@ -509,22 +529,10 @@ void CrosshairWindow::RenderContent(bool interactive) {
     }
     ImGui::PopStyleColor(3);
     ImGui::PopStyleVar(); // Pop ItemSpacing
-    ImGui::PopStyleVar(2); // Pop FrameRounding & FramePadding
+    ImGui::PopStyleVar(3); // Pop FrameRounding, FramePadding & FrameBorderSize
     
     ImGui::Spacing();
     ImGui::Spacing();
-
-    // Right Panel Header & Controls (Scrollable Area)
-    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
-    ImGui::BeginChild("SettingsScroll", ImVec2(0, ImGui::GetContentRegionAvail().y - 12.0f), false, ImGuiWindowFlags_None);
-
-    // Apply premium Slate Blue styles dynamically to all controls inside the Settings Area
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.10f, 0.14f, 0.80f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.12f, 0.15f, 0.22f, 0.95f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.18f, 0.24f, 0.35f, 1.00f));
-    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.22f, 0.50f, 0.85f, 0.95f));
-    ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0.22f, 0.38f, 0.62f, 0.85f));
-    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0.33f, 0.50f, 0.75f, 1.00f));
 
     if (dover::overlay::g_fonts_preview_bold[3]) {
         ImGui::PushFont(dover::overlay::g_fonts_preview_bold[3]);
@@ -537,6 +545,18 @@ void CrosshairWindow::RenderContent(bool interactive) {
     }
     ImGui::Separator();
     ImGui::Spacing();
+
+    // Right Panel Controls (Scrollable Area below Header)
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
+    ImGui::BeginChild("SettingsScroll", ImVec2(0, ImGui::GetContentRegionAvail().y - 12.0f), false, ImGuiWindowFlags_None);
+
+    // Apply premium Slate Blue styles dynamically to all controls inside the Settings Area
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.08f, 0.10f, 0.14f, 0.80f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.12f, 0.15f, 0.22f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.18f, 0.24f, 0.35f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.22f, 0.50f, 0.85f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0.22f, 0.38f, 0.62f, 0.85f));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0.33f, 0.50f, 0.75f, 1.00f));
 
     // Controls
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
@@ -638,6 +658,87 @@ void CrosshairWindow::RenderContent(bool interactive) {
         
         char val_buf[16];
         snprintf(val_buf, sizeof(val_buf), "%.1fx", m_scale);
+        float val_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
+        ImGui::GetWindowDrawList()->AddText(ImVec2(val_x, val_y), ImGui::GetColorU32(ImGuiCol_TextDisabled), val_buf);
+        
+        ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height + ImGui::GetStyle().ItemSpacing.y));
+        
+        if (changed) {
+            dover::overlay::GameStorage::Get().SaveState();
+        }
+    }
+
+    ImGui::Dummy(ImVec2(0.0f, 4.0f));
+
+    // Custom premium slim slider for Transparency option matching SettingsWindow style
+    {
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        float col_avail_w = ImGui::GetContentRegionAvail().x;
+        float height = 26.0f;
+        
+        float text_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
+        ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 8.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), "Transparency");
+        
+        const float slider_width = 120.0f;
+        const float val_width = 36.0f;
+        const float right_margin = 8.0f;
+        
+        float slider_x = pos.x + col_avail_w - slider_width - val_width - right_margin - 8.0f;
+        float val_x = pos.x + col_avail_w - val_width - right_margin;
+        
+        ImGui::Dummy(ImVec2(col_avail_w, height));
+        ImGui::SetCursorScreenPos(ImVec2(slider_x, pos.y + (height - ImGui::GetFrameHeight()) * 0.5f));
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_SliderGrab,       ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0, 0, 0, 0));
+        
+        ImGui::SetNextItemWidth(slider_width);
+        bool changed = ImGui::SliderFloat("##Opacity", &m_opacity, 0.0f, 1.0f, "");
+        bool active = ImGui::IsItemActive();
+        bool hovered = ImGui::IsItemHovered();
+        
+        ImGui::PopStyleColor(5);
+        ImGui::PopStyleVar();
+        
+        float frame_height = ImGui::GetFrameHeight();
+        ImVec2 slider_pos = ImVec2(slider_x, pos.y + (height - frame_height) * 0.5f);
+        
+        float fraction = m_opacity;
+        if (fraction < 0.0f) fraction = 0.0f;
+        if (fraction > 1.0f) fraction = 1.0f;
+        
+        float grab_center_x = slider_pos.x + fraction * slider_width;
+        float grab_center_y = slider_pos.y + frame_height * 0.5f;
+        
+        ImVec4 grab_color = ImVec4(1.00f, 1.00f, 1.00f, 0.90f);
+        if (active) {
+            grab_color = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+        } else if (hovered) {
+            grab_color = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+        }
+        
+        ImGui::GetWindowDrawList()->AddLine(
+            ImVec2(slider_pos.x, grab_center_y),
+            ImVec2(slider_pos.x + slider_width, grab_center_y),
+            ImGui::GetColorU32(ImVec4(1.00f, 1.00f, 1.00f, 0.12f)),
+            2.5f
+        );
+        
+        ImGui::GetWindowDrawList()->AddLine(
+            ImVec2(slider_pos.x, grab_center_y),
+            ImVec2(grab_center_x, grab_center_y),
+            ImGui::GetColorU32(ImVec4(0.118f, 0.478f, 0.812f, 1.00f)),
+            2.5f
+        );
+        
+        ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
+        
+        char val_buf[16];
+        snprintf(val_buf, sizeof(val_buf), "%d%%", (int)((1.0f - m_opacity) * 100.0f + 0.5f));
         float val_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
         ImGui::GetWindowDrawList()->AddText(ImVec2(val_x, val_y), ImGui::GetColorU32(ImGuiCol_TextDisabled), val_buf);
         

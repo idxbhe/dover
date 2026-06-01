@@ -18,11 +18,12 @@ Dover is a high-performance in-game overlay alternative to the Steam Overlay. It
 ## How to Use
 
 1.  Place all release files in the same directory:
-    *   `dover_launcher.exe`
-    *   `dover_injector32.exe`
-    *   `dover_overlay64.dll`
-    *   `dover_overlay32.dll`
-2.  Run `dover_launcher.exe`.
+    *   `launcher.exe`
+    *   `injector64.exe`
+    *   `injector32.exe`
+    *   `overlay64.dll`
+    *   `overlay32.dll`
+2.  Run `launcher.exe`.
 3.  Enter the process name of the active game (e.g., `csgo.exe` or `gta_sa.exe`) and press Enter.
 4.  Press **`Shift + Tab`** inside the game to toggle the overlay.
 
@@ -61,8 +62,8 @@ Run the automated build script to compile and package both architectures:
 3.  **Consolidate Binaries:**
     Copy the x86 injector helper and overlay DLL into the main x64 release folder:
     ```powershell
-    Copy-Item build_x86\bin\Release\dover_injector32.exe build_x64\bin\Release\
-    Copy-Item build_x86\bin\Release\dover_overlay32.dll build_x64\bin\Release\
+    Copy-Item build_x86\bin\Release\injector32.exe build_x64\bin\Release\
+    Copy-Item build_x86\bin\Release\overlay32.dll build_x64\bin\Release\
     ```
 
 The final distribution package will be located at `build_x64\bin\Release\`.

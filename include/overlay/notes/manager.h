@@ -37,6 +37,9 @@ void SortNotesArray();
 // notes_dir: full path to the per-game notes directory (from GameStorage)
 bool InitializeNotesManager(const std::filesystem::path& notes_dir);
 
+// cleanly shuts down background threads
+void ShutdownNotesManager();
+
 // Returns a span of the active in-memory notes (no copy, array backed)
 std::span<NoteFile> GetNotes();
 

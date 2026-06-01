@@ -78,6 +78,7 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   notes::GetNotesWindow().Shutdown();
   crosshair::GetCrosshairWindow().Shutdown();
   notes::AutoSaveAll();
+  notes::ShutdownNotesManager();
   GameStorage::Get().SaveState();
   GameStorage::Get().SaveConfig();
   ShutdownInputHooks();

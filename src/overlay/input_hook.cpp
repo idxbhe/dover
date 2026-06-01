@@ -261,6 +261,30 @@ bool IsHardwareKeyPressed(int vKey) {
 }
 
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+  if (msg == WM_ACTIVATE || msg == WM_ACTIVATEAPP) {
+    bool is_inactive = false;
+    if (msg == WM_ACTIVATE) {
+      is_inactive = (LOWORD(wparam) == WA_INACTIVE);
+    } else {
+      is_inactive = (wparam == FALSE);
+    }
+
+    if (is_inactive && GetOverlayState().show_overlay) {
+      GetOverlayState().show_overlay = false;
+      
+      if (g_original_clip_cursor) {
+        g_original_clip_cursor(nullptr);
+      } else {
+        ClipCursor(nullptr);
+      }
+      
+      ImGuiIO& io = ImGui::GetIO();
+      io.ClearInputKeys();
+      io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+      io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
+    }
+  }
+
   auto& cfg = GetOverlayConfig();
   bool modifier_pressed = cfg.hotkey_toggle_modifier == 0 || (GetKeyState(cfg.hotkey_toggle_modifier) & 0x8000);
   
