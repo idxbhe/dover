@@ -9,7 +9,7 @@ Write-Host "=========================================" -ForegroundColor Cyan
 
 # 1. Build x64 Target
 Write-Host "`n[1/3] Building 64-bit Architecture (x64)..." -ForegroundColor Yellow
-cmake -B build_x64 -S . -A x64 -DDOVER_STRICT_BUILD=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF -DCMAKE_CXX_FLAGS="" -DCMAKE_C_FLAGS=""
+cmake -B build_x64 -S . -A x64 -DDOVER_STRICT_BUILD=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF -DCMAKE_CXX_FLAGS="" -DCMAKE_C_FLAGS=""
 cmake --build build_x64 --config $Config --parallel
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`n[ERROR] Failed to compile 64-bit target." -ForegroundColor Red
@@ -18,7 +18,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # 2. Build x86 Target
 Write-Host "`n[2/3] Building 32-bit Architecture (x86)..." -ForegroundColor Yellow
-cmake -B build_x86 -S . -A Win32 -DDOVER_STRICT_BUILD=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF -DCMAKE_CXX_FLAGS="" -DCMAKE_C_FLAGS=""
+cmake -B build_x86 -S . -A Win32 -DDOVER_STRICT_BUILD=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF -DCMAKE_CXX_FLAGS="" -DCMAKE_C_FLAGS=""
 cmake --build build_x86 --config $Config --parallel
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`n[ERROR] Failed to compile 32-bit target." -ForegroundColor Red
