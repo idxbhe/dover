@@ -1,69 +1,45 @@
-# Dover: Universal In-Game Overlay
+# Dover
 
-Dover is a high-performance in-game overlay alternative to the Steam Overlay. It is written in C++ and uses Dear ImGui for a lightweight, responsive interface.
+A lightweight, high-performance in-game overlay for DirectX 9 and DirectX 11 games. Built with C++ and Dear ImGui.
 
 ---
 
 ## Features
 
-*   **Universal Compatibility:** Supports DirectX 9 and DirectX 11 games on both 32-bit (x86) and 64-bit (x64) architectures.
-*   **In-Game Notes:** Create, edit, and view text notes directly over the game. Supports Markdown rendering, dynamic text sizes, and a pin feature to keep notes visible during gameplay.
-*   **Customizable Crosshair Overlay:** Render highly premium customizable crosshair reticles loaded via a zero-copy memory-mapped binary container format (`.pak`). Offers dynamic aspect-ratio monitor preview box positioning, manual pixel offsets, outline shadow stamping, real-time scaling, and alpha color customizations.
-*   **Global Opacity Control:** Adjust the transparency of all floating windows and configure the background dimming level of the overlay.
-*   **Auto-Save Layout:** Automatically saves window positions, sizes, and setting configurations to `%LOCALAPPDATA%\dover\imgui.ini`.
-*   **Zero Input Leakage:** Safely intercepts and blocks all game-bound keyboard and mouse inputs when the overlay is active.
+*   **Universal Support:** Works on x86 and x64 architectures for DX9/DX11.
+*   **In-Game Notes:** Markdown-supported notes with pinning capability.
+*   **Custom Crosshair:** Load custom reticles from `assets.pak` with scaling and positioning controls.
+*   **Opacity Control:** Adjustable window and background transparency.
+*   **Auto-Save Layout:** Automatically saves window positions and settings.
+*   **Input Blocking:** Prevents overlay inputs from leaking into the game.
 
 ---
 
 ## How to Use
 
-1.  Place all release files in the same directory:
-    *   `launcher.exe`
-    *   `injector64.exe`
-    *   `injector32.exe`
-    *   `overlay64.dll`
-    *   `overlay32.dll`
-2.  Run `launcher.exe`.
-3.  Enter the process name of the active game (e.g., `csgo.exe` or `gta_sa.exe`) and press Enter.
-4.  Press **`Shift + Tab`** inside the game to toggle the overlay.
+1. Extract the release package. Ensure `launcher.exe`, the DLLs, injectors, and `assets.pak` are in the same directory.
+2. Run `launcher.exe`.
+3. Use the interactive menu to add your game's absolute executable path, or select a previously saved game to launch it.
+4. Once in-game, press **`Shift + Tab`** to toggle the overlay.
+
+*(Alternatively, you can launch a game directly via command line: `launcher.exe "C:\Path\To\Game.exe"`)*
 
 ---
 
 ## Build Guide
 
-Dover uses a dual-architecture build pipeline to compile helper tools and DLLs for both x86 and x64 processes.
+Compiled using MSVC on Windows.
 
 ### Requirements
 *   Windows 10/11
-*   CMake (Version 3.20 or newer)
-*   Visual Studio (with C++ Desktop workload)
+*   CMake (3.20+)
+*   Visual Studio (C++ Desktop workload)
 
 ### Compiling
-Run the automated build script to compile and package both architectures:
+Run the provided build script to compile and consolidate both x64 and x86 targets automatically:
 
 ```powershell
 .\build.ps1
 ```
 
-#### Manual Compilation Steps
-
-1.  **Build 64-bit Target (x64):**
-    ```powershell
-    cmake -B build_x64 -S . -A x64
-    cmake --build build_x64 --config Release
-    ```
-
-2.  **Build 32-bit Target (x86):**
-    ```powershell
-    cmake -B build_x86 -S . -A Win32
-    cmake --build build_x86 --config Release
-    ```
-
-3.  **Consolidate Binaries:**
-    Copy the x86 injector helper and overlay DLL into the main x64 release folder:
-    ```powershell
-    Copy-Item build_x86\bin\Release\injector32.exe build_x64\bin\Release\
-    Copy-Item build_x86\bin\Release\overlay32.dll build_x64\bin\Release\
-    ```
-
-The final distribution package will be located at `build_x64\bin\Release\`.
+The final compiled binaries will be available in the `build_x64\bin\Debug` (or `Release`) directory.

@@ -136,7 +136,7 @@ target_include_directories(dover_shared PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-add_executable(dover_launcher src/launcher/main.cpp)
+add_executable(dover_launcher src/launcher/main.cpp src/launcher/launcher.rc)
 target_link_libraries(dover_launcher PRIVATE dover_shared)
 
 add_executable(dover_injector src/injector/main.cpp)

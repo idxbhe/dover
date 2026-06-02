@@ -1,0 +1,71 @@
+name: Dover Automated Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Auto Tagging Version
+      id: tag_version
+      uses: mathieudutour/github-tag-action@v6.2
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        default_bump: patch
+
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Setup CMake
+      uses: jwlawson/actions-setup-cmake@v2
+
+    - name: Build Dover Binaries
+      shell: powershell
+      run: |
+        $Config = "Release"
+        
+        # Build x64
+        cmake -B build_x64 -S . -A x64 -DDOVER_STRICT_BUILD=ON
+        cmake --build build_x64 --config $Config --parallel
+        
+        # Build x86
+        cmake -B build_x86 -S . -A Win32 -DDOVER_STRICT_BUILD=ON
+        cmake --build build_x86 --config $Config --parallel
+        
+        # Consolidate binaries
+        $dest_dir = "build_x64\bin\$Config"
+        Copy-Item "build_x86\bin\$Config\injector32.exe" "$dest_dir\" -Force
+        Copy-Item "build_x86\bin\$Config\overlay32.dll" "$dest_dir\" -Force
+        
+        # Ensure assets.pak is included
+        if (Test-Path "build_x64\bin\Debug\assets.pak") {
+            Copy-Item "build_x64\bin\Debug\assets.pak" "$dest_dir\" -Force
+        } elseif (Test-Path "build_x64\bin\Release\assets.pak") {
+            Copy-Item "build_x64\bin\Release\assets.pak" "$dest_dir\" -Force
+        }
+
+    - name: Package Release Binaries
+      shell: powershell
+      run: |
+        Compress-Archive -Path build_x64\bin\Release\* -DestinationPath dover-overlay.zip
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.tag_version.outputs.new_tag }}
+        name: Release ${{ steps.tag_version.outputs.new_tag }}
+        files: dover-overlay.zip
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
