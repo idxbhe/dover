@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace dover::overlay::assets {
+namespace dover::shared::assets {
 
 struct TextureData {
     std::string name;
@@ -58,4 +58,4 @@ private:
     std::vector<TextureData*> m_crosshair_cache;
 };
 
-} // namespace dover::overlay::assets
+} // namespace dover::shared::assets

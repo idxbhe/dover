@@ -6,8 +6,8 @@
 #include "shared/game_storage.h"
 #include "shared/notes/manager.h"
 #include "shared/notes/layout.h"
-#include "overlay/crosshair/crosshair_window.h"
-#include "overlay/input/input_window.h"
+#include "shared/crosshair/crosshair_window.h"
+#include "shared/input/input_window.h"
 #include "shared/ipc.h"
 #include "shared/log.h"
 
@@ -77,7 +77,7 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   }
 
   shared::notes::GetNotesWindow().Shutdown();
-  crosshair::GetCrosshairWindow().Shutdown();
+  shared::crosshair::GetCrosshairWindow().Shutdown();
   shared::notes::AutoSaveAll();
   shared::notes::ShutdownNotesManager();
   dover::shared::GameStorage::Get().SaveState();

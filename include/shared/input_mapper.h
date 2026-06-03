@@ -3,9 +3,9 @@
 #include <windows.h>
 #include <xinput.h>
 
-namespace dover::overlay::input_mapper {
+namespace dover::shared::input_mapper {
 
 // Intercepts XInput state, generates simulated key events, and zeros out mapped gamepad buttons.
 void ProcessGamepadRemapping(XINPUT_STATE* state, DWORD user_index);
 
-} // namespace dover::overlay::input_mapper
+} // namespace dover::shared::input_mapper

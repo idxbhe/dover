@@ -1,5 +1,6 @@
 #include "overlay/dx9_hook.h"
 #include "overlay/overlay_ui.h"
+#include "shared/input_utils.h"
 #include "shared/theme.h"
 #include "overlay/hook_utils.h"
 #include "overlay/input_hook.h"
@@ -69,9 +70,9 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
     GetOverlayState().in_overlay_frame = true;
     ImGui_ImplDX9_NewFrame();
     
-    g_allow_xinput = true;
+    shared::g_allow_xinput = true;
     ImGui_ImplWin32_NewFrame();
-    g_allow_xinput = false;
+    shared::g_allow_xinput = false;
     
     ImGui::NewFrame();
 

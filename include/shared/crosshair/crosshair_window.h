@@ -3,7 +3,7 @@
 #include "shared/ui/components/base_window.h"
 #include <imgui.h>
 
-namespace dover::overlay::crosshair {
+namespace dover::shared::crosshair {
 
 class CrosshairWindow : public shared::ui::BaseWindow {
 public:
@@ -70,4 +70,4 @@ private:
 
 CrosshairWindow& GetCrosshairWindow();
 
-} // namespace dover::overlay::crosshair
+} // namespace dover::shared::crosshair

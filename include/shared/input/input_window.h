@@ -2,7 +2,7 @@
 
 #include "shared/ui/components/base_window.h"
 
-namespace dover::overlay::input {
+namespace dover::shared::input {
 
 struct ButtonRenderData {
     const char* name;
@@ -40,4 +40,4 @@ private:
 // Global instance getter
 InputWindow& GetInputWindow();
 
-} // namespace dover::overlay::input
+} // namespace dover::shared::input

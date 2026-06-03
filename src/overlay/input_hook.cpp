@@ -2,7 +2,7 @@
 #include "shared/settings/app_config.h"
 #include "overlay/overlay_ui.h" // For GetOverlayState().show_overlay, GetOverlayState().in_overlay_frame, HookedWndProc
 #include "overlay/hook_utils.h"
-#include "overlay/input_mapper.h"
+#include "shared/input_mapper.h"
 
 #include <windows.h>
 #include <cstring>
@@ -11,6 +11,9 @@
 #include <chrono>
 #include <imgui.h>
 #include <xinput.h>
+
+#include "shared/input_utils.h"
+#include "shared/input_mapper.h"
 
 // Forward declaration of imgui wndproc handler
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -25,9 +28,6 @@ static XInputGetStateEx_t g_XInputGetStateEx = nullptr;
 static HMODULE g_hXInputDll = nullptr;
 static bool g_xinput_initialized = false;
 static bool g_prev_guide_pressed = false;
-
-thread_local bool g_allow_xinput = false;
-thread_local bool g_allow_input_queries = false;
 
 namespace {
 using GetAsyncKeyStateFn = SHORT(WINAPI*)(int);
@@ -69,12 +69,12 @@ bool ProcessInputMessage(LPMSG lpMsg) {
 }
 
 SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
-  if (GetOverlayState().show_overlay && !g_allow_input_queries) {
+  if (GetOverlayState().show_overlay && !shared::g_allow_input_queries) {
     auto& cfg = shared::GetAppConfig();
     if (vKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && vKey == cfg.hotkey_toggle_modifier)) {
-      if (g_original_get_async_key_state) {
-        return g_original_get_async_key_state(vKey);
-      }
+        if (shared::g_allow_input_queries) {
+          return g_original_get_async_key_state(vKey);
+        }
     }
     return 0;
   }
@@ -85,7 +85,7 @@ SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
 }
 
 SHORT WINAPI HookedGetKeyState(int nVirtKey) {
-  if (GetOverlayState().show_overlay && !g_allow_input_queries) {
+  if (GetOverlayState().show_overlay && !shared::g_allow_input_queries) {
     auto& cfg = shared::GetAppConfig();
     if (nVirtKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && nVirtKey == cfg.hotkey_toggle_modifier)) {
       if (g_original_get_key_state) {
@@ -101,7 +101,7 @@ SHORT WINAPI HookedGetKeyState(int nVirtKey) {
 }
 
 BOOL WINAPI HookedGetKeyboardState(PBYTE lpKeyState) {
-  if (GetOverlayState().show_overlay && !g_allow_input_queries && lpKeyState) {
+  if (GetOverlayState().show_overlay && !shared::g_allow_input_queries && lpKeyState) {
     std::memset(lpKeyState, 0, 256);
     return TRUE;
   }
@@ -222,7 +222,7 @@ XInputGetStateFn g_orig_xinput13_getstate = nullptr;
 
 void ModifyXInputState(XINPUT_STATE* pState) {
   bool should_zero = false;
-  if (g_allow_xinput) {
+  if (shared::g_allow_xinput) {
     // Caller is ImGui: Zero inputs if overlay is hidden
     if (!GetOverlayState().show_overlay) should_zero = true;
   } else {
@@ -244,8 +244,8 @@ void ModifyXInputState(XINPUT_STATE* pState) {
 DWORD WINAPI HookedXInput14GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
   DWORD result = g_orig_xinput14_getstate ? g_orig_xinput14_getstate(dwUserIndex, pState) : ERROR_DEVICE_NOT_CONNECTED;
   if (result == ERROR_SUCCESS) {
-      if (!g_allow_xinput && !GetOverlayState().show_overlay) {
-          input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
+      if (!shared::g_allow_xinput && !GetOverlayState().show_overlay) {
+          shared::input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
       }
       ModifyXInputState(pState);
   }
@@ -255,8 +255,8 @@ DWORD WINAPI HookedXInput14GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
 DWORD WINAPI HookedXInput13GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
   DWORD result = g_orig_xinput13_getstate ? g_orig_xinput13_getstate(dwUserIndex, pState) : ERROR_DEVICE_NOT_CONNECTED;
   if (result == ERROR_SUCCESS) {
-      if (!g_allow_xinput && !GetOverlayState().show_overlay) {
-          input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
+      if (!shared::g_allow_xinput && !GetOverlayState().show_overlay) {
+          shared::input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
       }
       ModifyXInputState(pState);
   }
@@ -264,13 +264,6 @@ DWORD WINAPI HookedXInput13GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
 }
 
 } // namespace
-
-bool IsHardwareKeyPressed(int vKey) {
-  if (g_original_get_async_key_state) {
-    return (g_original_get_async_key_state(vKey) & 0x8000) != 0;
-  }
-  return (GetAsyncKeyState(vKey) & 0x8000) != 0;
-}
 
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
   if (msg == WM_ACTIVATE || msg == WM_ACTIVATEAPP) {
@@ -317,9 +310,9 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
   }
 
   if (GetOverlayState().show_overlay) {
-    g_allow_input_queries = true;
+    shared::g_allow_input_queries = true;
     bool imgui_processed = ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam);
-    g_allow_input_queries = false;
+    shared::g_allow_input_queries = false;
     
     if (imgui_processed) {
       return true; // ImGui processed, block from game
@@ -364,6 +357,14 @@ bool InitializeInputHooks() {
         get_async_key_state_addr,
         reinterpret_cast<void*>(&HookedGetAsyncKeyState),
         reinterpret_cast<void**>(&g_original_get_async_key_state));
+    if (success) {
+      shared::g_key_state_func = [](int vKey) -> bool {
+          if (g_original_get_async_key_state) {
+              return (g_original_get_async_key_state(vKey) & 0x8000) != 0;
+          }
+          return (GetAsyncKeyState(vKey) & 0x8000) != 0;
+      };
+    }
   }
   if (get_key_state_addr) {
     success &= CreateAndEnableHook(
@@ -492,6 +493,7 @@ void ShutdownInputHooks() {
   DisableAndRemoveHook(reinterpret_cast<void*>(g_original_get_message_w));
   DisableAndRemoveHook(reinterpret_cast<void*>(g_original_get_message_a));
 
+  shared::g_key_state_func = nullptr;
   g_original_get_async_key_state = nullptr;
   g_original_get_key_state = nullptr;
   g_original_get_keyboard_state = nullptr;

@@ -1,7 +1,6 @@
-#include "overlay/crosshair/crosshair_window.h"
-#include "overlay/assets/asset_storage.h"
-#include "overlay/dx11_hook.h"
-#include "overlay/dx9_hook.h"
+#include "shared/crosshair/crosshair_window.h"
+#include "shared/assets/asset_storage.h"
+#include "shared/renderer.h"
 #include "shared/log.h"
 #include "shared/icons.h"
 #include "shared/theme.h"
@@ -88,7 +87,7 @@ namespace {
     }
 } // namespace
 
-namespace dover::overlay::crosshair {
+namespace dover::shared::crosshair {
 
 CrosshairWindow& GetCrosshairWindow() {
     static CrosshairWindow instance;
@@ -111,10 +110,10 @@ void CrosshairWindow::Shutdown() {
     for (size_t i = 0; i < crosshairs.size(); ++i) {
         if (crosshairs[i].name.rfind("gamepad/", 0) == 0) continue;
         if (crosshairs[i].texture_id) {
-            if (GetDx11Device()) {
+            if (shared::GetDx11Device()) {
                 auto* srv = static_cast<ID3D11ShaderResourceView*>(crosshairs[i].texture_id);
                 srv->Release();
-            } else if (GetDx9Device()) {
+            } else if (shared::GetDx9Device()) {
                 auto* tex = static_cast<IDirect3DTexture9*>(crosshairs[i].texture_id);
                 tex->Release();
             }
@@ -134,8 +133,8 @@ void CrosshairWindow::RenderCrosshairOverlay() {
         
         auto& crosshairs = assets::AssetStorage::Get().GetAssets();
         
-        ID3D11Device* dx11 = GetDx11Device();
-        IDirect3DDevice9* dx9 = GetDx9Device();
+        ID3D11Device* dx11 = shared::GetDx11Device();
+        IDirect3DDevice9* dx9 = shared::GetDx9Device();
         
         if (dx11) {
             dover::shared::LogInfo("Loading Crosshair Textures (DX11)...");
@@ -204,11 +203,11 @@ void CrosshairWindow::RenderCrosshairOverlay() {
 
     if (!m_active) return;
     
-    int total_crosshairs = static_cast<int>(dover::overlay::assets::AssetStorage::Get().GetCrosshairs().size());
+    int total_crosshairs = static_cast<int>(dover::shared::assets::AssetStorage::Get().GetCrosshairs().size());
     if (total_crosshairs == 0) return;
     if (m_selected_index < 0 || m_selected_index >= total_crosshairs) return;
 
-    auto* asset = dover::overlay::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
+    auto* asset = dover::shared::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
     if (!asset) return;
 
     void* tex_id = asset->texture_id;
@@ -256,7 +255,7 @@ void CrosshairWindow::RenderCrosshairOverlay() {
 void CrosshairWindow::RenderContent(bool interactive) {
     if (!interactive) return;
 
-    int total_crosshairs = static_cast<int>(dover::overlay::assets::AssetStorage::Get().GetCrosshairs().size());
+    int total_crosshairs = static_cast<int>(dover::shared::assets::AssetStorage::Get().GetCrosshairs().size());
     if (total_crosshairs == 0) {
         ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "assets.pak not found or no crosshairs.");
         ImGui::Text("Please ensure the asset pak is in the same directory as the DLL.");
@@ -276,7 +275,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     
     ImGui::BeginChild("PreviewBox", ImVec2(0, preview_h), true);
     if (total_crosshairs > 0 && m_selected_index >= 0 && m_selected_index < total_crosshairs) {
-        auto* asset = dover::overlay::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
+        auto* asset = dover::shared::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
         void* tex_id = asset ? asset->texture_id : nullptr;
         if (tex_id) {
             ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -362,7 +361,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, spacing));
     for (int i = 0; i < total_crosshairs; ++i) {
-        auto* asset = dover::overlay::assets::AssetStorage::Get().GetCrosshairs()[i];
+        auto* asset = dover::shared::assets::AssetStorage::Get().GetCrosshairs()[i];
         if (!asset) continue;
         
         // Shift first element of each row horizontally to distribute remainders symmetrically
@@ -461,7 +460,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     
     // Draw miniature crosshair
     if (total_crosshairs > 0 && m_selected_index >= 0 && m_selected_index < total_crosshairs) {
-        auto* asset = dover::overlay::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
+        auto* asset = dover::shared::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
         void* tex_id = asset ? asset->texture_id : nullptr;
         if (tex_id) {
             float ch_w = (float)asset->width * (m_scale / 3.0f) * scale_f;
@@ -771,4 +770,4 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::Columns(1);
 }
 
-} // namespace dover::overlay::crosshair
+} // namespace dover::shared::crosshair

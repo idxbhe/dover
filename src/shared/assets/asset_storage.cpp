@@ -1,4 +1,4 @@
-#include "overlay/assets/asset_storage.h"
+#include "shared/assets/asset_storage.h"
 #include "shared/log.h"
 
 #include <windows.h>
@@ -23,7 +23,7 @@ struct PakTocEntry {
 
 extern "C" IMAGE_DOS_HEADER __ImageBase; // Used to get the current DLL module handle
 
-namespace dover::overlay::assets {
+namespace dover::shared::assets {
 
 AssetStorage& AssetStorage::Get() {
     static AssetStorage instance;
@@ -194,4 +194,4 @@ void AssetStorage::Shutdown() {
     }
 }
 
-} // namespace dover::overlay::assets
+} // namespace dover::shared::assets

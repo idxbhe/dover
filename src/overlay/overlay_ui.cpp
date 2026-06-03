@@ -4,8 +4,8 @@
 #include "shared/notes/layout.h"
 #include "shared/notes/manager.h"
 #include "shared/settings/settings_window.h"
-#include "overlay/crosshair/crosshair_window.h"
-#include "overlay/input/input_window.h"
+#include "shared/crosshair/crosshair_window.h"
+#include "shared/input/input_window.h"
 #include "shared/game_storage.h"
 #include "shared/icons.h"
 #include "shared/fonts.h"
@@ -299,8 +299,8 @@ void RenderImGuiUI() {
     // B2. Crosshair Button Rendering
     ImGui::SameLine(0.0f, button_spacing);
     {
-      bool is_ch_open = crosshair::GetCrosshairWindow().IsOpen();
-      bool is_ch_focused = crosshair::GetCrosshairWindow().IsFocused();
+      bool is_ch_open = shared::crosshair::GetCrosshairWindow().IsOpen();
+      bool is_ch_focused = shared::crosshair::GetCrosshairWindow().IsFocused();
       NavButtonState ch_state{is_ch_open, is_ch_focused};
       RenderNavButton(
           ICON_PANEL_RETICLE, ch_state,
@@ -310,10 +310,10 @@ void RenderImGuiUI() {
       );
     }
     if (ImGui::Button(ICON_PANEL_RETICLE, ImVec2(icon_btn_width, icon_box_height))) {
-      if (!crosshair::GetCrosshairWindow().IsOpen()) {
-        crosshair::GetCrosshairWindow().Open();
+      if (!shared::crosshair::GetCrosshairWindow().IsOpen()) {
+        shared::crosshair::GetCrosshairWindow().Open();
         ImGui::SetWindowFocus("Crosshairs");
-      } else if (!crosshair::GetCrosshairWindow().IsFocused()) {
+      } else if (!shared::crosshair::GetCrosshairWindow().IsFocused()) {
         ImGui::SetWindowFocus("Crosshairs");
       }
     }
@@ -322,8 +322,8 @@ void RenderImGuiUI() {
     // B3. Input Map Button Rendering
     ImGui::SameLine(0.0f, button_spacing);
     {
-      bool is_input_open = input::GetInputWindow().IsOpen();
-      bool is_input_focused = input::GetInputWindow().IsFocused();
+      bool is_input_open = shared::input::GetInputWindow().IsOpen();
+      bool is_input_focused = shared::input::GetInputWindow().IsFocused();
       NavButtonState input_state{is_input_open, is_input_focused};
       RenderNavButton(
           ICON_PANEL_INPUTMAP, input_state,
@@ -333,10 +333,10 @@ void RenderImGuiUI() {
       );
     }
     if (ImGui::Button(ICON_PANEL_INPUTMAP, ImVec2(icon_btn_width, icon_box_height))) {
-      if (!input::GetInputWindow().IsOpen()) {
-        input::GetInputWindow().Open();
+      if (!shared::input::GetInputWindow().IsOpen()) {
+        shared::input::GetInputWindow().Open();
         ImGui::SetWindowFocus("Input Mapper");
-      } else if (!input::GetInputWindow().IsFocused()) {
+      } else if (!shared::input::GetInputWindow().IsFocused()) {
         ImGui::SetWindowFocus("Input Mapper");
       }
     }
@@ -410,14 +410,14 @@ void RenderImGuiUI() {
   // Render modular windows universally. BaseWindow handles visibility/pin logic internally.
   shared::notes::GetNotesWindow().Render(GetOverlayState().show_overlay);
   shared::settings::GetSettingsWindow().Render(GetOverlayState().show_overlay);
-  crosshair::GetCrosshairWindow().Render(GetOverlayState().show_overlay);
-  input::GetInputWindow().Render(GetOverlayState().show_overlay);
+  shared::crosshair::GetCrosshairWindow().Render(GetOverlayState().show_overlay);
+  shared::input::GetInputWindow().Render(GetOverlayState().show_overlay);
   
   // Render the crosshair directly on the background draw list
-  crosshair::GetCrosshairWindow().RenderCrosshairOverlay();
+  shared::crosshair::GetCrosshairWindow().RenderCrosshairOverlay();
   
   // Render the gamepad visualizer directly on the background draw list
-  input::GetInputWindow().RenderGamepadOverlay();
+  shared::input::GetInputWindow().RenderGamepadOverlay();
 }
 
 void InitializeOverlay() {
@@ -440,8 +440,8 @@ void InitializeOverlay() {
     shared::notes::InitializeNotesManager(dover::shared::GameStorage::Get().GetNotesDir());
     shared::notes::GetNotesWindow().Initialize();
     shared::settings::GetSettingsWindow().Initialize();
-    crosshair::GetCrosshairWindow().Initialize();
-    input::GetInputWindow().Initialize();
+    shared::crosshair::GetCrosshairWindow().Initialize();
+    shared::input::GetInputWindow().Initialize();
 
     // Register callbacks
     dover::shared::GameStorage::Get().RegisterConfigLoad([](const std::filesystem::path& cfg) {
@@ -532,42 +532,42 @@ void InitializeOverlay() {
         shared::settings::GetSettingsWindow().SetOpenDirect(settings_open);
 
         bool crosshair_open = shared::ReadIniBool(st, "crosshair", "is_open", false);
-        crosshair::GetCrosshairWindow().SetOpenDirect(crosshair_open);
+        shared::crosshair::GetCrosshairWindow().SetOpenDirect(crosshair_open);
         
         bool input_open = shared::ReadIniBool(st, "inputmap", "is_open", false);
-        input::GetInputWindow().SetOpenDirect(input_open);
+        shared::input::GetInputWindow().SetOpenDirect(input_open);
         
         bool crosshair_active = shared::ReadIniBool(st, "crosshair", "is_active", false);
-        crosshair::GetCrosshairWindow().SetCrosshairActive(crosshair_active);
+        shared::crosshair::GetCrosshairWindow().SetCrosshairActive(crosshair_active);
         
         int crosshair_idx = shared::ReadIniInt(st, "crosshair", "selected_index", 0);
-        crosshair::GetCrosshairWindow().SetSelectedIndex(crosshair_idx);
+        shared::crosshair::GetCrosshairWindow().SetSelectedIndex(crosshair_idx);
         
         float cr = shared::ReadIniFloat(st, "crosshair", "color_r", 1.0f);
         float cg = shared::ReadIniFloat(st, "crosshair", "color_g", 1.0f);
         float cb = shared::ReadIniFloat(st, "crosshair", "color_b", 1.0f);
         float ca = shared::ReadIniFloat(st, "crosshair", "color_a", 1.0f);
-        crosshair::GetCrosshairWindow().SetColor(ImVec4(cr, cg, cb, ca));
+        shared::crosshair::GetCrosshairWindow().SetColor(ImVec4(cr, cg, cb, ca));
         
         bool coutline = shared::ReadIniBool(st, "crosshair", "outline_enabled", false);
-        crosshair::GetCrosshairWindow().SetOutlineEnabled(coutline);
+        shared::crosshair::GetCrosshairWindow().SetOutlineEnabled(coutline);
         
         float ocr = shared::ReadIniFloat(st, "crosshair", "outline_r", 0.0f);
         float ocg = shared::ReadIniFloat(st, "crosshair", "outline_g", 0.0f);
         float ocb = shared::ReadIniFloat(st, "crosshair", "outline_b", 0.0f);
         float oca = shared::ReadIniFloat(st, "crosshair", "outline_a", 1.0f);
-        crosshair::GetCrosshairWindow().SetOutlineColor(ImVec4(ocr, ocg, ocb, oca));
+        shared::crosshair::GetCrosshairWindow().SetOutlineColor(ImVec4(ocr, ocg, ocb, oca));
         
         float cscale = shared::ReadIniFloat(st, "crosshair", "scale", 1.0f);
-        crosshair::GetCrosshairWindow().SetScale(cscale);
+        shared::crosshair::GetCrosshairWindow().SetScale(cscale);
 
         float copacity = shared::ReadIniFloat(st, "crosshair", "opacity", 1.0f);
-        crosshair::GetCrosshairWindow().SetOpacity(copacity);
+        shared::crosshair::GetCrosshairWindow().SetOpacity(copacity);
         
         float cpos_x = shared::ReadIniFloat(st, "crosshair", "pos_x", 0.0f);
         float cpos_y = shared::ReadIniFloat(st, "crosshair", "pos_y", 0.0f);
-        crosshair::GetCrosshairWindow().SetPosX(cpos_x);
-        crosshair::GetCrosshairWindow().SetPosY(cpos_y);
+        shared::crosshair::GetCrosshairWindow().SetPosX(cpos_x);
+        shared::crosshair::GetCrosshairWindow().SetPosY(cpos_y);
     });
 
     dover::shared::GameStorage::Get().RegisterStateSave([](const std::filesystem::path& st) {
@@ -579,29 +579,29 @@ void InitializeOverlay() {
 
         shared::WriteIniBool(st, "notes", "is_open",            shared::notes::GetNotesWindow().IsOpen());
         shared::WriteIniBool(st, "settings", "is_open",         shared::settings::GetSettingsWindow().IsOpen());
-        shared::WriteIniBool(st, "crosshair", "is_open",        crosshair::GetCrosshairWindow().IsOpen());
-        shared::WriteIniBool(st, "inputmap", "is_open",         input::GetInputWindow().IsOpen());
+        shared::WriteIniBool(st, "crosshair", "is_open",        shared::crosshair::GetCrosshairWindow().IsOpen());
+        shared::WriteIniBool(st, "inputmap", "is_open",         shared::input::GetInputWindow().IsOpen());
         
-        shared::WriteIniBool(st, "crosshair", "is_active",      crosshair::GetCrosshairWindow().IsCrosshairActive());
-        shared::WriteIniInt(st, "crosshair", "selected_index",  crosshair::GetCrosshairWindow().GetSelectedIndex());
+        shared::WriteIniBool(st, "crosshair", "is_active",      shared::crosshair::GetCrosshairWindow().IsCrosshairActive());
+        shared::WriteIniInt(st, "crosshair", "selected_index",  shared::crosshair::GetCrosshairWindow().GetSelectedIndex());
         
-        const ImVec4& ccolor = crosshair::GetCrosshairWindow().GetColor();
+        const ImVec4& ccolor = shared::crosshair::GetCrosshairWindow().GetColor();
         shared::WriteIniFloat(st, "crosshair", "color_r",       ccolor.x);
         shared::WriteIniFloat(st, "crosshair", "color_g",       ccolor.y);
         shared::WriteIniFloat(st, "crosshair", "color_b",       ccolor.z);
         shared::WriteIniFloat(st, "crosshair", "color_a",       ccolor.w);
         
-        shared::WriteIniBool(st, "crosshair", "outline_enabled",crosshair::GetCrosshairWindow().IsOutlineEnabled());
-        const ImVec4& ocolor = crosshair::GetCrosshairWindow().GetOutlineColor();
+        shared::WriteIniBool(st, "crosshair", "outline_enabled",shared::crosshair::GetCrosshairWindow().IsOutlineEnabled());
+        const ImVec4& ocolor = shared::crosshair::GetCrosshairWindow().GetOutlineColor();
         shared::WriteIniFloat(st, "crosshair", "outline_r",     ocolor.x);
         shared::WriteIniFloat(st, "crosshair", "outline_g",     ocolor.y);
         shared::WriteIniFloat(st, "crosshair", "outline_b",     ocolor.z);
         shared::WriteIniFloat(st, "crosshair", "outline_a",     ocolor.w);
         
-        shared::WriteIniFloat(st, "crosshair", "scale",         crosshair::GetCrosshairWindow().GetScale());
-        shared::WriteIniFloat(st, "crosshair", "opacity",       crosshair::GetCrosshairWindow().GetOpacity());
-        shared::WriteIniFloat(st, "crosshair", "pos_x",         crosshair::GetCrosshairWindow().GetPosX());
-        shared::WriteIniFloat(st, "crosshair", "pos_y",         crosshair::GetCrosshairWindow().GetPosY());
+        shared::WriteIniFloat(st, "crosshair", "scale",         shared::crosshair::GetCrosshairWindow().GetScale());
+        shared::WriteIniFloat(st, "crosshair", "opacity",       shared::crosshair::GetCrosshairWindow().GetOpacity());
+        shared::WriteIniFloat(st, "crosshair", "pos_x",         shared::crosshair::GetCrosshairWindow().GetPosX());
+        shared::WriteIniFloat(st, "crosshair", "pos_y",         shared::crosshair::GetCrosshairWindow().GetPosY());
     });
 
     // 6. Load persistent config/state

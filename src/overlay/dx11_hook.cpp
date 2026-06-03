@@ -1,5 +1,6 @@
 #include "overlay/dx11_hook.h"
 #include "overlay/overlay_ui.h"
+#include "shared/input_utils.h"
 #include "shared/theme.h"
 #include "overlay/hook_utils.h"
 #include "overlay/input_hook.h"
@@ -91,11 +92,11 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
     GetOverlayState().in_overlay_frame = true;
     ImGui_ImplDX11_NewFrame();
     
-    g_allow_xinput = true;
-    g_allow_input_queries = true;
+    shared::g_allow_xinput = true;
+    shared::g_allow_input_queries = true;
     ImGui_ImplWin32_NewFrame();
-    g_allow_input_queries = false;
-    g_allow_xinput = false;
+    shared::g_allow_input_queries = false;
+    shared::g_allow_xinput = false;
     
     ImGui::NewFrame();
 

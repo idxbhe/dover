@@ -1,10 +1,10 @@
-#include "overlay/input/input_window.h"
+#include "shared/input/input_window.h"
 #include "shared/settings/app_config.h"
-#include "overlay/input_hook.h"
+#include "shared/input_utils.h"
 #include "shared/icons.h"
 #include "shared/theme.h"
 #include "shared/game_storage.h"
-#include "overlay/overlay_ui.h"
+
 
 #include <imgui.h>
 #include <cstdio>
@@ -12,15 +12,15 @@
 #include <Xinput.h>
 #include <d3d11.h>
 #include <d3d9.h>
-#include "overlay/assets/asset_storage.h"
-#include "overlay/dx11_hook.h"
-#include "overlay/dx9_hook.h"
+#include "shared/assets/asset_storage.h"
+#include "shared/renderer.h"
 
-namespace dover::overlay {
+
+namespace dover::shared {
 
 }
 
-namespace dover::overlay::input {
+namespace dover::shared::input {
 
 struct ButtonOffset {
     const char* name;
@@ -217,7 +217,7 @@ void InputWindow::RenderRemapper(bool interactive) {
                         k == VK_LMENU || k == VK_RMENU) {
                         continue;
                     }
-                    if (dover::overlay::IsHardwareKeyPressed(k)) {
+                    if (dover::shared::IsHardwareKeyPressed(k)) {
                         auto& map = shared::GetAppConfig().gamepad_to_vk_map[i];
                         if (k == VK_ESCAPE) {
                             map.vk_code = 0; // Clear mapping
@@ -226,9 +226,9 @@ void InputWindow::RenderRemapper(bool interactive) {
                             map.modifier_alt = false;
                         } else {
                             map.vk_code = static_cast<uint8_t>(k);
-                            map.modifier_ctrl = dover::overlay::IsHardwareKeyPressed(VK_CONTROL);
-                            map.modifier_shift = dover::overlay::IsHardwareKeyPressed(VK_SHIFT);
-                            map.modifier_alt = dover::overlay::IsHardwareKeyPressed(VK_MENU);
+                            map.modifier_ctrl = dover::shared::IsHardwareKeyPressed(VK_CONTROL);
+                            map.modifier_shift = dover::shared::IsHardwareKeyPressed(VK_SHIFT);
+                            map.modifier_alt = dover::shared::IsHardwareKeyPressed(VK_MENU);
                         }
                         m_recording_index = -1;
                         dover::shared::GameStorage::Get().SaveConfig();
@@ -315,8 +315,8 @@ void InputWindow::LoadGamepadTextures() {
     if (!assets::AssetStorage::Get().IsInitialized()) return;
     auto& assets = assets::AssetStorage::Get().GetAssets();
     
-    ID3D11Device* dx11 = GetDx11Device();
-    IDirect3DDevice9* dx9 = GetDx9Device();
+    ID3D11Device* dx11 = shared::GetDx11Device();
+    IDirect3DDevice9* dx9 = shared::GetDx9Device();
     if (!dx11 && !dx9) return;
 
     for (auto& asset : assets) {
@@ -337,7 +337,7 @@ void InputWindow::LoadGamepadTextures() {
 
             ID3D11Texture2D* pTexture = nullptr;
             if (SUCCEEDED(dx11->CreateTexture2D(&desc, nullptr, &pTexture))) {
-                ID3D11DeviceContext* context = GetDx11Context();
+                ID3D11DeviceContext* context = shared::GetDx11Context();
                 if (context) {
                     // Upload level 0 data
                     context->UpdateSubresource(pTexture, 0, nullptr, asset.rgba_data, asset.width * 4, 0);
@@ -611,14 +611,14 @@ void InputWindow::RenderVisualizer() {
     
     ImGui::GetWindowDrawList()->AddImage(chassis_asset->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
     
-    g_allow_xinput = true;
+    shared::g_allow_xinput = true;
     XINPUT_STATE state = {};
     for (DWORD i = 0; i < 4; ++i) {
         if (XInputGetState(i, &state) == ERROR_SUCCESS) {
             break;
         }
     }
-    g_allow_xinput = false;
+    shared::g_allow_xinput = false;
     
     WORD b = state.Gamepad.wButtons;
 
@@ -702,7 +702,7 @@ void InputWindow::RenderGamepadOverlay() {
     
     dl->AddImage(chassis->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
     
-    g_allow_xinput = true;
+    shared::g_allow_xinput = true;
     XINPUT_STATE state = {};
     static DWORD s_active_index = 0;
     static int s_poll_timer = 0;
@@ -722,7 +722,7 @@ void InputWindow::RenderGamepadOverlay() {
     } else {
         s_poll_timer = 0;
     }
-    g_allow_xinput = false;
+    shared::g_allow_xinput = false;
     
     WORD b = state.Gamepad.wButtons;
     for (int i = 0; i < m_visualizer_button_count; ++i) {
@@ -753,4 +753,4 @@ InputWindow& GetInputWindow() {
     return instance;
 }
 
-} // namespace dover::overlay::input
+} // namespace dover::shared::input

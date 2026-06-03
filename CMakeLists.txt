@@ -139,6 +139,12 @@ add_library(dover_shared STATIC
   src/shared/notes/notes_layout.cpp
   src/shared/notes/notes_formatter.cpp
   src/shared/notes/notes_style.cpp
+  src/shared/crosshair/crosshair_window.cpp
+  src/shared/assets/asset_storage.cpp
+  src/shared/input_mapper.cpp
+  src/shared/input/input_window.cpp
+  src/shared/renderer.cpp
+  src/shared/input_utils.cpp
 )
 
 target_include_directories(dover_shared PUBLIC
@@ -149,7 +155,7 @@ target_include_directories(dover_shared PUBLIC
   ${md4c_SOURCE_DIR}/src
 )
 
-target_link_libraries(dover_shared PUBLIC imgui imgui_md_lib)
+target_link_libraries(dover_shared PUBLIC imgui imgui_md_lib xinput)
 
 add_executable(dover_launcher WIN32 src/launcher/main.cpp src/launcher/launcher.rc)
 target_include_directories(dover_launcher PRIVATE
@@ -169,10 +175,6 @@ add_library(dover_overlay SHARED
   src/overlay/input_hook.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
-  src/overlay/crosshair/crosshair_window.cpp
-  src/overlay/assets/asset_storage.cpp
-  src/overlay/input_mapper.cpp
-  src/overlay/input/input_window.cpp
 )
 
 target_include_directories(dover_overlay PRIVATE
@@ -182,7 +184,7 @@ target_include_directories(dover_overlay PRIVATE
   ${md4c_SOURCE_DIR}/src
 )
 
-target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 xinput minhook imgui imgui_md_lib)
+target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 minhook imgui imgui_md_lib)
 
 option(DOVER_STRICT_BUILD "Treat warnings as errors for Dover targets" OFF)
 if(DOVER_STRICT_BUILD)
