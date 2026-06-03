@@ -16,6 +16,7 @@ namespace dover::overlay {
 }
 
 namespace {
+
     static bool ToggleCheckbox(const char* label, bool* value_ptr) {
         float avail_w = ImGui::GetContentRegionAvail().x;
         float height = 26.0f; // Premium row height matching the 28.0f icon
@@ -107,8 +108,9 @@ void CrosshairWindow::Initialize() {
 }
 
 void CrosshairWindow::Shutdown() {
-    auto& crosshairs = assets::AssetStorage::Get().GetCrosshairs();
+    auto& crosshairs = assets::AssetStorage::Get().GetAssets();
     for (size_t i = 0; i < crosshairs.size(); ++i) {
+        if (crosshairs[i].name.rfind("gamepad/", 0) == 0) continue;
         if (crosshairs[i].texture_id) {
             if (GetDx11Device()) {
                 auto* srv = static_cast<ID3D11ShaderResourceView*>(crosshairs[i].texture_id);
@@ -131,7 +133,7 @@ void CrosshairWindow::RenderCrosshairOverlay() {
             return; // If PAK is missing, do not attempt to load textures
         }
         
-        auto& crosshairs = assets::AssetStorage::Get().GetCrosshairs();
+        auto& crosshairs = assets::AssetStorage::Get().GetAssets();
         
         ID3D11Device* dx11 = GetDx11Device();
         IDirect3DDevice9* dx9 = GetDx9Device();
@@ -139,6 +141,8 @@ void CrosshairWindow::RenderCrosshairOverlay() {
         if (dx11) {
             dover::shared::LogInfo("Loading Crosshair Textures (DX11)...");
             for (size_t i = 0; i < crosshairs.size(); ++i) {
+                if (crosshairs[i].name.rfind("gamepad/", 0) == 0) continue;
+                
                 D3D11_TEXTURE2D_DESC desc = {};
                 desc.Width = crosshairs[i].width;
                 desc.Height = crosshairs[i].height;
@@ -170,6 +174,8 @@ void CrosshairWindow::RenderCrosshairOverlay() {
         } else if (dx9) {
             dover::shared::LogInfo("Loading Crosshair Textures (DX9)...");
             for (size_t i = 0; i < crosshairs.size(); ++i) {
+                if (crosshairs[i].name.rfind("gamepad/", 0) == 0) continue;
+                
                 IDirect3DTexture9* pTexture = nullptr;
                 int w = crosshairs[i].width;
                 int h = crosshairs[i].height;
@@ -199,11 +205,14 @@ void CrosshairWindow::RenderCrosshairOverlay() {
 
     if (!m_active) return;
     
-    auto& crosshairs = assets::AssetStorage::Get().GetCrosshairs();
-    if (crosshairs.empty()) return;
-    if (m_selected_index < 0 || m_selected_index >= (int)crosshairs.size()) return;
+    int total_crosshairs = static_cast<int>(dover::overlay::assets::AssetStorage::Get().GetCrosshairs().size());
+    if (total_crosshairs == 0) return;
+    if (m_selected_index < 0 || m_selected_index >= total_crosshairs) return;
 
-    void* tex_id = crosshairs[m_selected_index].texture_id;
+    auto* asset = dover::overlay::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
+    if (!asset) return;
+
+    void* tex_id = asset->texture_id;
     if (!tex_id) return;
 
     ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
@@ -215,8 +224,8 @@ void CrosshairWindow::RenderCrosshairOverlay() {
     center.y += m_pos_y;
 
     // Scaling logic: Max scale (3.0x) in UI equals the original texture size.
-    float w = (float)crosshairs[m_selected_index].width * (m_scale / 3.0f);
-    float h = (float)crosshairs[m_selected_index].height * (m_scale / 3.0f);
+    float w = (float)asset->width * (m_scale / 3.0f);
+    float h = (float)asset->height * (m_scale / 3.0f);
 
     ImVec2 p_min(center.x - w * 0.5f, center.y - h * 0.5f);
     ImVec2 p_max(center.x + w * 0.5f, center.y + h * 0.5f);
@@ -248,10 +257,9 @@ void CrosshairWindow::RenderCrosshairOverlay() {
 void CrosshairWindow::RenderContent(bool interactive) {
     if (!interactive) return;
 
-    auto& crosshairs = assets::AssetStorage::Get().GetCrosshairs();
-    
-    if (crosshairs.empty()) {
-        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "assets.pak not found or empty.");
+    int total_crosshairs = static_cast<int>(dover::overlay::assets::AssetStorage::Get().GetCrosshairs().size());
+    if (total_crosshairs == 0) {
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "assets.pak not found or no crosshairs.");
         ImGui::Text("Please ensure the asset pak is in the same directory as the DLL.");
         return;
     }
@@ -268,8 +276,9 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 2.0f);
     
     ImGui::BeginChild("PreviewBox", ImVec2(0, preview_h), true);
-    if (!crosshairs.empty() && m_selected_index >= 0 && m_selected_index < (int)crosshairs.size()) {
-        void* tex_id = crosshairs[m_selected_index].texture_id;
+    if (total_crosshairs > 0 && m_selected_index >= 0 && m_selected_index < total_crosshairs) {
+        auto* asset = dover::overlay::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
+        void* tex_id = asset ? asset->texture_id : nullptr;
         if (tex_id) {
             ImVec2 avail = ImGui::GetContentRegionAvail();
             ImVec2 center = ImVec2(ImGui::GetCursorScreenPos().x + avail.x * 0.5f, 
@@ -353,13 +362,16 @@ void CrosshairWindow::RenderContent(bool interactive) {
     if (offset_x < 0.0f) offset_x = 0.0f;
     
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacing, spacing));
-    for (size_t i = 0; i < crosshairs.size(); ++i) {
+    for (int i = 0; i < total_crosshairs; ++i) {
+        auto* asset = dover::overlay::assets::AssetStorage::Get().GetCrosshairs()[i];
+        if (!asset) continue;
+        
         // Shift first element of each row horizontally to distribute remainders symmetrically
         if (i % columns == 0) {
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset_x);
         }
         
-        bool is_selected = (m_selected_index == (int)i);
+        bool is_selected = (m_selected_index == i);
         if (is_selected) {
             // Highlighting with Slate Blue theme accent colors & definite glowing borders
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.38f, 0.62f, 0.85f));
@@ -374,23 +386,23 @@ void CrosshairWindow::RenderContent(bool interactive) {
             ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.15f, 0.17f, 0.22f, 0.40f));
         }
         
-        ImGui::PushID((int)i);
-        void* tex_id = crosshairs[i].texture_id;
+        ImGui::PushID(i);
+        void* tex_id = asset->texture_id;
         if (tex_id) {
             if (ImGui::ImageButton("##ch", tex_id, ImVec2(48, 48), ImVec2(0, 0), ImVec2(1, 1), ImVec4(0,0,0,0), m_color)) {
-                m_selected_index = (int)i;
+                m_selected_index = i;
             }
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("%s", crosshairs[i].name.c_str());
+                ImGui::SetTooltip("%s", asset->name.c_str());
             }
         } else {
             if (ImGui::Button("N/A", ImVec2(48, 48))) {
-                m_selected_index = (int)i;
+                m_selected_index = i;
             }
         }
         
         // Exact wrapping boundary based on math columns rather than pixel rounding comparisons
-        if (i + 1 < crosshairs.size() && (i + 1) % columns != 0) {
+        if (i + 1 < total_crosshairs && (i + 1) % columns != 0) {
             ImGui::SameLine();
         }
         
@@ -449,11 +461,12 @@ void CrosshairWindow::RenderContent(bool interactive) {
     dl->AddLine(ImVec2(min_p.x, box_center.y), ImVec2(max_p.x, box_center.y), IM_COL32(255, 255, 255, 10));
     
     // Draw miniature crosshair
-    if (!crosshairs.empty() && m_selected_index >= 0 && m_selected_index < (int)crosshairs.size()) {
-        void* tex_id = crosshairs[m_selected_index].texture_id;
+    if (total_crosshairs > 0 && m_selected_index >= 0 && m_selected_index < total_crosshairs) {
+        auto* asset = dover::overlay::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
+        void* tex_id = asset ? asset->texture_id : nullptr;
         if (tex_id) {
-            float ch_w = (float)crosshairs[m_selected_index].width * (m_scale / 3.0f) * scale_f;
-            float ch_h = (float)crosshairs[m_selected_index].height * (m_scale / 3.0f) * scale_f;
+            float ch_w = (float)asset->width * (m_scale / 3.0f) * scale_f;
+            float ch_h = (float)asset->height * (m_scale / 3.0f) * scale_f;
             
             // Prevent it from being completely invisible
             if (ch_w < 4.0f) ch_w = 4.0f;

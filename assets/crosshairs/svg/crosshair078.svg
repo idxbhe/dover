@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg:svg height="64" id="svg344" version="1.1" viewBox="0 0 64 64" width="64" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><g transform="translate(8.0000, 8.0000) scale(1.2000)">
+<svg:defs id="defs1"/>
+<svg:path d="M 32,4 Q 33.65,4 34.85,5.2 36,6.35 36,8 v 4 H 32 V 8 H 28 V 4 h 4 M 18,8 V 0 h 4 V 8 H 18 M 8,4 h 4 V 8 H 8 v 4 H 4 V 8 Q 4,6.35 5.15,5.2 6.35,4 8,4 m 24,14 h 8 v 4 h -8 v -4 m 0,18 h -4 v -4 h 4 v -4 h 4 v 4 q 0,1.65 -1.15,2.8 Q 33.65,36 32,36 M 18,32 h 4 v 8 H 18 V 32 M 8,36 Q 6.35,36 5.15,34.8 4,33.65 4,32 v -4 h 4 v 4 h 4 v 4 H 8 M 0,18 h 8 v 4 H 0 v -4" fill="#333333" id="path197" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
+</g></svg:svg>

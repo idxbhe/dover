@@ -494,7 +494,7 @@ void SettingsWindow::RenderContent(bool interactive) {
 
             
 
-            RenderWindowDecorations(interactive, right_boundary);
+            RenderWindowDecorations(interactive, right_boundary, 10.0f);
 
             
 
@@ -617,6 +617,7 @@ void SettingsWindow::RenderContent(bool interactive) {
                 
                 ImGui::TextDisabled("Quick Notes:          [Alt+N]");
                 ImGui::TextDisabled("Toggle Pin State:     [Alt+P]");
+                
                 break;
             }
             case 2: { // Theme

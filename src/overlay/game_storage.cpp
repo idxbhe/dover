@@ -7,6 +7,7 @@
 #include "overlay/notes/manager.h"
 #include "overlay/settings/settings_window.h"
 #include "overlay/crosshair/crosshair_window.h"
+#include "overlay/input/input_window.h"
 
 #include <windows.h>
 #include <cstdio>
@@ -63,12 +64,30 @@ void GameStorage::LoadConfig() {
     GetOverlayConfig().show_fps   = shared::ReadIniBool(cfg, "osd", "show_fps",   true);
     GetOverlayConfig().show_clock = shared::ReadIniBool(cfg, "osd", "show_clock", true);
     GetOverlayConfig().show_api   = shared::ReadIniBool(cfg, "osd", "show_api",   false);
+    GetOverlayConfig().show_gamepad_hud     = shared::ReadIniBool(cfg, "osd", "show_gamepad_hud", false);
+    GetOverlayConfig().gamepad_hud_position = shared::ReadIniInt(cfg, "osd", "gamepad_hud_position", 2);
+    GetOverlayConfig().gamepad_hud_scale    = shared::ReadIniFloat(cfg, "osd", "gamepad_hud_scale", 1.0f);
 
     GetOverlayConfig().global_window_alpha = shared::ReadIniFloat(cfg, "theme", "window_alpha", 0.95f);
     GetOverlayConfig().overlay_bg_alpha    = shared::ReadIniFloat(cfg, "theme", "overlay_alpha", 0.63f);
 
     GetOverlayConfig().hotkey_toggle_main = shared::ReadIniInt(cfg, "hotkeys", "toggle_main", VK_TAB);
     GetOverlayConfig().hotkey_toggle_modifier = shared::ReadIniInt(cfg, "hotkeys", "toggle_modifier", VK_SHIFT);
+
+    for (int i = 0; i < 18; ++i) {
+        char key[32];
+        snprintf(key, sizeof(key), "map_%d", i);
+        GetOverlayConfig().gamepad_to_vk_map[i].vk_code = static_cast<uint8_t>(shared::ReadIniInt(cfg, "input", key, 0));
+        
+        snprintf(key, sizeof(key), "map_%d_ctrl", i);
+        GetOverlayConfig().gamepad_to_vk_map[i].modifier_ctrl = shared::ReadIniBool(cfg, "input", key, false);
+        
+        snprintf(key, sizeof(key), "map_%d_shift", i);
+        GetOverlayConfig().gamepad_to_vk_map[i].modifier_shift = shared::ReadIniBool(cfg, "input", key, false);
+        
+        snprintf(key, sizeof(key), "map_%d_alt", i);
+        GetOverlayConfig().gamepad_to_vk_map[i].modifier_alt = shared::ReadIniBool(cfg, "input", key, false);
+    }
 
     // Sync opacity to open windows
     notes::GetNotesWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
@@ -82,12 +101,30 @@ void GameStorage::SaveConfig() {
     shared::WriteIniBool(cfg, "osd", "show_fps",   GetOverlayConfig().show_fps);
     shared::WriteIniBool(cfg, "osd", "show_clock", GetOverlayConfig().show_clock);
     shared::WriteIniBool(cfg, "osd", "show_api",   GetOverlayConfig().show_api);
+    shared::WriteIniBool(cfg, "osd", "show_gamepad_hud",     GetOverlayConfig().show_gamepad_hud);
+    shared::WriteIniInt(cfg, "osd", "gamepad_hud_position", GetOverlayConfig().gamepad_hud_position);
+    shared::WriteIniFloat(cfg, "osd", "gamepad_hud_scale",    GetOverlayConfig().gamepad_hud_scale);
 
     shared::WriteIniFloat(cfg, "theme", "window_alpha",  GetOverlayConfig().global_window_alpha);
     shared::WriteIniFloat(cfg, "theme", "overlay_alpha", GetOverlayConfig().overlay_bg_alpha);
 
     shared::WriteIniInt(cfg, "hotkeys", "toggle_main", GetOverlayConfig().hotkey_toggle_main);
     shared::WriteIniInt(cfg, "hotkeys", "toggle_modifier", GetOverlayConfig().hotkey_toggle_modifier);
+
+    for (int i = 0; i < 18; ++i) {
+        char key[32];
+        snprintf(key, sizeof(key), "map_%d", i);
+        shared::WriteIniInt(cfg, "input", key, GetOverlayConfig().gamepad_to_vk_map[i].vk_code);
+        
+        snprintf(key, sizeof(key), "map_%d_ctrl", i);
+        shared::WriteIniBool(cfg, "input", key, GetOverlayConfig().gamepad_to_vk_map[i].modifier_ctrl);
+        
+        snprintf(key, sizeof(key), "map_%d_shift", i);
+        shared::WriteIniBool(cfg, "input", key, GetOverlayConfig().gamepad_to_vk_map[i].modifier_shift);
+        
+        snprintf(key, sizeof(key), "map_%d_alt", i);
+        shared::WriteIniBool(cfg, "input", key, GetOverlayConfig().gamepad_to_vk_map[i].modifier_alt);
+    }
 }
 
 void GameStorage::LoadState() {
@@ -126,6 +163,9 @@ void GameStorage::LoadState() {
 
     bool crosshair_open = shared::ReadIniBool(st, "crosshair", "is_open", false);
     crosshair::GetCrosshairWindow().SetOpenDirect(crosshair_open);
+    
+    bool input_open = shared::ReadIniBool(st, "inputmap", "is_open", false);
+    input::GetInputWindow().SetOpenDirect(input_open);
     
     bool crosshair_active = shared::ReadIniBool(st, "crosshair", "is_active", false);
     crosshair::GetCrosshairWindow().SetCrosshairActive(crosshair_active);
@@ -179,6 +219,7 @@ void GameStorage::SaveState() {
     shared::WriteIniBool(st, "notes", "is_open",            notes::GetNotesWindow().IsOpen());
     shared::WriteIniBool(st, "settings", "is_open",         settings::GetSettingsWindow().IsOpen());
     shared::WriteIniBool(st, "crosshair", "is_open",        crosshair::GetCrosshairWindow().IsOpen());
+    shared::WriteIniBool(st, "inputmap", "is_open",         input::GetInputWindow().IsOpen());
     
     shared::WriteIniBool(st, "crosshair", "is_active",      crosshair::GetCrosshairWindow().IsCrosshairActive());
     shared::WriteIniInt(st, "crosshair", "selected_index",  crosshair::GetCrosshairWindow().GetSelectedIndex());

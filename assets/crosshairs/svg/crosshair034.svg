@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg:svg height="64" id="svg344" version="1.1" viewBox="0 0 64 64" width="64" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><g transform="translate(8.0000, 8.0000) scale(0.8000)">
+<svg:defs id="defs1"/>
+<svg:g id="g369" style="fill:#ffffff;fill-opacity:1" transform="translate(-695.52632,-669.80702)">
+<svg:path d="m 755.52632,699.80702 q 0,2.85 -0.45,5.55 -1.55,8.9 -8.35,15.65 -6.75,6.8 -15.65,8.35 l -5.55,0.45 -5.5,-0.45 q -8.95,-1.55 -15.75,-8.35 -6.75,-6.75 -8.25,-15.65 -0.5,-2.7 -0.5,-5.55 0,-2.85 0.5,-5.5 1.5,-8.95 8.25,-15.75 6.8,-6.75 15.75,-8.25 l 5.5,-0.5 5.55,0.5 q 8.9,1.5 15.65,8.25 6.8,6.8 8.35,15.75 0.45,2.65 0.45,5.5 m -10.2,-19.8 q -6.85,-6.85 -16,-7.95 l -3.8,3.75 -3.75,-3.75 q -9.2,1.1 -16.05,7.9 l -0.05,0.05 q -6.8,6.85 -7.9,16.05 l 3.75,3.75 -3.75,3.8 q 1.1,9.15 7.95,16 6.85,6.85 16.05,8 l 3.75,-3.8 3.8,3.8 q 9.15,-1.15 16,-8 6.85,-6.85 8,-16 l -3.8,-3.8 3.8,-3.75 q -1.15,-9.2 -8,-16.05" fill="#333333" id="path210" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
+<svg:path d="m 724.52632,671.80702 h 2 v 56 h -2 v -56" fill="#333333" id="path211" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
+<svg:path d="m 753.52632,698.80702 v 2 h -56 v -2 h 56" fill="#333333" id="path212" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
+</svg:g>
+</g></svg:svg>

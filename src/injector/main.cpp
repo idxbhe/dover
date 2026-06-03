@@ -88,6 +88,7 @@ int wmain(int argc, wchar_t** argv) {
   dover::shared::LogInfo("Process created; overlay injected.");
   ResumeThread(process_info.hThread);
   CloseHandle(process_info.hThread);
+  WaitForSingleObject(process_info.hProcess, INFINITE);
   CloseHandle(process_info.hProcess);
   return 0;
 }

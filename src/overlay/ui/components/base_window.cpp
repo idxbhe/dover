@@ -107,7 +107,7 @@ void BaseWindow::Render(bool interactive) {
 
         // Standardized Header / Toolbar
         if (interactive) {
-            if (m_window_name != "Settings") {
+            if (m_window_name != "Settings" && m_window_name != "Input Mapper") {
                 ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f); // Move decorations & toolbar 3px lower
                 RenderToolbar(interactive);
                 
@@ -135,16 +135,16 @@ void BaseWindow::Render(bool interactive) {
     ImGui::End();
 }
 
-void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary) {
+void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary, float custom_y_pos) {
     if (!interactive) return;
 
     auto DrawCustomButton = [&](const char* icon, float same_line_pos, const char* tooltip, bool* toggle_state = nullptr) -> bool {
         ImGui::SameLine(same_line_pos);
-        if (m_window_name == "Settings") {
-            ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 6.0f);
+        if (custom_y_pos >= 0.0f) {
+            ImGui::SetCursorPosY(custom_y_pos);
         } else {
-            if (ImGui::GetCursorPosY() < 8.0f) {
-                ImGui::SetCursorPosY(8.0f);
+            if (ImGui::GetCursorPosY() < 4.0f) {
+                ImGui::SetCursorPosY(4.0f);
             }
         }
         

@@ -4,6 +4,7 @@
 #include "overlay/notes/manager.h"
 #include "overlay/settings/settings_window.h"
 #include "overlay/crosshair/crosshair_window.h"
+#include "overlay/input/input_window.h"
 #include "overlay/game_storage.h"
 #include "overlay/icons.h"
 #include "overlay/fonts.h"
@@ -233,7 +234,7 @@ void RenderImGuiUI() {
     ImGui::PushFont(g_font_panel);
 
     const float icon_btn_width = 34.0f;
-    const float button_group_width = (icon_btn_width * 3.0f) + (button_spacing * 2.0f); // Group of 3 icon buttons
+    const float button_group_width = (icon_btn_width * 4.0f) + (button_spacing * 3.0f); // Group of 4 icon buttons
     const float brand_y = (bar_height - ImGui::GetTextLineHeight()) * 0.5f;
     const float button_y = (bar_height - button_height) * 0.5f;
 
@@ -318,6 +319,29 @@ void RenderImGuiUI() {
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Crosshair");
 
+    // B3. Input Map Button Rendering
+    ImGui::SameLine(0.0f, button_spacing);
+    {
+      bool is_input_open = input::GetInputWindow().IsOpen();
+      bool is_input_focused = input::GetInputWindow().IsFocused();
+      NavButtonState input_state{is_input_open, is_input_focused};
+      RenderNavButton(
+          ICON_PANEL_INPUTMAP, input_state,
+          ImVec4(0.20f, 0.85f, 0.45f, 0.85f),  // active shadow (greenish)
+          ImVec4(0.40f, 0.95f, 0.55f, 0.85f),  // active border
+          icon_btn_width, icon_box_height
+      );
+    }
+    if (ImGui::Button(ICON_PANEL_INPUTMAP, ImVec2(icon_btn_width, icon_box_height))) {
+      if (!input::GetInputWindow().IsOpen()) {
+        input::GetInputWindow().Open();
+        ImGui::SetWindowFocus("Input Mapper");
+      } else if (!input::GetInputWindow().IsFocused()) {
+        ImGui::SetWindowFocus("Input Mapper");
+      }
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Input Mapper");
+
     ImGui::PopStyleColor(); // Pop ImGuiCol_Text to restore icon text visibility
 
     // C. Close Button Rendering (Flat, Dark Slate with subtle Red hovered accent - Pixel Perfect Alignment)
@@ -387,9 +411,13 @@ void RenderImGuiUI() {
   notes::GetNotesWindow().Render(GetOverlayState().show_overlay);
   settings::GetSettingsWindow().Render(GetOverlayState().show_overlay);
   crosshair::GetCrosshairWindow().Render(GetOverlayState().show_overlay);
+  input::GetInputWindow().Render(GetOverlayState().show_overlay);
   
   // Render the crosshair directly on the background draw list
   crosshair::GetCrosshairWindow().RenderCrosshairOverlay();
+  
+  // Render the gamepad visualizer directly on the background draw list
+  input::GetInputWindow().RenderGamepadOverlay();
 }
 
 void InitializeOverlay() {
@@ -413,6 +441,7 @@ void InitializeOverlay() {
     notes::GetNotesWindow().Initialize();
     settings::GetSettingsWindow().Initialize();
     crosshair::GetCrosshairWindow().Initialize();
+    input::GetInputWindow().Initialize();
 
     // 6. Load persistent config/state
     GameStorage::Get().LoadConfig();

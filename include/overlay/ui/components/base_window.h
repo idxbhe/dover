@@ -84,7 +84,7 @@ protected:
     virtual void PostRender(bool /*interactive*/) {}
 
     // Internal rendering logic made available to child window classes
-    void RenderWindowDecorations(bool interactive, float right_boundary);
+    void RenderWindowDecorations(bool interactive, float right_boundary, float custom_y_pos = -1.0f);
 };
 
 } // namespace dover::overlay::ui

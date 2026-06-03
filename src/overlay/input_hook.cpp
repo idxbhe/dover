@@ -1,6 +1,7 @@
 #include "overlay/input_hook.h"
 #include "overlay/overlay_ui.h" // For GetOverlayState().show_overlay, GetOverlayState().in_overlay_frame, HookedWndProc
 #include "overlay/hook_utils.h"
+#include "overlay/input_mapper.h"
 
 #include <windows.h>
 #include <cstring>
@@ -241,13 +242,23 @@ void ModifyXInputState(XINPUT_STATE* pState) {
 
 DWORD WINAPI HookedXInput14GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
   DWORD result = g_orig_xinput14_getstate ? g_orig_xinput14_getstate(dwUserIndex, pState) : ERROR_DEVICE_NOT_CONNECTED;
-  if (result == ERROR_SUCCESS) ModifyXInputState(pState);
+  if (result == ERROR_SUCCESS) {
+      if (!g_allow_xinput && !GetOverlayState().show_overlay) {
+          input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
+      }
+      ModifyXInputState(pState);
+  }
   return result;
 }
 
 DWORD WINAPI HookedXInput13GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
   DWORD result = g_orig_xinput13_getstate ? g_orig_xinput13_getstate(dwUserIndex, pState) : ERROR_DEVICE_NOT_CONNECTED;
-  if (result == ERROR_SUCCESS) ModifyXInputState(pState);
+  if (result == ERROR_SUCCESS) {
+      if (!g_allow_xinput && !GetOverlayState().show_overlay) {
+          input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
+      }
+      ModifyXInputState(pState);
+  }
   return result;
 }
 

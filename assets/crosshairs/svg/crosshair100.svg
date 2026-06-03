@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg:svg height="64" id="svg344" version="1.1" viewBox="0 0 64 64" width="64" xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg"><g transform="translate(8.0000, 8.0000) scale(1.0000)">
+<svg:defs id="defs1"/>
+<svg:path d="M 38,38 V 25 h -4 v -2 h 4 V 10 H 25 v 4 H 23 V 10 H 10 v 13 h 4 v 2 h -4 v 13 h 13 v -4 h 2 v 4 H 38 M 8,40 V 25 H 0 V 23 H 8 V 8 H 23 V 0 h 2 v 8 h 15 v 15 h 8 v 2 H 40 V 40 H 25 v 8 H 23 V 40 H 8" fill="#333333" id="path272" stroke="none" style="fill:#ffffff;fill-opacity:1"/>
+</g></svg:svg>

@@ -6,7 +6,7 @@
 
 namespace dover::overlay::assets {
 
-struct CrosshairData {
+struct TextureData {
     std::string name;
     uint32_t width;
     uint32_t height;
@@ -28,7 +28,22 @@ public:
     
     bool IsInitialized() const { return m_initialized; }
     
-    std::vector<CrosshairData>& GetCrosshairs() { return m_crosshairs; }
+    std::vector<TextureData>& GetAssets() { return m_assets; }
+    const std::vector<TextureData*>& GetCrosshairs() const { return m_crosshair_cache; }
+    
+    TextureData* GetAsset(const std::string& name) {
+        for (auto& asset : m_assets) {
+            if (asset.name == name) return &asset;
+        }
+        return nullptr;
+    }
+    
+    TextureData* GetAsset(const char* name) {
+        for (auto& asset : m_assets) {
+            if (std::strcmp(asset.name.c_str(), name) == 0) return &asset;
+        }
+        return nullptr;
+    }
 
 private:
     AssetStorage() = default;
@@ -39,7 +54,8 @@ private:
     void* m_mapping_handle = nullptr;  // HANDLE
     void* m_base_address = nullptr;    // void*
 
-    std::vector<CrosshairData> m_crosshairs;
+    std::vector<TextureData> m_assets;
+    std::vector<TextureData*> m_crosshair_cache;
 };
 
 } // namespace dover::overlay::assets

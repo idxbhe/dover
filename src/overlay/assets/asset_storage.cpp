@@ -135,7 +135,7 @@ bool AssetStorage::Initialize() {
 
     const PakTocEntry* toc = reinterpret_cast<const PakTocEntry*>(base_ptr + sizeof(PakHeader));
 
-    m_crosshairs.reserve(header->count);
+    m_assets.reserve(header->count);
     for (uint32_t i = 0; i < header->count; ++i) {
         if (toc[i].data_offset + toc[i].data_size < toc[i].data_offset || 
             toc[i].data_offset + toc[i].data_size > file_size) {
@@ -144,7 +144,7 @@ bool AssetStorage::Initialize() {
             return false;
         }
 
-        CrosshairData data;
+        TextureData data;
         // Ensure null-termination
         char safe_name[33] = {0};
         std::memcpy(safe_name, toc[i].name, 32);
@@ -158,7 +158,16 @@ bool AssetStorage::Initialize() {
         data.rgba_data = base_ptr + toc[i].data_offset;
         data.texture_id = nullptr;
         
-        m_crosshairs.push_back(data);
+        m_assets.push_back(data);
+    }
+
+    // Pre-compute crosshair cache (O(K) pointers for O(1) runtime lookup)
+    m_crosshair_cache.clear();
+    m_crosshair_cache.reserve(m_assets.size());
+    for (auto& asset : m_assets) {
+        if (asset.name.rfind("gamepad/", 0) != 0) {
+            m_crosshair_cache.push_back(&asset);
+        }
     }
 
     m_initialized = true;
@@ -167,7 +176,8 @@ bool AssetStorage::Initialize() {
 }
 
 void AssetStorage::Shutdown() {
-    m_crosshairs.clear();
+    m_crosshair_cache.clear();
+    m_assets.clear();
     m_initialized = false;
 
     if (m_base_address) {

@@ -7,6 +7,7 @@
 #include "overlay/notes/manager.h"
 #include "overlay/notes/layout.h"
 #include "overlay/crosshair/crosshair_window.h"
+#include "overlay/input/input_window.h"
 #include "shared/ipc.h"
 #include "shared/log.h"
 
