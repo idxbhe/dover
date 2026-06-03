@@ -26,7 +26,7 @@ FetchContent_Populate(minhook)
 
 FetchContent_Declare(
   imgui
-  URL https://github.com/ocornut/imgui/archive/refs/tags/v1.90.6.zip
+  URL https://github.com/ocornut/imgui/archive/refs/tags/v1.90.6-docking.zip
 )
 FetchContent_Populate(imgui)
 
