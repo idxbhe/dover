@@ -1,4 +1,5 @@
-#include "overlay/settings/settings_window.h"
+#include "shared/settings/settings_window.h"
+#include "shared/settings/app_config.h"
 #include "overlay/input_hook.h"
 
 #include "shared/icons.h"
@@ -10,9 +11,9 @@
 
 #include "overlay/overlay_ui.h"
 
-#include "overlay/notes/manager.h"
+#include "shared/notes/manager.h"
 
-#include "overlay/notes/layout.h"
+#include "shared/notes/layout.h"
 
 namespace dover::overlay {
 
@@ -22,7 +23,7 @@ namespace dover::overlay {
 
 
 
-namespace dover::overlay::settings {
+namespace dover::shared::settings {
 
 
 
@@ -511,9 +512,9 @@ void SettingsWindow::RenderContent(bool interactive) {
                 ImGui::Dummy(ImVec2(0.0f, 10.0f)); // Elegant vertical spacing between groups
 
                 RenderSettingsHeader("OSD (On Screen Display)");
-                if (ToggleCheckbox("FPS", &GetOverlayConfig().show_fps))           dover::shared::GameStorage::Get().SaveConfig();
-                if (ToggleCheckbox("CLOCK", &GetOverlayConfig().show_clock))        dover::shared::GameStorage::Get().SaveConfig();
-                if (ToggleCheckbox("GRAPHIC API", &GetOverlayConfig().show_api))    dover::shared::GameStorage::Get().SaveConfig();
+                if (ToggleCheckbox("FPS", &shared::GetAppConfig().show_fps))           dover::shared::GameStorage::Get().SaveConfig();
+                if (ToggleCheckbox("CLOCK", &shared::GetAppConfig().show_clock))        dover::shared::GameStorage::Get().SaveConfig();
+                if (ToggleCheckbox("GRAPHIC API", &shared::GetAppConfig().show_api))    dover::shared::GameStorage::Get().SaveConfig();
                 break;
             }
 
@@ -550,12 +551,12 @@ void SettingsWindow::RenderContent(bool interactive) {
                                 i == VK_LMENU || i == VK_RMENU) {
                                 continue;
                             }
-                            if (dover::overlay::IsHardwareKeyPressed(i)) {
+                            if ((GetAsyncKeyState(i) & 0x8000) != 0) {
                                 main_key = i;
                                 modifier_key = 0;
-                                if (dover::overlay::IsHardwareKeyPressed(VK_SHIFT)) modifier_key = VK_SHIFT;
-                                if (dover::overlay::IsHardwareKeyPressed(VK_CONTROL)) modifier_key = VK_CONTROL;
-                                if (dover::overlay::IsHardwareKeyPressed(VK_MENU)) modifier_key = VK_MENU;
+                                if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0) modifier_key = VK_SHIFT;
+                                if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) modifier_key = VK_CONTROL;
+                                if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0) modifier_key = VK_MENU;
                                 is_recording = false;
                                 dover::shared::GameStorage::Get().SaveConfig();
                                 break;
@@ -608,7 +609,7 @@ void SettingsWindow::RenderContent(bool interactive) {
                     dl->AddText(ImVec2(val_x, text_y), is_recording ? ImGui::GetColorU32(ImVec4(0.56f, 0.68f, 0.84f, 1.00f)) : ImGui::GetColorU32(ImGuiCol_TextDisabled), hotkey_str);
                 };
 
-                RenderHotkeySelector("Toggle Overlay Menu", GetOverlayConfig().hotkey_toggle_main, GetOverlayConfig().hotkey_toggle_modifier);
+                RenderHotkeySelector("Toggle Overlay Menu", shared::GetAppConfig().hotkey_toggle_main, shared::GetAppConfig().hotkey_toggle_modifier);
                 
                 ImGui::Dummy(ImVec2(0.0f, 8.0f)); // Premium small spacing before secondary keybinds
                 
@@ -699,13 +700,13 @@ void SettingsWindow::RenderContent(bool interactive) {
                     }
                 };
 
-                RenderSlimSlider("Window Opacity", &GetOverlayConfig().global_window_alpha, [&]() {
-                    m_bg_alpha = GetOverlayConfig().global_window_alpha;
-                    notes::GetNotesWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
+                RenderSlimSlider("Window Opacity", &shared::GetAppConfig().global_window_alpha, [&]() {
+                    m_bg_alpha = shared::GetAppConfig().global_window_alpha;
+                    notes::GetNotesWindow().SetBgAlpha(shared::GetAppConfig().global_window_alpha);
                     dover::shared::GameStorage::Get().SaveConfig();
                 });
                 
-                RenderSlimSlider("Overlay Opacity", &GetOverlayConfig().overlay_bg_alpha, []() {
+                RenderSlimSlider("Overlay Opacity", &shared::GetAppConfig().overlay_bg_alpha, []() {
                     dover::shared::GameStorage::Get().SaveConfig();
                 });
                 break;
@@ -752,5 +753,4 @@ SettingsWindow& GetSettingsWindow() {
 
 
 
-} // namespace dover::overlay::settings
-
+} // namespace dover::shared::settings

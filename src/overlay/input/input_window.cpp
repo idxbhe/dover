@@ -1,4 +1,5 @@
 #include "overlay/input/input_window.h"
+#include "shared/settings/app_config.h"
 #include "overlay/input_hook.h"
 #include "shared/icons.h"
 #include "shared/theme.h"
@@ -217,7 +218,7 @@ void InputWindow::RenderRemapper(bool interactive) {
                         continue;
                     }
                     if (dover::overlay::IsHardwareKeyPressed(k)) {
-                        auto& map = GetOverlayConfig().gamepad_to_vk_map[i];
+                        auto& map = shared::GetAppConfig().gamepad_to_vk_map[i];
                         if (k == VK_ESCAPE) {
                             map.vk_code = 0; // Clear mapping
                             map.modifier_ctrl = false;
@@ -235,7 +236,7 @@ void InputWindow::RenderRemapper(bool interactive) {
                     }
                 }
             } else {
-                auto& map = GetOverlayConfig().gamepad_to_vk_map[i];
+                auto& map = shared::GetAppConfig().gamepad_to_vk_map[i];
                 uint8_t vk = map.vk_code;
                 if (vk == 0) {
                     snprintf(btn_label, sizeof(btn_label), "Unbound");
@@ -288,7 +289,7 @@ void InputWindow::RenderRemapper(bool interactive) {
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
             if (m_recording_index == i) {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
-            } else if (GetOverlayConfig().gamepad_to_vk_map[i].vk_code == 0) {
+            } else if (shared::GetAppConfig().gamepad_to_vk_map[i].vk_code == 0) {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -429,7 +430,7 @@ void InputWindow::InitializeVisualizerButtons() {
 }
 
 void InputWindow::RenderVisualizer() {
-    auto& cfg = GetOverlayConfig();
+    auto& cfg = shared::GetAppConfig();
     if (cfg.gamepad_hud_scale > 1.0f) cfg.gamepad_hud_scale = 1.0f;
     
     // Top control bar
@@ -663,7 +664,7 @@ void InputWindow::RenderVisualizer() {
 }
 
 void InputWindow::RenderGamepadOverlay() {
-    auto& cfg = GetOverlayConfig();
+    auto& cfg = shared::GetAppConfig();
     if (!cfg.show_gamepad_hud) return;
     
     float scale = cfg.gamepad_hud_scale;

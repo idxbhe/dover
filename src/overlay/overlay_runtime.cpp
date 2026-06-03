@@ -4,8 +4,8 @@
 #include "overlay/hook_utils.h"
 #include "overlay/overlay_ui.h"
 #include "shared/game_storage.h"
-#include "overlay/notes/manager.h"
-#include "overlay/notes/layout.h"
+#include "shared/notes/manager.h"
+#include "shared/notes/layout.h"
 #include "overlay/crosshair/crosshair_window.h"
 #include "overlay/input/input_window.h"
 #include "shared/ipc.h"
@@ -76,10 +76,10 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
     }
   }
 
-  notes::GetNotesWindow().Shutdown();
+  shared::notes::GetNotesWindow().Shutdown();
   crosshair::GetCrosshairWindow().Shutdown();
-  notes::AutoSaveAll();
-  notes::ShutdownNotesManager();
+  shared::notes::AutoSaveAll();
+  shared::notes::ShutdownNotesManager();
   dover::shared::GameStorage::Get().SaveState();
   dover::shared::GameStorage::Get().SaveConfig();
   ShutdownInputHooks();

@@ -1,4 +1,5 @@
 #include "overlay/input_hook.h"
+#include "shared/settings/app_config.h"
 #include "overlay/overlay_ui.h" // For GetOverlayState().show_overlay, GetOverlayState().in_overlay_frame, HookedWndProc
 #include "overlay/hook_utils.h"
 #include "overlay/input_mapper.h"
@@ -56,7 +57,7 @@ bool ProcessInputMessage(LPMSG lpMsg) {
     if ((lpMsg->message >= WM_MOUSEFIRST && lpMsg->message <= WM_MOUSELAST) ||
         (lpMsg->message >= WM_KEYFIRST && lpMsg->message <= WM_KEYLAST) ||
         lpMsg->message == WM_INPUT) {
-      auto& cfg = GetOverlayConfig();
+      auto& cfg = shared::GetAppConfig();
       bool modifier_pressed = cfg.hotkey_toggle_modifier == 0 || (GetKeyState(cfg.hotkey_toggle_modifier) & 0x8000);
       bool is_toggle = (lpMsg->message == WM_KEYDOWN && lpMsg->wParam == (WPARAM)cfg.hotkey_toggle_main && modifier_pressed);
       if (!is_toggle) {
@@ -69,7 +70,7 @@ bool ProcessInputMessage(LPMSG lpMsg) {
 
 SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
   if (GetOverlayState().show_overlay && !g_allow_input_queries) {
-    auto& cfg = GetOverlayConfig();
+    auto& cfg = shared::GetAppConfig();
     if (vKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && vKey == cfg.hotkey_toggle_modifier)) {
       if (g_original_get_async_key_state) {
         return g_original_get_async_key_state(vKey);
@@ -85,7 +86,7 @@ SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
 
 SHORT WINAPI HookedGetKeyState(int nVirtKey) {
   if (GetOverlayState().show_overlay && !g_allow_input_queries) {
-    auto& cfg = GetOverlayConfig();
+    auto& cfg = shared::GetAppConfig();
     if (nVirtKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && nVirtKey == cfg.hotkey_toggle_modifier)) {
       if (g_original_get_key_state) {
         return g_original_get_key_state(nVirtKey);
@@ -296,7 +297,7 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
     }
   }
 
-  auto& cfg = GetOverlayConfig();
+  auto& cfg = shared::GetAppConfig();
   bool modifier_pressed = cfg.hotkey_toggle_modifier == 0 || (GetKeyState(cfg.hotkey_toggle_modifier) & 0x8000);
   
   if (msg == WM_KEYDOWN && wparam == (WPARAM)cfg.hotkey_toggle_main && modifier_pressed) {

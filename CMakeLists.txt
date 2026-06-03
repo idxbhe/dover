@@ -133,15 +133,23 @@ add_library(dover_shared STATIC
   src/shared/game_storage.cpp
   src/shared/theme.cpp
   src/shared/ui/components/base_window.cpp
+  src/shared/settings/settings_window.cpp
+  src/shared/settings/app_config.cpp
+  src/shared/notes/notes_manager.cpp
+  src/shared/notes/notes_layout.cpp
+  src/shared/notes/notes_formatter.cpp
+  src/shared/notes/notes_style.cpp
 )
 
 target_include_directories(dover_shared PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
+  ${imgui_md_SOURCE_DIR}
+  ${md4c_SOURCE_DIR}/src
 )
 
-target_link_libraries(dover_shared PUBLIC imgui)
+target_link_libraries(dover_shared PUBLIC imgui imgui_md_lib)
 
 add_executable(dover_launcher WIN32 src/launcher/main.cpp src/launcher/launcher.rc)
 target_include_directories(dover_launcher PRIVATE
@@ -161,11 +169,6 @@ add_library(dover_overlay SHARED
   src/overlay/input_hook.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
-  src/overlay/notes/manager.cpp
-  src/overlay/notes/layout.cpp
-  src/overlay/notes/formatter.cpp
-  src/overlay/notes/style.cpp
-  src/overlay/settings/settings_window.cpp
   src/overlay/crosshair/crosshair_window.cpp
   src/overlay/assets/asset_storage.cpp
   src/overlay/input_mapper.cpp

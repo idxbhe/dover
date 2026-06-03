@@ -1,4 +1,5 @@
 #include "overlay/input_mapper.h"
+#include "shared/settings/app_config.h"
 #include "overlay/overlay_ui.h"
 
 namespace dover::overlay::input_mapper {
@@ -8,7 +9,7 @@ static DWORD g_prev_virtual_buttons[XUSER_MAX_COUNT] = {0};
 void ProcessGamepadRemapping(XINPUT_STATE* state, DWORD user_index) {
     if (user_index >= XUSER_MAX_COUNT) return;
 
-    const auto& config = GetOverlayConfig();
+    const auto& config = shared::GetAppConfig();
     
     // Combine standard wButtons with trigger states into a virtual 32-bit map
     // Bits 0-15 = wButtons

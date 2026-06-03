@@ -1,9 +1,9 @@
 #pragma once
 
 #include "shared/ui/components/base_window.h"
-#include "overlay/notes/formatter.h"
+#include "shared/notes/formatter.h"
 
-namespace dover::overlay::notes {
+namespace dover::shared::notes {
 class NotesWindow;
 namespace detail {
     enum class FloatBtnAction;
@@ -78,4 +78,4 @@ private:
 // Global instance getter
 NotesWindow& GetNotesWindow();
 
-} // namespace dover::overlay::notes
+} // namespace dover::shared::notes

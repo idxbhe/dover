@@ -2,7 +2,7 @@
 #include "imgui.h"
 #include <string>
 
-namespace dover::overlay::notes {
+namespace dover::shared::notes {
 
 enum PendingFormat {
   FORMAT_NONE, FORMAT_BOLD, FORMAT_ITALIC, FORMAT_STRIKETHROUGH, FORMAT_UNDERLINE,
@@ -35,4 +35,4 @@ int FormatCallback(ImGuiInputTextCallbackData* data);
 // Directly wraps the global buffer when the editor is NOT focused
 void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, ImFont* font);
 
-} // namespace dover::overlay::notes
+} // namespace dover::shared::notes

@@ -1,6 +1,6 @@
-#include "overlay/notes/style.h"
-#include "overlay/notes/manager.h" // Added for GetNotes() and MarkNoteChanged()
-#include "overlay/notes/layout.h" // Added for GetNotesWindow() and SyncEditBufferFromNote()
+#include "shared/notes/style.h"
+#include "shared/notes/manager.h" // Added for GetNotes() and MarkNoteChanged()
+#include "shared/notes/layout.h" // Added for GetNotesWindow() and SyncEditBufferFromNote()
 #include "shared/icons.h"
 #include "shared/theme.h"
 #include <imgui.h>
@@ -15,7 +15,7 @@ namespace dover::overlay {
 
 }
 
-namespace dover::overlay::notes {
+namespace dover::shared::notes {
 
 // ---- Color Palette (Neutral/Monochrome Obsidian-like) ----
 namespace palette {
@@ -535,4 +535,4 @@ void RenderMarkdown(const char* content, int zoom_idx) {
   ImGui::PopFont();
 }
 
-} // namespace dover::overlay::notes
+} // namespace dover::shared::notes

@@ -2,7 +2,7 @@
 
 #include "shared/ui/components/base_window.h"
 
-namespace dover::overlay::settings {
+namespace dover::shared::settings {
 
 class SettingsWindow : public shared::ui::BaseWindow {
 public:
@@ -26,4 +26,4 @@ private:
 // Global instance getter
 SettingsWindow& GetSettingsWindow();
 
-} // namespace dover::overlay::settings
+} // namespace dover::shared::settings

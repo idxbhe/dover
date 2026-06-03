@@ -1,9 +1,9 @@
-#include "overlay/notes/formatter.h"
+#include "shared/notes/formatter.h"
 #include <windows.h>
 #include <algorithm> // For std::swap
 #include <cstring>   // For memcpy, memcmp, memmove, strlen
 
-namespace dover::overlay::notes {
+namespace dover::shared::notes {
 
 namespace {
   FormatterState g_formatter_state;
@@ -551,4 +551,4 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
   strncpy_s(edit_buffer, buffer_size, s_wrapped_str, _TRUNCATE);
 }
 
-} // namespace dover::overlay::notes
+} // namespace dover::shared::notes

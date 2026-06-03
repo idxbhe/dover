@@ -1,8 +1,8 @@
-#include "overlay/notes/layout.h"
+#include "shared/notes/layout.h"
 #include "overlay/overlay_ui.h"
-#include "overlay/notes/manager.h"
-#include "overlay/notes/formatter.h"
-#include "overlay/notes/style.h"
+#include "shared/notes/manager.h"
+#include "shared/notes/formatter.h"
+#include "shared/notes/style.h"
 #include "shared/icons.h"
 #include "shared/theme.h"
 #include "shared/game_storage.h"
@@ -17,7 +17,7 @@ namespace dover::overlay {
 
 }
 
-namespace dover::overlay::notes {
+namespace dover::shared::notes {
 
 
 
@@ -1054,4 +1054,4 @@ void NotesWindow::PostRender(bool /*interactive*/) {
     // Buttons are rendered inside NoteContent child window context instead
 }
 
-} // namespace dover::overlay::notes
+} // namespace dover::shared::notes

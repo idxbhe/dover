@@ -3,7 +3,7 @@
 #include <memory>
 #include <span>
 
-namespace dover::overlay::notes {
+namespace dover::shared::notes {
 
 constexpr size_t MAX_NOTES = 128;
 constexpr size_t MAX_NOTE_SIZE = 65536; // 64KB, perfectly synchronized with m_edit_buffer
@@ -71,4 +71,4 @@ void MarkNoteChanged();
 // Returns true if the "Saved" status indicator should currently be visible in the UI
 bool ShouldShowSavedStatus();
 
-} // namespace dover::overlay::notes
+} // namespace dover::shared::notes

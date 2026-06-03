@@ -1,5 +1,5 @@
-#include "overlay/notes/manager.h"
-#include "overlay/notes/layout.h"
+#include "shared/notes/manager.h"
+#include "shared/notes/layout.h"
 
 #include <windows.h>
 #include <filesystem>
@@ -18,7 +18,7 @@
 namespace fs = std::filesystem;
 using Clock = std::chrono::steady_clock;
 
-namespace dover::overlay::notes {
+namespace dover::shared::notes {
 
 namespace {
 std::array<NoteFile, MAX_NOTES> g_notes;
@@ -170,7 +170,7 @@ void PushIoCommand(IoCommandType type, const char* filename, const char* content
 
 } // namespace
 
-#include "overlay/notes/layout.h"
+#include "shared/notes/layout.h"
 
 NoteSortCriteria GetSortCriteria() { return g_sort_criteria; }
 bool IsSortAscending() { return g_sort_ascending; }
@@ -364,4 +364,4 @@ bool ShouldShowSavedStatus() {
   return Clock::now() < g_save_status_show_until;
 }
 
-} // namespace dover::overlay::notes
+} // namespace dover::shared::notes
