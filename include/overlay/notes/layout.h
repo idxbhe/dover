@@ -1,6 +1,6 @@
 #pragma once
 
-#include "overlay/ui/components/base_window.h"
+#include "shared/ui/components/base_window.h"
 #include "overlay/notes/formatter.h"
 
 namespace dover::overlay::notes {
@@ -14,9 +14,9 @@ namespace detail {
     FloatBtnAction RenderFloatingButtonsInternal(NotesWindow*);
 }
 
-class NotesWindow : public ui::BaseWindow {
+class NotesWindow : public shared::ui::BaseWindow {
 public:
-    NotesWindow() : ui::BaseWindow("Notes", ui::WindowFeature::Default) {
+    NotesWindow() : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Notes", shared::ui::WindowFeature::Default) {
         m_bg_alpha = 0.95f; // Set default Notes opacity
     }
 

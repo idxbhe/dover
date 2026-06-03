@@ -28,7 +28,7 @@ namespace dover::overlay::settings {
 
 SettingsWindow::SettingsWindow()
 
-    : ui::BaseWindow("Settings", ui::WindowFeature::NoPin, ImVec2(520.0f, 300.0f)) {
+    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Settings", shared::ui::WindowFeature::NoPin, ImVec2(520.0f, 300.0f)) {
 
     m_selected_category = 0;
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <overlay/ui/components/base_window.h>
+#include "shared/ui/components/base_window.h"
 
 namespace dover::overlay::input {
 
@@ -12,7 +12,7 @@ struct ButtonRenderData {
     bool is_trigger;
 };
 
-class InputWindow : public ui::BaseWindow {
+class InputWindow : public shared::ui::BaseWindow {
 public:
     InputWindow();
     ~InputWindow() override = default;

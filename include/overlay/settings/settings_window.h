@@ -1,10 +1,10 @@
 #pragma once
 
-#include <overlay/ui/components/base_window.h>
+#include "shared/ui/components/base_window.h"
 
 namespace dover::overlay::settings {
 
-class SettingsWindow : public ui::BaseWindow {
+class SettingsWindow : public shared::ui::BaseWindow {
 public:
     SettingsWindow();
     ~SettingsWindow() override = default;

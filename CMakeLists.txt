@@ -132,6 +132,7 @@ add_library(dover_shared STATIC
   src/shared/storage.cpp
   src/shared/game_storage.cpp
   src/shared/theme.cpp
+  src/shared/ui/components/base_window.cpp
 )
 
 target_include_directories(dover_shared PUBLIC
@@ -160,7 +161,6 @@ add_library(dover_overlay SHARED
   src/overlay/input_hook.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
-  src/overlay/ui/components/base_window.cpp
   src/overlay/notes/manager.cpp
   src/overlay/notes/layout.cpp
   src/overlay/notes/formatter.cpp

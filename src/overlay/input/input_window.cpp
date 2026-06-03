@@ -53,7 +53,7 @@ const ButtonOffset g_button_offsets[] = {
 };
 
 InputWindow::InputWindow()
-    : ui::BaseWindow("Input Mapper", ui::WindowFeature::NoPin, ImVec2(480.0f, 400.0f)) {
+    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Input Mapper", shared::ui::WindowFeature::NoPin, ImVec2(480.0f, 400.0f)) {
 }
 
 void InputWindow::Initialize() {

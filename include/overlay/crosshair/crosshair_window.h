@@ -1,11 +1,11 @@
 #pragma once
 
-#include "overlay/ui/components/base_window.h"
+#include "shared/ui/components/base_window.h"
 #include <imgui.h>
 
 namespace dover::overlay::crosshair {
 
-class CrosshairWindow : public ui::BaseWindow {
+class CrosshairWindow : public shared::ui::BaseWindow {
 public:
     CrosshairWindow();
     

@@ -1,14 +1,10 @@
-#include "overlay/ui/components/base_window.h"
+#include "shared/ui/components/base_window.h"
 #include "shared/icons.h"
 #include "shared/theme.h"
 #include "shared/game_storage.h"
 #include <imgui.h>
 
-namespace dover::overlay {
-
-}
-
-namespace dover::overlay::ui {
+namespace dover::shared::ui {
 
 namespace {
     constexpr float kNavBarHeight = 42.0f;
@@ -234,17 +230,21 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
     }
 
     if (HasFeature(m_features, WindowFeature::Fullscreen)) {
-        if (DrawCustomButton(ICON_WINDOW_FULLSCREEN, right_boundary - offset, m_is_fullscreen ? "Exit Fullscreen" : "Fullscreen", &m_is_fullscreen)) {
-            if (m_is_fullscreen && !m_is_maximized) {
-                m_was_fullscreen = true;
+        if (m_ctx == RenderContext::Overlay) {
+            if (DrawCustomButton(ICON_WINDOW_FULLSCREEN, right_boundary - offset, m_is_fullscreen ? "Exit Fullscreen" : "Fullscreen", &m_is_fullscreen)) {
+                if (m_is_fullscreen && !m_is_maximized) {
+                    m_was_fullscreen = true;
+                }
             }
+            offset += 26.0f;
         }
-        offset += 26.0f;
     }
 
     if (HasFeature(m_features, WindowFeature::Pin)) {
-        DrawCustomButton(ICON_WINDOW_PINNED, right_boundary - offset, m_is_pinned ? "Unpin from screen" : "Pin to screen", &m_is_pinned);
-        offset += 26.0f;
+        if (m_ctx == RenderContext::Overlay) {
+            DrawCustomButton(ICON_WINDOW_PINNED, right_boundary - offset, m_is_pinned ? "Unpin from screen" : "Pin to screen", &m_is_pinned);
+            offset += 26.0f;
+        }
     }
 }
 
@@ -263,4 +263,4 @@ void BaseWindow::ToggleOpen() {
     dover::shared::GameStorage::Get().SaveState();
 }
 
-} // namespace dover::overlay::ui
+} // namespace dover::shared::ui

@@ -3,7 +3,9 @@
 #include <string>
 #include <imgui.h>
 
-namespace dover::overlay::ui {
+namespace dover::shared::ui {
+
+enum class RenderContext { Overlay, Launcher };
 
 // Feature flags for window decorations (Lego blocks)
 enum class WindowFeature {
@@ -26,6 +28,7 @@ inline bool HasFeature(WindowFeature flags, WindowFeature feature) {
 
 class BaseWindow {
 protected:
+    RenderContext m_ctx;
     std::string m_window_name;
     WindowFeature m_features;
     
@@ -46,8 +49,8 @@ protected:
     float m_bg_alpha = 0.95f;
 
 public:
-    BaseWindow(const std::string& name, WindowFeature features = WindowFeature::Default, ImVec2 default_size = ImVec2(800.0f, 500.0f))
-        : m_window_name(name), m_features(features), m_default_size(default_size) {}
+    BaseWindow(RenderContext ctx, const std::string& name, WindowFeature features = WindowFeature::Default, ImVec2 default_size = ImVec2(800.0f, 500.0f))
+        : m_ctx(ctx), m_window_name(name), m_features(features), m_default_size(default_size) {}
     
     virtual ~BaseWindow() = default;
 
@@ -87,4 +90,4 @@ protected:
     void RenderWindowDecorations(bool interactive, float right_boundary, float custom_y_pos = -1.0f);
 };
 
-} // namespace dover::overlay::ui
+} // namespace dover::shared::ui
