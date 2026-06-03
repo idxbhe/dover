@@ -24,6 +24,16 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         default_bump: patch
 
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install Pillow
+
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v2
 
@@ -43,16 +53,21 @@ jobs:
         cmake -B build_x86 -S . -A Win32 -DDOVER_STRICT_BUILD=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
         cmake --build build_x86 --config $Config --parallel
         
+        # Build assets
+        python assets/build_assets.py
+        
         # Consolidate binaries
         $dest_dir = "build_x64\bin\$Config"
         Copy-Item "build_x86\bin\$Config\injector32.exe" "$dest_dir\" -Force
         Copy-Item "build_x86\bin\$Config\overlay32.dll" "$dest_dir\" -Force
         
-        # Ensure assets.pak is included
-        if (Test-Path "build_x64\bin\Debug\assets.pak") {
-            Copy-Item "build_x64\bin\Debug\assets.pak" "$dest_dir\" -Force
-        } elseif (Test-Path "build_x64\bin\Release\assets.pak") {
-            Copy-Item "build_x64\bin\Release\assets.pak" "$dest_dir\" -Force
+        # Ensure assets.pak is included (avoid copying onto itself to prevent IOException)
+        if (!(Test-Path "$dest_dir\assets.pak")) {
+            if (Test-Path "build_x64\bin\Debug\assets.pak") {
+                Copy-Item "build_x64\bin\Debug\assets.pak" "$dest_dir\" -Force
+            } elseif (Test-Path "build_x64\bin\Release\assets.pak") {
+                Copy-Item "build_x64\bin\Release\assets.pak" "$dest_dir\" -Force
+            }
         }
 
     - name: Package Release Binaries
