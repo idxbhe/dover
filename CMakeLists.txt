@@ -136,8 +136,12 @@ target_include_directories(dover_shared PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-add_executable(dover_launcher src/launcher/main.cpp src/launcher/launcher.rc)
-target_link_libraries(dover_launcher PRIVATE dover_shared)
+add_executable(dover_launcher WIN32 src/launcher/main.cpp src/launcher/launcher.rc)
+target_include_directories(dover_launcher PRIVATE
+  ${imgui_SOURCE_DIR}
+  ${imgui_SOURCE_DIR}/backends
+)
+target_link_libraries(dover_launcher PRIVATE dover_shared imgui d3d11)
 
 add_executable(dover_injector src/injector/main.cpp)
 target_link_libraries(dover_injector PRIVATE dover_shared)
@@ -160,6 +164,8 @@ add_library(dover_overlay SHARED
   src/overlay/settings/settings_window.cpp
   src/overlay/crosshair/crosshair_window.cpp
   src/overlay/assets/asset_storage.cpp
+  src/overlay/input_mapper.cpp
+  src/overlay/input/input_window.cpp
 )
 
 target_include_directories(dover_overlay PRIVATE
@@ -169,7 +175,7 @@ target_include_directories(dover_overlay PRIVATE
   ${md4c_SOURCE_DIR}/src
 )
 
-target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 minhook imgui imgui_md_lib)
+target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 xinput minhook imgui imgui_md_lib)
 
 option(DOVER_STRICT_BUILD "Treat warnings as errors for Dover targets" OFF)
 if(DOVER_STRICT_BUILD)

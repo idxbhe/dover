@@ -9,6 +9,8 @@ A lightweight, high-performance in-game overlay for DirectX 9 and DirectX 11 gam
 *   **Universal Support:** Works on x86 and x64 architectures for DX9/DX11.
 *   **In-Game Notes:** Markdown-supported notes with pinning capability.
 *   **Custom Crosshair:** Load custom reticles from `assets.pak` with scaling and positioning controls.
+*   **Controller Remapping:** Map controller inputs (including LT/RT triggers) to keyboard keys with modifiers.
+*   **Gamepad HUD Visualizer:** Premium in-game real-time controller layout HUD visualizer.
 *   **Opacity Control:** Adjustable window and background transparency.
 *   **Auto-Save Layout:** Automatically saves window positions and settings.
 *   **Input Blocking:** Prevents overlay inputs from leaking into the game.
@@ -18,8 +20,8 @@ A lightweight, high-performance in-game overlay for DirectX 9 and DirectX 11 gam
 ## How to Use
 
 1. Extract the release package. Ensure `launcher.exe`, the DLLs, injectors, and `assets.pak` are in the same directory.
-2. Run `launcher.exe`.
-3. Use the interactive menu to add your game's absolute executable path, or select a previously saved game to launch it.
+2. Run `launcher.exe` to open the graphical launcher.
+3. Use the "Browse..." button or manually enter your game's absolute executable path to add it, or click a previously saved game to launch it. The launcher will automatically minimize to the system tray while the game is running.
 4. Once in-game, press **`Shift + Tab`** to toggle the overlay.
 
 *(Alternatively, you can launch a game directly via command line: `launcher.exe "C:\Path\To\Game.exe"`)*
