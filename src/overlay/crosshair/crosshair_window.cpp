@@ -3,16 +3,15 @@
 #include "overlay/dx11_hook.h"
 #include "overlay/dx9_hook.h"
 #include "shared/log.h"
-#include "overlay/icons.h"
-#include "overlay/game_storage.h"
+#include "shared/icons.h"
+#include "shared/theme.h"
+#include "shared/game_storage.h"
 
 #include <d3d11.h>
 #include <d3d9.h>
 
 namespace dover::overlay {
-    extern ImFont* g_font_gui;
-    extern ImFont* g_font_panel;
-    extern ImFont* g_fonts_preview_bold[5];
+
 }
 
 namespace {
@@ -71,7 +70,7 @@ namespace {
             icon_color = ImVec4(0.200f, 0.569f, 0.902f, 1.00f);
         }
 
-        ImFont* icon_font = dover::overlay::g_font_panel ? dover::overlay::g_font_panel : dover::overlay::g_font_gui;
+        ImFont* icon_font = dover::shared::g_font_panel ? dover::shared::g_font_panel : dover::shared::g_font_gui;
         float icon_font_size = icon_font ? icon_font->FontSize : 18.0f; 
         
         if (icon_font) {
@@ -516,7 +515,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::SameLine();
     ImGui::PushItemWidth(input_w);
     if (ImGui::InputFloat("##PosX", &m_pos_x, 1.0f, 10.0f, "%.0f")) {
-        dover::overlay::GameStorage::Get().SaveState();
+        dover::shared::GameStorage::Get().SaveState();
     }
     ImGui::PopItemWidth();
     
@@ -526,7 +525,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::SameLine();
     ImGui::PushItemWidth(input_w);
     if (ImGui::InputFloat("##PosY", &m_pos_y, 1.0f, 10.0f, "%.0f")) {
-        dover::overlay::GameStorage::Get().SaveState();
+        dover::shared::GameStorage::Get().SaveState();
     }
     ImGui::PopItemWidth();
     ImGui::PopStyleColor(4); // Pop coordinates FrameBg & Border overrides
@@ -538,7 +537,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     if (ImGui::Button("Reset", ImVec2(70.0f, 0))) {
         m_pos_x = 0.0f;
         m_pos_y = 0.0f;
-        dover::overlay::GameStorage::Get().SaveState();
+        dover::shared::GameStorage::Get().SaveState();
     }
     ImGui::PopStyleColor(3);
     ImGui::PopStyleVar(); // Pop ItemSpacing
@@ -547,13 +546,13 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::Spacing();
     ImGui::Spacing();
 
-    if (dover::overlay::g_fonts_preview_bold[3]) {
-        ImGui::PushFont(dover::overlay::g_fonts_preview_bold[3]);
+    if (dover::shared::g_fonts_preview_bold[3]) {
+        ImGui::PushFont(dover::shared::g_fonts_preview_bold[3]);
     }
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
     ImGui::Text("CONFIGURATION");
     ImGui::PopStyleColor();
-    if (dover::overlay::g_fonts_preview_bold[3]) {
+    if (dover::shared::g_fonts_preview_bold[3]) {
         ImGui::PopFont();
     }
     ImGui::Separator();
@@ -578,7 +577,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     float frame_h = ImGui::GetFrameHeight();
     
     if (ToggleCheckbox("Enable Crosshair", &m_active)) {
-        dover::overlay::GameStorage::Get().SaveState();
+        dover::shared::GameStorage::Get().SaveState();
     }
     
     ImGui::Dummy(ImVec2(0.0f, 2.0f));
@@ -591,7 +590,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::Dummy(ImVec2(0.0f, 4.0f));
 
     if (ToggleCheckbox("Outline", &m_outline_enabled)) {
-        dover::overlay::GameStorage::Get().SaveState();
+        dover::shared::GameStorage::Get().SaveState();
     }
     
     ImGui::Dummy(ImVec2(0.0f, 2.0f));
@@ -677,7 +676,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
         ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height + ImGui::GetStyle().ItemSpacing.y));
         
         if (changed) {
-            dover::overlay::GameStorage::Get().SaveState();
+            dover::shared::GameStorage::Get().SaveState();
         }
     }
 
@@ -758,7 +757,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
         ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height + ImGui::GetStyle().ItemSpacing.y));
         
         if (changed) {
-            dover::overlay::GameStorage::Get().SaveState();
+            dover::shared::GameStorage::Get().SaveState();
         }
     }
     

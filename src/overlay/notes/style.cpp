@@ -1,7 +1,8 @@
 #include "overlay/notes/style.h"
 #include "overlay/notes/manager.h" // Added for GetNotes() and MarkNoteChanged()
 #include "overlay/notes/layout.h" // Added for GetNotesWindow() and SyncEditBufferFromNote()
-#include "overlay/icons.h"
+#include "shared/icons.h"
+#include "shared/theme.h"
 #include <imgui.h>
 #define private public
 #include <imgui_md.h>
@@ -11,16 +12,7 @@
 
 namespace dover::overlay {
   // Extern references to the global overlay fonts
-  extern ImFont* g_font_gui;
-  extern ImFont* g_fonts_editor[5];
-  extern ImFont* g_fonts_preview[5];
-  extern ImFont* g_fonts_preview_bold[5];
-  extern ImFont* g_fonts_preview_italic[5];
-  extern ImFont* g_fonts_preview_bold_italic[5];
-  extern ImFont* g_fonts_preview_h1[5];
-  extern ImFont* g_fonts_preview_h2[5];
-  extern ImFont* g_fonts_preview_h3[5];
-  extern ImFont* g_fonts_preview_h4[5];
+
 }
 
 namespace dover::overlay::notes {
@@ -100,17 +92,17 @@ struct DoverMarkdownRenderer : public imgui_md {
 
   // ---- Font Selection ----
   ImFont* get_font() const override {
-    if (m_is_code) return g_fonts_editor[m_zoom_idx];
-    if (m_hlevel == 1) return g_fonts_preview_h1[m_zoom_idx];
-    if (m_hlevel == 2) return g_fonts_preview_h2[m_zoom_idx];
-    if (m_hlevel == 3) return g_fonts_preview_h3[m_zoom_idx];
-    if (m_hlevel == 4) return g_fonts_preview_h4[m_zoom_idx];
-    if (m_hlevel >= 5) return g_fonts_preview_bold[m_zoom_idx];
-    if (m_is_strong && m_is_em) return g_fonts_preview_bold_italic[m_zoom_idx];
-    if (m_is_strong) return g_fonts_preview_bold[m_zoom_idx];
-    if (m_is_em) return g_fonts_preview_italic[m_zoom_idx];
-    if (m_is_table_header) return g_fonts_preview_bold[m_zoom_idx];
-    return g_fonts_preview[m_zoom_idx];
+    if (m_is_code) return dover::shared::g_fonts_editor[m_zoom_idx];
+    if (m_hlevel == 1) return dover::shared::g_fonts_preview_h1[m_zoom_idx];
+    if (m_hlevel == 2) return dover::shared::g_fonts_preview_h2[m_zoom_idx];
+    if (m_hlevel == 3) return dover::shared::g_fonts_preview_h3[m_zoom_idx];
+    if (m_hlevel == 4) return dover::shared::g_fonts_preview_h4[m_zoom_idx];
+    if (m_hlevel >= 5) return dover::shared::g_fonts_preview_bold[m_zoom_idx];
+    if (m_is_strong && m_is_em) return dover::shared::g_fonts_preview_bold_italic[m_zoom_idx];
+    if (m_is_strong) return dover::shared::g_fonts_preview_bold[m_zoom_idx];
+    if (m_is_em) return dover::shared::g_fonts_preview_italic[m_zoom_idx];
+    if (m_is_table_header) return dover::shared::g_fonts_preview_bold[m_zoom_idx];
+    return dover::shared::g_fonts_preview[m_zoom_idx];
   }
 
   // ---- Color Selection ----
@@ -538,7 +530,7 @@ void RenderMarkdown(const char* content, int zoom_idx) {
   renderer.m_last_block_was_heading = false;
   renderer.m_first_list_item = false;
 
-  ImGui::PushFont(g_fonts_preview[zoom_idx]);
+  ImGui::PushFont(dover::shared::g_fonts_preview[zoom_idx]);
   renderer.print(content, content + strlen(content));
   ImGui::PopFont();
 }

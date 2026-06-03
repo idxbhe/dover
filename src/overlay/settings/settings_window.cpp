@@ -1,9 +1,10 @@
 #include "overlay/settings/settings_window.h"
 #include "overlay/input_hook.h"
 
-#include "overlay/icons.h"
+#include "shared/icons.h"
+#include "shared/theme.h"
 
-#include "overlay/game_storage.h"
+#include "shared/game_storage.h"
 
 #include <imgui.h>
 
@@ -15,11 +16,7 @@
 
 namespace dover::overlay {
 
-    extern ImFont* g_font_gui;
 
-    extern ImFont* g_font_panel;
-
-    extern ImFont* g_fonts_preview_bold[5];
 
 }
 
@@ -167,7 +164,7 @@ static bool ToggleCheckbox(const char* label, bool* value_ptr) {
 
     // Passing its native 20.0f size ensures 1:1 pixel mapping, rendering the icon exactly at its crisp 28.0f rasterized resolution.
 
-    ImFont* icon_font = dover::overlay::g_font_panel ? dover::overlay::g_font_panel : dover::overlay::g_font_gui;
+    ImFont* icon_font = dover::shared::g_font_panel ? dover::shared::g_font_panel : dover::shared::g_font_gui;
 
     float icon_font_size = icon_font->FontSize; 
 
@@ -203,9 +200,9 @@ static bool ToggleCheckbox(const char* label, bool* value_ptr) {
 
 static void RenderSettingsHeader(const char* title) {
 
-    if (dover::overlay::g_fonts_preview_bold[3]) {
+    if (dover::shared::g_fonts_preview_bold[3]) {
 
-        ImGui::PushFont(dover::overlay::g_fonts_preview_bold[3]);
+        ImGui::PushFont(dover::shared::g_fonts_preview_bold[3]);
 
     }
 
@@ -221,7 +218,7 @@ static void RenderSettingsHeader(const char* title) {
 
     ImGui::PopStyleColor();
 
-    if (dover::overlay::g_fonts_preview_bold[3]) {
+    if (dover::shared::g_fonts_preview_bold[3]) {
 
         ImGui::PopFont();
 
@@ -393,11 +390,11 @@ void SettingsWindow::RenderContent(bool interactive) {
 
         
 
-        if (g_font_gui) ImGui::PushFont(g_font_gui);
+        if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui);
 
         ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), label_buf);
 
-        if (g_font_gui) ImGui::PopFont();
+        if (dover::shared::g_font_gui) ImGui::PopFont();
 
         
 
@@ -514,9 +511,9 @@ void SettingsWindow::RenderContent(bool interactive) {
                 ImGui::Dummy(ImVec2(0.0f, 10.0f)); // Elegant vertical spacing between groups
 
                 RenderSettingsHeader("OSD (On Screen Display)");
-                if (ToggleCheckbox("FPS", &GetOverlayConfig().show_fps))           GameStorage::Get().SaveConfig();
-                if (ToggleCheckbox("CLOCK", &GetOverlayConfig().show_clock))        GameStorage::Get().SaveConfig();
-                if (ToggleCheckbox("GRAPHIC API", &GetOverlayConfig().show_api))    GameStorage::Get().SaveConfig();
+                if (ToggleCheckbox("FPS", &GetOverlayConfig().show_fps))           dover::shared::GameStorage::Get().SaveConfig();
+                if (ToggleCheckbox("CLOCK", &GetOverlayConfig().show_clock))        dover::shared::GameStorage::Get().SaveConfig();
+                if (ToggleCheckbox("GRAPHIC API", &GetOverlayConfig().show_api))    dover::shared::GameStorage::Get().SaveConfig();
                 break;
             }
 
@@ -560,7 +557,7 @@ void SettingsWindow::RenderContent(bool interactive) {
                                 if (dover::overlay::IsHardwareKeyPressed(VK_CONTROL)) modifier_key = VK_CONTROL;
                                 if (dover::overlay::IsHardwareKeyPressed(VK_MENU)) modifier_key = VK_MENU;
                                 is_recording = false;
-                                GameStorage::Get().SaveConfig();
+                                dover::shared::GameStorage::Get().SaveConfig();
                                 break;
                             }
                         }
@@ -705,11 +702,11 @@ void SettingsWindow::RenderContent(bool interactive) {
                 RenderSlimSlider("Window Opacity", &GetOverlayConfig().global_window_alpha, [&]() {
                     m_bg_alpha = GetOverlayConfig().global_window_alpha;
                     notes::GetNotesWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
-                    GameStorage::Get().SaveConfig();
+                    dover::shared::GameStorage::Get().SaveConfig();
                 });
                 
                 RenderSlimSlider("Overlay Opacity", &GetOverlayConfig().overlay_bg_alpha, []() {
-                    GameStorage::Get().SaveConfig();
+                    dover::shared::GameStorage::Get().SaveConfig();
                 });
                 break;
             }

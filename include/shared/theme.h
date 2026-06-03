@@ -2,7 +2,7 @@
 
 struct ImFont;
 
-namespace dover::overlay {
+namespace dover::shared {
 
 extern ImFont* g_font_gui;
 extern ImFont* g_font_panel;
@@ -18,4 +18,4 @@ extern ImFont* g_fonts_preview_h4[5];
 
 void SetupImGuiTheme();
 
-} // namespace dover::overlay
+} // namespace dover::shared

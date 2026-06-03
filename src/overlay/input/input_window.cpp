@@ -1,7 +1,8 @@
 #include "overlay/input/input_window.h"
 #include "overlay/input_hook.h"
-#include "overlay/icons.h"
-#include "overlay/game_storage.h"
+#include "shared/icons.h"
+#include "shared/theme.h"
+#include "shared/game_storage.h"
 #include "overlay/overlay_ui.h"
 
 #include <imgui.h>
@@ -15,9 +16,7 @@
 #include "overlay/dx9_hook.h"
 
 namespace dover::overlay {
-    extern ImFont* g_font_gui;
-    extern ImFont* g_fonts_preview_bold[5];
-    extern ImFont* g_font_panel;
+
 }
 
 namespace dover::overlay::input {
@@ -93,26 +92,26 @@ void InputWindow::RenderContent(bool interactive) {
         }
 
         // Draw the icon in the panel font (which has icons merged)
-        if (dover::overlay::g_font_panel) {
-            ImGui::PushFont(dover::overlay::g_font_panel);
+        if (dover::shared::g_font_panel) {
+            ImGui::PushFont(dover::shared::g_font_panel);
         }
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
         ImGui::Text("%s", ICON_PANEL_INPUTMAP);
         ImGui::PopStyleColor();
-        if (dover::overlay::g_font_panel) {
+        if (dover::shared::g_font_panel) {
             ImGui::PopFont();
         }
 
         ImGui::SameLine(0.0f, 6.0f);
 
         // Draw the title text in the preview bold font
-        if (dover::overlay::g_fonts_preview_bold[3]) {
-            ImGui::PushFont(dover::overlay::g_fonts_preview_bold[3]);
+        if (dover::shared::g_fonts_preview_bold[3]) {
+            ImGui::PushFont(dover::shared::g_fonts_preview_bold[3]);
         }
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
         ImGui::Text("Controller");
         ImGui::PopStyleColor();
-        if (dover::overlay::g_fonts_preview_bold[3]) {
+        if (dover::shared::g_fonts_preview_bold[3]) {
             ImGui::PopFont();
         }
 
@@ -231,7 +230,7 @@ void InputWindow::RenderRemapper(bool interactive) {
                             map.modifier_alt = dover::overlay::IsHardwareKeyPressed(VK_MENU);
                         }
                         m_recording_index = -1;
-                        GameStorage::Get().SaveConfig();
+                        dover::shared::GameStorage::Get().SaveConfig();
                         break;
                     }
                 }
@@ -438,7 +437,7 @@ void InputWindow::RenderVisualizer() {
     ImGui::Text("Show In-Game");
     ImGui::SameLine(0.0f, 8.0f);
     
-    ImFont* icon_font = dover::overlay::g_font_panel ? dover::overlay::g_font_panel : dover::overlay::g_font_gui;
+    ImFont* icon_font = dover::shared::g_font_panel ? dover::shared::g_font_panel : dover::shared::g_font_gui;
     const char* toggle_icon = cfg.show_gamepad_hud ? ICON_TOGGLE_ON : ICON_TOGGLE_OFF;
     ImVec4 icon_color = cfg.show_gamepad_hud ? ImVec4(0.118f, 0.478f, 0.812f, 1.00f) : ImVec4(0.40f, 0.42f, 0.48f, 0.80f);
     
@@ -470,7 +469,7 @@ void InputWindow::RenderVisualizer() {
     
     if (clicked) {
         cfg.show_gamepad_hud = !cfg.show_gamepad_hud;
-        GameStorage::Get().SaveConfig();
+        dover::shared::GameStorage::Get().SaveConfig();
     }
     
     if (cfg.show_gamepad_hud) {
@@ -490,7 +489,7 @@ void InputWindow::RenderVisualizer() {
                 bool is_selected = (cfg.gamepad_hud_position == i);
                 if (ImGui::Selectable(pos_names[i], is_selected)) {
                     cfg.gamepad_hud_position = i;
-                    GameStorage::Get().SaveConfig();
+                    dover::shared::GameStorage::Get().SaveConfig();
                 }
                 if (is_selected) {
                     ImGui::SetItemDefaultFocus();
@@ -523,7 +522,7 @@ void InputWindow::RenderVisualizer() {
         float scale_val = cfg.gamepad_hud_scale;
         if (ImGui::SliderFloat("##hud_scale", &scale_val, 0.2f, 1.0f, "")) {
             cfg.gamepad_hud_scale = scale_val;
-            GameStorage::Get().SaveConfig();
+            dover::shared::GameStorage::Get().SaveConfig();
         }
         bool slider_active = ImGui::IsItemActive();
         bool slider_hovered = ImGui::IsItemHovered();

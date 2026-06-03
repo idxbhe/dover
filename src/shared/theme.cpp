@@ -1,6 +1,6 @@
-#include "overlay/theme.h"
-#include "overlay/fonts.h"
-#include "overlay/icons.h"
+#include "shared/theme.h"
+#include "shared/fonts.h"
+#include "shared/icons.h"
 
 
 #include <windows.h>
@@ -9,7 +9,7 @@
 #include <misc/freetype/imgui_freetype.h>
 #include <string>
 
-namespace dover::overlay {
+namespace dover::shared {
 
 ImFont* g_font_gui = nullptr;
 ImFont* g_font_panel = nullptr;
@@ -174,4 +174,4 @@ void SetupImGuiTheme() {
   style.Colors[ImGuiCol_Border] = ImVec4(0.150f, 0.170f, 0.220f, 0.80f); // Cool border
 }
 
-} // namespace dover::overlay
+} // namespace dover::shared

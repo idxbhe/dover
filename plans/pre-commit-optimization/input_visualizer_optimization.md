@@ -42,3 +42,8 @@ To rectify these violations without over-engineering (Rule 5), we will implement
   - If it returns `ERROR_DEVICE_NOT_CONNECTED`, stop rendering the HUD for that frame.
   - Only poll the other 3 indices once every 60 frames (1 second) to detect new connections. 
   - This completely eliminates the 15ms frame-drop penalty while remaining zero-cost and heap-allocation-free.
+
+
+### USER REVIEW
+
+Ada satu skenario interaksi yang harus lu pastiin aman: pas stick controller aktif tiba-tiba putus atau DC di tengah game (ERROR_DEVICE_NOT_CONNECTED), kuli lu bilang bakal langsung stop render HUD di frame itu. Pastiin pas momen DC itu terjadi, status cache active_user_index langsung di-invalidate seketika, dan jangan dipaksa nunggu siklus 60 frame penuh cuma buat nyari tahu kalau stick-nya udah mati. Respon dOverlay harus tetep instan pas stick user mendadak mati atau dicolok ulang.

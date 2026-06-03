@@ -130,11 +130,17 @@ add_library(dover_shared STATIC
   src/shared/process.cpp
   src/shared/log.cpp
   src/shared/storage.cpp
+  src/shared/game_storage.cpp
+  src/shared/theme.cpp
 )
 
 target_include_directories(dover_shared PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${imgui_SOURCE_DIR}
+  ${imgui_SOURCE_DIR}/backends
 )
+
+target_link_libraries(dover_shared PUBLIC imgui)
 
 add_executable(dover_launcher WIN32 src/launcher/main.cpp src/launcher/launcher.rc)
 target_include_directories(dover_launcher PRIVATE
@@ -152,10 +158,8 @@ add_library(dover_overlay SHARED
   src/overlay/dx11_hook.cpp
   src/overlay/hook_utils.cpp
   src/overlay/input_hook.cpp
-  src/overlay/theme.cpp
   src/overlay/overlay_ui.cpp
   src/overlay/overlay_runtime.cpp
-  src/overlay/game_storage.cpp
   src/overlay/ui/components/base_window.cpp
   src/overlay/notes/manager.cpp
   src/overlay/notes/layout.cpp

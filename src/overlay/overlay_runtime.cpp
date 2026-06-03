@@ -3,7 +3,7 @@
 #include "overlay/input_hook.h"
 #include "overlay/hook_utils.h"
 #include "overlay/overlay_ui.h"
-#include "overlay/game_storage.h"
+#include "shared/game_storage.h"
 #include "overlay/notes/manager.h"
 #include "overlay/notes/layout.h"
 #include "overlay/crosshair/crosshair_window.h"
@@ -80,8 +80,8 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   crosshair::GetCrosshairWindow().Shutdown();
   notes::AutoSaveAll();
   notes::ShutdownNotesManager();
-  GameStorage::Get().SaveState();
-  GameStorage::Get().SaveConfig();
+  dover::shared::GameStorage::Get().SaveState();
+  dover::shared::GameStorage::Get().SaveConfig();
   ShutdownInputHooks();
   ShutdownDx9Hook();
   ShutdownDx11Hook();

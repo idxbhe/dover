@@ -1,6 +1,6 @@
 #include "overlay/dx9_hook.h"
 #include "overlay/overlay_ui.h"
-#include "overlay/theme.h"
+#include "shared/theme.h"
 #include "overlay/hook_utils.h"
 #include "overlay/input_hook.h"
 #include "shared/log.h"

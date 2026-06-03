@@ -1,10 +1,11 @@
 #include "overlay/ui/components/base_window.h"
-#include "overlay/icons.h"
-#include "overlay/game_storage.h"
+#include "shared/icons.h"
+#include "shared/theme.h"
+#include "shared/game_storage.h"
 #include <imgui.h>
 
 namespace dover::overlay {
-    extern ImFont* g_font_gui;
+
 }
 
 namespace dover::overlay::ui {
@@ -195,11 +196,11 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
         
         ImGui::GetWindowDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
         
-        if (g_font_gui) ImGui::PushFont(g_font_gui);
+        if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui);
         ImVec2 text_size = ImGui::CalcTextSize(icon);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
         ImGui::GetWindowDrawList()->AddText(text_pos, text_col32, icon);
-        if (g_font_gui) ImGui::PopFont();
+        if (dover::shared::g_font_gui) ImGui::PopFont();
         
         if (hovered && tooltip) {
             ImGui::SetTooltip(tooltip);
@@ -249,17 +250,17 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
 
 void BaseWindow::Open() {
     m_is_open = true;
-    GameStorage::Get().SaveState();
+    dover::shared::GameStorage::Get().SaveState();
 }
 
 void BaseWindow::Close() {
     m_is_open = false;
-    GameStorage::Get().SaveState();
+    dover::shared::GameStorage::Get().SaveState();
 }
 
 void BaseWindow::ToggleOpen() {
     m_is_open = !m_is_open;
-    GameStorage::Get().SaveState();
+    dover::shared::GameStorage::Get().SaveState();
 }
 
 } // namespace dover::overlay::ui

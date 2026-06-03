@@ -5,11 +5,13 @@
 #include "overlay/settings/settings_window.h"
 #include "overlay/crosshair/crosshair_window.h"
 #include "overlay/input/input_window.h"
-#include "overlay/game_storage.h"
-#include "overlay/icons.h"
-#include "overlay/fonts.h"
-#include "overlay/theme.h"
+#include "shared/game_storage.h"
+#include "shared/icons.h"
+#include "shared/fonts.h"
+#include "shared/theme.h"
 #include "overlay/input_hook.h"
+#include "shared/storage.h"
+#include "shared/config.h"
 
 #include <windows.h>
 #include <psapi.h>
@@ -116,11 +118,11 @@ static void RenderNavButton(
       ImGui::GetWindowDrawList()->AddRect(pos, p_max, ImGui::ColorConvertFloat4ToU32(border_color), 4.0f, ImDrawFlags_None, 1.0f);
 
       // Draw 3D double shadow behind the text glyph
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), icon);
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), icon);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), icon);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), icon);
 
       // Draw the crisp main icon text inside the gradient box
-      ImGui::GetWindowDrawList()->AddText(g_font_panel, g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), icon);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), icon);
 
       // Draw active indicator (Long line if focused, small dot if open but not focused)
       if (state.is_open) {
@@ -231,7 +233,7 @@ void RenderImGuiUI() {
       ImGui::GetWindowDrawList()->PathStroke(border_dark, false, 1.0f);
     }
 
-    ImGui::PushFont(g_font_panel);
+    ImGui::PushFont(dover::shared::g_font_panel);
 
     const float icon_btn_width = 34.0f;
     const float button_group_width = (icon_btn_width * 4.0f) + (button_spacing * 3.0f); // Group of 4 icon buttons
@@ -427,25 +429,186 @@ void InitializeOverlay() {
     std::wstring exe_name(exe_name_w);
 
     // 2. Init GameStorage
-    GameStorage::Get().Initialize(exe_name);
+    dover::shared::GameStorage::Get().Initialize(exe_name);
 
     // 3. Set ImGui INI path
     ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = GameStorage::Get().GetLayoutPathCStr();
+    io.IniFilename = dover::shared::GameStorage::Get().GetLayoutPathCStr();
 
     // 4. Setup theme (font + colors)
-    SetupImGuiTheme();
+    dover::shared::SetupImGuiTheme();
 
     // 5. Init subsystems
-    notes::InitializeNotesManager(GameStorage::Get().GetNotesDir());
+    notes::InitializeNotesManager(dover::shared::GameStorage::Get().GetNotesDir());
     notes::GetNotesWindow().Initialize();
     settings::GetSettingsWindow().Initialize();
     crosshair::GetCrosshairWindow().Initialize();
     input::GetInputWindow().Initialize();
 
+    // Register callbacks
+    dover::shared::GameStorage::Get().RegisterConfigLoad([](const std::filesystem::path& cfg) {
+        GetOverlayConfig().show_fps   = shared::ReadIniBool(cfg, "osd", "show_fps",   true);
+        GetOverlayConfig().show_clock = shared::ReadIniBool(cfg, "osd", "show_clock", true);
+        GetOverlayConfig().show_api   = shared::ReadIniBool(cfg, "osd", "show_api",   false);
+        GetOverlayConfig().show_gamepad_hud     = shared::ReadIniBool(cfg, "osd", "show_gamepad_hud", false);
+        GetOverlayConfig().gamepad_hud_position = shared::ReadIniInt(cfg, "osd", "gamepad_hud_position", 2);
+        GetOverlayConfig().gamepad_hud_scale    = shared::ReadIniFloat(cfg, "osd", "gamepad_hud_scale", 1.0f);
+
+        GetOverlayConfig().global_window_alpha = shared::ReadIniFloat(cfg, "theme", "window_alpha", 0.95f);
+        GetOverlayConfig().overlay_bg_alpha    = shared::ReadIniFloat(cfg, "theme", "overlay_alpha", 0.63f);
+
+        GetOverlayConfig().hotkey_toggle_main = shared::ReadIniInt(cfg, "hotkeys", "toggle_main", VK_TAB);
+        GetOverlayConfig().hotkey_toggle_modifier = shared::ReadIniInt(cfg, "hotkeys", "toggle_modifier", VK_SHIFT);
+
+        for (int i = 0; i < 18; ++i) {
+            char key[32];
+            snprintf(key, sizeof(key), "map_%d", i);
+            GetOverlayConfig().gamepad_to_vk_map[i].vk_code = static_cast<uint8_t>(shared::ReadIniInt(cfg, "input", key, 0));
+            
+            snprintf(key, sizeof(key), "map_%d_ctrl", i);
+            GetOverlayConfig().gamepad_to_vk_map[i].modifier_ctrl = shared::ReadIniBool(cfg, "input", key, false);
+            
+            snprintf(key, sizeof(key), "map_%d_shift", i);
+            GetOverlayConfig().gamepad_to_vk_map[i].modifier_shift = shared::ReadIniBool(cfg, "input", key, false);
+            
+            snprintf(key, sizeof(key), "map_%d_alt", i);
+            GetOverlayConfig().gamepad_to_vk_map[i].modifier_alt = shared::ReadIniBool(cfg, "input", key, false);
+        }
+
+        notes::GetNotesWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
+        settings::GetSettingsWindow().SetBgAlpha(GetOverlayConfig().global_window_alpha);
+    });
+
+    dover::shared::GameStorage::Get().RegisterConfigSave([](const std::filesystem::path& cfg) {
+        shared::WriteIniBool(cfg, "osd", "show_fps",   GetOverlayConfig().show_fps);
+        shared::WriteIniBool(cfg, "osd", "show_clock", GetOverlayConfig().show_clock);
+        shared::WriteIniBool(cfg, "osd", "show_api",   GetOverlayConfig().show_api);
+        shared::WriteIniBool(cfg, "osd", "show_gamepad_hud",     GetOverlayConfig().show_gamepad_hud);
+        shared::WriteIniInt(cfg, "osd", "gamepad_hud_position", GetOverlayConfig().gamepad_hud_position);
+        shared::WriteIniFloat(cfg, "osd", "gamepad_hud_scale",    GetOverlayConfig().gamepad_hud_scale);
+
+        shared::WriteIniFloat(cfg, "theme", "window_alpha",  GetOverlayConfig().global_window_alpha);
+        shared::WriteIniFloat(cfg, "theme", "overlay_alpha", GetOverlayConfig().overlay_bg_alpha);
+
+        shared::WriteIniInt(cfg, "hotkeys", "toggle_main", GetOverlayConfig().hotkey_toggle_main);
+        shared::WriteIniInt(cfg, "hotkeys", "toggle_modifier", GetOverlayConfig().hotkey_toggle_modifier);
+
+        for (int i = 0; i < 18; ++i) {
+            char key[32];
+            snprintf(key, sizeof(key), "map_%d", i);
+            shared::WriteIniInt(cfg, "input", key, GetOverlayConfig().gamepad_to_vk_map[i].vk_code);
+            
+            snprintf(key, sizeof(key), "map_%d_ctrl", i);
+            shared::WriteIniBool(cfg, "input", key, GetOverlayConfig().gamepad_to_vk_map[i].modifier_ctrl);
+            
+            snprintf(key, sizeof(key), "map_%d_shift", i);
+            shared::WriteIniBool(cfg, "input", key, GetOverlayConfig().gamepad_to_vk_map[i].modifier_shift);
+            
+            snprintf(key, sizeof(key), "map_%d_alt", i);
+            shared::WriteIniBool(cfg, "input", key, GetOverlayConfig().gamepad_to_vk_map[i].modifier_alt);
+        }
+    });
+
+    dover::shared::GameStorage::Get().RegisterStateLoad([](const std::filesystem::path& st) {
+        char note_file[64] = {};
+        shared::ReadIniString(st, "notes", "selected_note_filename", "", note_file, sizeof(note_file));
+        
+        int view_mode = shared::ReadIniInt(st, "notes", "view_mode", 1);
+        if (note_file[0] != '\0') {
+            notes::GetNotesWindow().SelectNoteByFilename(note_file);
+        } else {
+            notes::GetNotesWindow().SelectNote(0, false);
+        }
+        notes::GetNotesWindow().SetViewMode(view_mode);
+
+        int zoom_idx = shared::ReadIniInt(st, "notes", "zoom_idx", 2);
+        notes::GetNotesWindow().SetZoomIndex(zoom_idx);
+
+        int settings_cat = shared::ReadIniInt(st, "settings", "selected_category", 0);
+        settings::GetSettingsWindow().SetSelectedCategory(settings_cat);
+
+        bool notes_open = shared::ReadIniBool(st, "notes", "is_open", false);
+        notes::GetNotesWindow().SetOpenDirect(notes_open);
+
+        bool settings_open = shared::ReadIniBool(st, "settings", "is_open", false);
+        settings::GetSettingsWindow().SetOpenDirect(settings_open);
+
+        bool crosshair_open = shared::ReadIniBool(st, "crosshair", "is_open", false);
+        crosshair::GetCrosshairWindow().SetOpenDirect(crosshair_open);
+        
+        bool input_open = shared::ReadIniBool(st, "inputmap", "is_open", false);
+        input::GetInputWindow().SetOpenDirect(input_open);
+        
+        bool crosshair_active = shared::ReadIniBool(st, "crosshair", "is_active", false);
+        crosshair::GetCrosshairWindow().SetCrosshairActive(crosshair_active);
+        
+        int crosshair_idx = shared::ReadIniInt(st, "crosshair", "selected_index", 0);
+        crosshair::GetCrosshairWindow().SetSelectedIndex(crosshair_idx);
+        
+        float cr = shared::ReadIniFloat(st, "crosshair", "color_r", 1.0f);
+        float cg = shared::ReadIniFloat(st, "crosshair", "color_g", 1.0f);
+        float cb = shared::ReadIniFloat(st, "crosshair", "color_b", 1.0f);
+        float ca = shared::ReadIniFloat(st, "crosshair", "color_a", 1.0f);
+        crosshair::GetCrosshairWindow().SetColor(ImVec4(cr, cg, cb, ca));
+        
+        bool coutline = shared::ReadIniBool(st, "crosshair", "outline_enabled", false);
+        crosshair::GetCrosshairWindow().SetOutlineEnabled(coutline);
+        
+        float ocr = shared::ReadIniFloat(st, "crosshair", "outline_r", 0.0f);
+        float ocg = shared::ReadIniFloat(st, "crosshair", "outline_g", 0.0f);
+        float ocb = shared::ReadIniFloat(st, "crosshair", "outline_b", 0.0f);
+        float oca = shared::ReadIniFloat(st, "crosshair", "outline_a", 1.0f);
+        crosshair::GetCrosshairWindow().SetOutlineColor(ImVec4(ocr, ocg, ocb, oca));
+        
+        float cscale = shared::ReadIniFloat(st, "crosshair", "scale", 1.0f);
+        crosshair::GetCrosshairWindow().SetScale(cscale);
+
+        float copacity = shared::ReadIniFloat(st, "crosshair", "opacity", 1.0f);
+        crosshair::GetCrosshairWindow().SetOpacity(copacity);
+        
+        float cpos_x = shared::ReadIniFloat(st, "crosshair", "pos_x", 0.0f);
+        float cpos_y = shared::ReadIniFloat(st, "crosshair", "pos_y", 0.0f);
+        crosshair::GetCrosshairWindow().SetPosX(cpos_x);
+        crosshair::GetCrosshairWindow().SetPosY(cpos_y);
+    });
+
+    dover::shared::GameStorage::Get().RegisterStateSave([](const std::filesystem::path& st) {
+        const char* note_fn = notes::GetNotesWindow().GetSelectedNoteFilename();
+        shared::WriteIniString(st, "notes", "selected_note_filename", note_fn);
+        shared::WriteIniInt(st, "notes", "view_mode",           notes::GetNotesWindow().GetViewMode());
+        shared::WriteIniInt(st, "notes", "zoom_idx",            notes::GetNotesWindow().GetZoomIndex());
+        shared::WriteIniInt(st, "settings", "selected_category", settings::GetSettingsWindow().GetSelectedCategory());
+
+        shared::WriteIniBool(st, "notes", "is_open",            notes::GetNotesWindow().IsOpen());
+        shared::WriteIniBool(st, "settings", "is_open",         settings::GetSettingsWindow().IsOpen());
+        shared::WriteIniBool(st, "crosshair", "is_open",        crosshair::GetCrosshairWindow().IsOpen());
+        shared::WriteIniBool(st, "inputmap", "is_open",         input::GetInputWindow().IsOpen());
+        
+        shared::WriteIniBool(st, "crosshair", "is_active",      crosshair::GetCrosshairWindow().IsCrosshairActive());
+        shared::WriteIniInt(st, "crosshair", "selected_index",  crosshair::GetCrosshairWindow().GetSelectedIndex());
+        
+        const ImVec4& ccolor = crosshair::GetCrosshairWindow().GetColor();
+        shared::WriteIniFloat(st, "crosshair", "color_r",       ccolor.x);
+        shared::WriteIniFloat(st, "crosshair", "color_g",       ccolor.y);
+        shared::WriteIniFloat(st, "crosshair", "color_b",       ccolor.z);
+        shared::WriteIniFloat(st, "crosshair", "color_a",       ccolor.w);
+        
+        shared::WriteIniBool(st, "crosshair", "outline_enabled",crosshair::GetCrosshairWindow().IsOutlineEnabled());
+        const ImVec4& ocolor = crosshair::GetCrosshairWindow().GetOutlineColor();
+        shared::WriteIniFloat(st, "crosshair", "outline_r",     ocolor.x);
+        shared::WriteIniFloat(st, "crosshair", "outline_g",     ocolor.y);
+        shared::WriteIniFloat(st, "crosshair", "outline_b",     ocolor.z);
+        shared::WriteIniFloat(st, "crosshair", "outline_a",     ocolor.w);
+        
+        shared::WriteIniFloat(st, "crosshair", "scale",         crosshair::GetCrosshairWindow().GetScale());
+        shared::WriteIniFloat(st, "crosshair", "opacity",       crosshair::GetCrosshairWindow().GetOpacity());
+        shared::WriteIniFloat(st, "crosshair", "pos_x",         crosshair::GetCrosshairWindow().GetPosX());
+        shared::WriteIniFloat(st, "crosshair", "pos_y",         crosshair::GetCrosshairWindow().GetPosY());
+    });
+
     // 6. Load persistent config/state
-    GameStorage::Get().LoadConfig();
-    GameStorage::Get().LoadState();
+    dover::shared::GameStorage::Get().LoadConfig();
+    dover::shared::GameStorage::Get().LoadState();
 }
 
 } // namespace dover::overlay
