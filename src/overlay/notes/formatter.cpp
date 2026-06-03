@@ -176,6 +176,8 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
   int last_wrap_c_idx = 0;
   int last_space_c_idx = -1;
 
+  float current_line_width = 0.0f;
+
   for (int i = 0; i <= clean_len; i++) {
     if (i == clean_len || s_clean_str[i] == '\n') {
       for (int j = last_wrap_c_idx; j < i; j++) {
@@ -192,6 +194,7 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
       }
       last_wrap_c_idx = i + 1;
       last_space_c_idx = -1;
+      current_line_width = 0.0f;
       continue;
     }
 
@@ -199,12 +202,13 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
       last_space_c_idx = i;
     }
 
-    float width = g_editor_font->CalcTextSizeA(g_editor_font->FontSize, FLT_MAX, 0.0f,
-                                               &s_clean_str[last_wrap_c_idx],
+    float char_width = g_editor_font->CalcTextSizeA(g_editor_font->FontSize, FLT_MAX, 0.0f,
+                                               &s_clean_str[i],
                                                &s_clean_str[i] + 1).x;
+    current_line_width += char_width;
 
-    if (width > g_wrap_width) {
-      if (last_space_c_idx != -1 && last_space_c_idx > last_wrap_c_idx) {
+    if (current_line_width > g_wrap_width) {
+      if (last_space_c_idx != -1 && last_space_c_idx >= last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < last_space_c_idx; j++) {
           if (wrapped_len < MAX_LEN - 1) {
             s_map_C_to_Wnew[j] = wrapped_len;
@@ -219,6 +223,7 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
         last_wrap_c_idx = last_space_c_idx + 1;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
+        current_line_width = 0.0f;
       } else if (i > last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < i; j++) {
           if (wrapped_len < MAX_LEN - 1) {
@@ -234,6 +239,7 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
         last_wrap_c_idx = i;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
+        current_line_width = 0.0f;
       }
     }
   }
@@ -335,10 +341,23 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
           int s_start = data->SelectionStart;
           int s_end = data->SelectionEnd;
           if (s_start > s_end) std::swap(s_start, s_end);
-          char backup = data->Buf[s_end];
-          data->Buf[s_end] = '\0';
-          ImGui::SetClipboardText(data->Buf + s_start);
-          data->Buf[s_end] = backup;
+          constexpr int MAX_COPY = 131072;
+          static char clean_copy[MAX_COPY];
+          int c_idx = 0;
+          for (int i = s_start; i < s_end; ) {
+             if (c_idx >= MAX_COPY - 1) break;
+             if (i + 1 < s_end && data->Buf[i] == '\r' && data->Buf[i+1] == '\n') {
+                 clean_copy[c_idx++] = ' ';
+                 i += 2;
+             } else if (i + 2 < s_end && data->Buf[i] == '\r' && data->Buf[i+1] == '-' && data->Buf[i+2] == '\n') {
+                 i += 3;
+             } else {
+                 clean_copy[c_idx++] = data->Buf[i];
+                 i++;
+             }
+          }
+          clean_copy[c_idx] = '\0';
+          ImGui::SetClipboardText(clean_copy);
         } else {
           ImGui::SetClipboardText("");
         }
@@ -349,10 +368,23 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
           int s_start = data->SelectionStart;
           int s_end = data->SelectionEnd;
           if (s_start > s_end) std::swap(s_start, s_end);
-          char backup = data->Buf[s_end];
-          data->Buf[s_end] = '\0';
-          ImGui::SetClipboardText(data->Buf + s_start);
-          data->Buf[s_end] = backup;
+          constexpr int MAX_COPY = 131072;
+          static char clean_copy[MAX_COPY];
+          int c_idx = 0;
+          for (int i = s_start; i < s_end; ) {
+             if (c_idx >= MAX_COPY - 1) break;
+             if (i + 1 < s_end && data->Buf[i] == '\r' && data->Buf[i+1] == '\n') {
+                 clean_copy[c_idx++] = ' ';
+                 i += 2;
+             } else if (i + 2 < s_end && data->Buf[i] == '\r' && data->Buf[i+1] == '-' && data->Buf[i+2] == '\n') {
+                 i += 3;
+             } else {
+                 clean_copy[c_idx++] = data->Buf[i];
+                 i++;
+             }
+          }
+          clean_copy[c_idx] = '\0';
+          ImGui::SetClipboardText(clean_copy);
           data->DeleteChars(s_start, s_end - s_start);
           data->SelectionEnd = s_start;
           data->CursorPos = s_start;
@@ -461,6 +493,8 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
   int last_wrap_c_idx = 0;
   int last_space_c_idx = -1;
 
+  float current_line_width = 0.0f;
+
   for (int i = 0; i <= clean_len; i++) {
     if (i == clean_len || s_clean_str[i] == '\n') {
       for (int j = last_wrap_c_idx; j < i; j++) {
@@ -471,6 +505,7 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
       }
       last_wrap_c_idx = i + 1;
       last_space_c_idx = -1;
+      current_line_width = 0.0f;
       continue;
     }
 
@@ -478,12 +513,13 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
       last_space_c_idx = i;
     }
 
-    float width = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f,
-                                      &s_clean_str[last_wrap_c_idx],
+    float char_width = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f,
+                                      &s_clean_str[i],
                                       &s_clean_str[i] + 1).x;
+    current_line_width += char_width;
 
-    if (width > wrap_width) {
-      if (last_space_c_idx != -1 && last_space_c_idx > last_wrap_c_idx) {
+    if (current_line_width > wrap_width) {
+      if (last_space_c_idx != -1 && last_space_c_idx >= last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < last_space_c_idx; j++) {
           if (wrapped_len < MAX_LEN - 1) s_wrapped_str[wrapped_len++] = s_clean_str[j];
         }
@@ -494,6 +530,7 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
         last_wrap_c_idx = last_space_c_idx + 1;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
+        current_line_width = 0.0f;
       } else if (i > last_wrap_c_idx) {
         for (int j = last_wrap_c_idx; j < i; j++) {
           if (wrapped_len < MAX_LEN - 1) s_wrapped_str[wrapped_len++] = s_clean_str[j];
@@ -506,6 +543,7 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
         last_wrap_c_idx = i;
         i = last_wrap_c_idx - 1;
         last_space_c_idx = -1;
+        current_line_width = 0.0f;
       }
     }
   }

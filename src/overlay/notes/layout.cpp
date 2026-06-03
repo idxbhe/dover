@@ -664,7 +664,7 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
         window->m_force_focus_frames--;
     }
 
-    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways | ImGuiInputTextFlags_NoHorizontalScroll;
+    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
     SetFormatterContext(window->m_editor_wrap_width, g_fonts_editor[window->m_zoom_idx]);
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));

@@ -258,4 +258,8 @@ ID3D11Device* GetDx11Device() {
   return g_d3d11_device;
 }
 
+ID3D11DeviceContext* GetDx11Context() {
+  return g_d3d11_context;
+}
+
 } // namespace dover::overlay

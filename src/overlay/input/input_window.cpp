@@ -31,26 +31,26 @@ struct ButtonOffset {
 };
 
 const ButtonOffset g_button_offsets[] = {
-    { "btn_a", 0.7658f, 0.5238f, 0.0683f, 0.1025f },
-    { "btn_b", 0.8392f, 0.4238f, 0.0683f, 0.1025f },
-    { "btn_dpad_down", 0.3650f, 0.7375f, 0.0567f, 0.0650f },
-    { "btn_dpad_left", 0.3142f, 0.6687f, 0.0517f, 0.0875f },
-    { "btn_dpad_right", 0.4167f, 0.6687f, 0.0533f, 0.0875f },
-    { "btn_dpad_up", 0.3650f, 0.5938f, 0.0567f, 0.0725f },
-    { "btn_guide", 0.5008f, 0.2838f, 0.0817f, 0.1225f },
-    { "btn_lb", 0.2433f, 0.1588f, 0.2333f, 0.1275f },
-    { "btn_lstick", 0.2375f, 0.4387f, 0.1150f, 0.1725f },
-    { "btn_lt", 0.2142f, 0.0712f, 0.1017f, 0.1275f },
-    { "btn_lthumb", 0.2367f, 0.4400f, 0.0900f, 0.1350f },
-    { "btn_menu", 0.5758f, 0.4363f, 0.0450f, 0.0675f },
-    { "btn_rb", 0.7583f, 0.1588f, 0.2333f, 0.1275f },
-    { "btn_rstick", 0.6358f, 0.6587f, 0.1150f, 0.1725f },
-    { "btn_rt", 0.7842f, 0.0712f, 0.1017f, 0.1275f },
-    { "btn_rthumb", 0.6367f, 0.6600f, 0.0900f, 0.1350f },
-    { "btn_share", 0.5000f, 0.4975f, 0.0533f, 0.0450f },
-    { "btn_view", 0.4242f, 0.4363f, 0.0450f, 0.0675f },
-    { "btn_x", 0.6975f, 0.4338f, 0.0683f, 0.1025f },
-    { "btn_y", 0.7692f, 0.3337f, 0.0683f, 0.1025f },
+    { "btn_a", 0.7667f, 0.5250f, 0.0758f, 0.1137f },
+    { "btn_b", 0.8400f, 0.4250f, 0.0758f, 0.1137f },
+    { "btn_dpad_down", 0.3658f, 0.7362f, 0.0632f, 0.0731f },
+    { "btn_dpad_left", 0.3150f, 0.6700f, 0.0578f, 0.0975f },
+    { "btn_dpad_right", 0.4167f, 0.6700f, 0.0578f, 0.0975f },
+    { "btn_dpad_up", 0.3650f, 0.5938f, 0.0650f, 0.0840f },
+    { "btn_guide", 0.5008f, 0.2838f, 0.0921f, 0.1381f },
+    { "btn_lb", 0.2425f, 0.1600f, 0.2546f, 0.1408f },
+    { "btn_lstick", 0.2367f, 0.4400f, 0.1264f, 0.1896f },
+    { "btn_lt", 0.2133f, 0.0725f, 0.1119f, 0.1408f },
+    { "btn_lthumb", 0.2367f, 0.4400f, 0.0975f, 0.1462f },
+    { "btn_menu", 0.5758f, 0.4363f, 0.0524f, 0.0785f },
+    { "btn_rb", 0.7575f, 0.1600f, 0.2546f, 0.1408f },
+    { "btn_rstick", 0.6367f, 0.6600f, 0.1264f, 0.1896f },
+    { "btn_rt", 0.7842f, 0.0725f, 0.1101f, 0.1408f },
+    { "btn_rthumb", 0.6367f, 0.6600f, 0.0975f, 0.1462f },
+    { "btn_share", 0.5000f, 0.4975f, 0.0614f, 0.0542f },
+    { "btn_view", 0.4250f, 0.4363f, 0.0506f, 0.0785f },
+    { "btn_x", 0.6967f, 0.4325f, 0.0758f, 0.1137f },
+    { "btn_y", 0.7700f, 0.3337f, 0.0758f, 0.1165f },
 };
 
 InputWindow::InputWindow()
@@ -327,32 +327,38 @@ void InputWindow::LoadGamepadTextures() {
             D3D11_TEXTURE2D_DESC desc = {};
             desc.Width = asset.width;
             desc.Height = asset.height;
-            desc.MipLevels = 1;
+            desc.MipLevels = 0; // Allocate full mipmap chain
             desc.ArraySize = 1;
             desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
             desc.SampleDesc.Count = 1;
             desc.Usage = D3D11_USAGE_DEFAULT;
-            desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-            D3D11_SUBRESOURCE_DATA subData = {};
-            subData.pSysMem = asset.rgba_data;
-            subData.SysMemPitch = asset.width * 4;
+            desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET; // Required for GenerateMips
+            desc.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
 
             ID3D11Texture2D* pTexture = nullptr;
-            if (SUCCEEDED(dx11->CreateTexture2D(&desc, &subData, &pTexture))) {
-                D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-                srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-                srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-                srvDesc.Texture2D.MipLevels = 1;
-                
-                ID3D11ShaderResourceView* pSRV = nullptr;
-                dx11->CreateShaderResourceView(pTexture, &srvDesc, &pSRV);
+            if (SUCCEEDED(dx11->CreateTexture2D(&desc, nullptr, &pTexture))) {
+                ID3D11DeviceContext* context = GetDx11Context();
+                if (context) {
+                    // Upload level 0 data
+                    context->UpdateSubresource(pTexture, 0, nullptr, asset.rgba_data, asset.width * 4, 0);
+
+                    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+                    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+                    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+                    srvDesc.Texture2D.MipLevels = static_cast<UINT>(-1); // Expose all mip levels
+                    
+                    ID3D11ShaderResourceView* pSRV = nullptr;
+                    if (SUCCEEDED(dx11->CreateShaderResourceView(pTexture, &srvDesc, &pSRV))) {
+                        context->GenerateMips(pSRV);
+                        asset.texture_id = pSRV;
+                    }
+                }
                 pTexture->Release();
-                asset.texture_id = pSRV;
             }
         } else if (dx9) {
             IDirect3DTexture9* pTexture = nullptr;
-            if (SUCCEEDED(dx9->CreateTexture(asset.width, asset.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &pTexture, nullptr))) {
+            // Use 0 for mip levels and AUTOGENMIPMAP flag
+            if (SUCCEEDED(dx9->CreateTexture(asset.width, asset.height, 0, D3DUSAGE_AUTOGENMIPMAP, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &pTexture, nullptr))) {
                 D3DLOCKED_RECT rect;
                 if (SUCCEEDED(pTexture->LockRect(0, &rect, nullptr, 0))) {
                     const uint8_t* src = asset.rgba_data;
