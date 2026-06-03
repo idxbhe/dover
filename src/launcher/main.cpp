@@ -3,6 +3,12 @@
 #include "shared/log.h"
 #include "shared/process.h"
 
+#include "shared/notes/manager.h"
+#include "shared/notes/layout.h"
+#include "shared/settings/settings_window.h"
+#include "shared/theme.h"
+#include "shared/game_storage.h"
+
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -392,6 +398,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*pCmdLine*/, int /
   ImGui_ImplWin32_Init(hwnd);
   ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
+  dover::shared::SetupImGuiTheme();
+
+  enum class LauncherState { Main, Notes, Settings };
+  LauncherState state = LauncherState::Main;
+
   bool done = false;
   auto games = LoadSavedGames();
   char input_buffer[MAX_PATH] = {};
@@ -416,68 +427,86 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*pCmdLine*/, int /
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowPos(ImVec2(0, 0));
-    ImGui::SetNextWindowSize(io.DisplaySize);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::Begin("Launcher UI", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-    ImGui::PopStyleVar();
+    if (state == LauncherState::Main) {
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(io.DisplaySize);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::Begin("Launcher UI", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+        ImGui::PopStyleVar();
 
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.13f, 0.15f, 1.00f));
-    ImGui::BeginChild("TitleBar", ImVec2(0, 35), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-    ImGui::SetCursorPos(ImVec2(10.0f, 10.0f));
-    ImGui::TextColored(ImVec4(0.35f, 0.65f, 1.00f, 1.00f), "DOVER LAUNCHER");
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.13f, 0.15f, 1.00f));
+        ImGui::BeginChild("TitleBar", ImVec2(0, 35), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::SetCursorPos(ImVec2(10.0f, 10.0f));
+        ImGui::TextColored(ImVec4(0.35f, 0.65f, 1.00f, 1.00f), "DOVER LAUNCHER");
 
-    float button_width = 40.0f;
-    ImGui::SameLine(ImGui::GetWindowWidth() - button_width * 2);
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
-    ImGui::SetCursorPosY(0);
-    if (ImGui::Button("-", ImVec2(button_width, 35))) { ShowWindow(g_hwnd, SW_MINIMIZE); }
-    ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.1f, 0.1f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 0.2f, 0.2f, 1.0f));
-    if (ImGui::Button("X", ImVec2(button_width, 35))) { PostMessageW(g_hwnd, WM_CLOSE, 0, 0); }
-    ImGui::PopStyleColor(5);
-    ImGui::PopStyleVar();
-    ImGui::EndChild();
-    ImGui::PopStyleColor();
+        float button_width = 40.0f;
+        ImGui::SameLine(ImGui::GetWindowWidth() - button_width * 2);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
+        ImGui::SetCursorPosY(0);
+        if (ImGui::Button("-", ImVec2(button_width, 35))) { ShowWindow(g_hwnd, SW_MINIMIZE); }
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.1f, 0.1f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 0.2f, 0.2f, 1.0f));
+        if (ImGui::Button("X", ImVec2(button_width, 35))) { PostMessageW(g_hwnd, WM_CLOSE, 0, 0); }
+        ImGui::PopStyleColor(5);
+        ImGui::PopStyleVar();
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
-    ImGui::BeginChild("Content", ImVec2(0, 0), false, ImGuiWindowFlags_None);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
+        ImGui::BeginChild("Content", ImVec2(0, 0), false, ImGuiWindowFlags_None);
 
-    ImGui::Text("Saved Games:");
-    for (size_t i = 0; i < games.size(); ++i) {
-      ImGui::PushID(static_cast<int>(i));
-      std::string name_u8 = WideToUTF8(games[i].name);
-      if (ImGui::Button(name_u8.c_str(), ImVec2(ImGui::GetContentRegionAvail().x - 100.0f, 30.0f))) {
-        HANDLE hProcess = LaunchAndInject(games[i].path, 0, nullptr);
-        if (hProcess) {
-          ShowWindow(hwnd, SW_HIDE);
-          AddTrayIcon(hwnd);
+        ImGui::Text("Saved Games:");
+        for (size_t i = 0; i < games.size(); ++i) {
+          ImGui::PushID(static_cast<int>(i));
+          std::string name_u8 = WideToUTF8(games[i].name);
+          if (ImGui::Button(name_u8.c_str(), ImVec2(ImGui::GetContentRegionAvail().x - 230.0f, 30.0f))) {
+            HANDLE hProcess = LaunchAndInject(games[i].path, 0, nullptr);
+            if (hProcess) {
+              ShowWindow(hwnd, SW_HIDE);
+              AddTrayIcon(hwnd);
 
-          struct WaitThreadData {
-            HWND hwnd;
-            HANDLE hProcess;
-          };
-          WaitThreadData* data = new WaitThreadData{ hwnd, hProcess };
-          CreateThread(nullptr, 0, [](LPVOID lpParam) -> DWORD {
-            WaitThreadData* d = static_cast<WaitThreadData*>(lpParam);
-            WaitForSingleObject(d->hProcess, INFINITE);
-            CloseHandle(d->hProcess);
-            PostMessageW(d->hwnd, WM_GAME_EXITED, 0, 0);
-            delete d;
-            return 0;
-          }, data, 0, nullptr);
+              struct WaitThreadData {
+                HWND hwnd;
+                HANDLE hProcess;
+              };
+              WaitThreadData* data = new WaitThreadData{ hwnd, hProcess };
+              CreateThread(nullptr, 0, [](LPVOID lpParam) -> DWORD {
+                WaitThreadData* d = static_cast<WaitThreadData*>(lpParam);
+                WaitForSingleObject(d->hProcess, INFINITE);
+                CloseHandle(d->hProcess);
+                PostMessageW(d->hwnd, WM_GAME_EXITED, 0, 0);
+                delete d;
+                return 0;
+              }, data, 0, nullptr);
+            }
+          }
+          ImGui::SameLine();
+          if (ImGui::Button("Notes", ImVec2(70.0f, 30.0f))) {
+            dover::shared::GameStorage::Get().Initialize(games[i].name);
+            dover::shared::notes::InitializeNotesManager(dover::shared::GameStorage::Get().GetNotesDir());
+            auto& notes_win = dover::shared::notes::GetNotesWindow();
+            notes_win.SetRenderContext(dover::shared::ui::RenderContext::Launcher);
+            notes_win.SetOpenDirect(true);
+            state = LauncherState::Notes;
+          }
+          ImGui::SameLine();
+          if (ImGui::Button("Settings", ImVec2(75.0f, 30.0f))) {
+            dover::shared::GameStorage::Get().Initialize(games[i].name);
+            auto& settings_win = dover::shared::settings::GetSettingsWindow();
+            settings_win.SetRenderContext(dover::shared::ui::RenderContext::Launcher);
+            settings_win.SetOpenDirect(true);
+            state = LauncherState::Settings;
+          }
+          ImGui::SameLine();
+          if (ImGui::Button("Remove", ImVec2(70.0f, 30.0f))) {
+            // Implement removal logic later, simplified for now
+          }
+          ImGui::PopID();
         }
-      }
-      ImGui::SameLine();
-      if (ImGui::Button("Remove", ImVec2(90.0f, 30.0f))) {
-        // Implement removal logic later, simplified for now
-      }
-      ImGui::PopID();
-    }
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -508,6 +537,23 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*pCmdLine*/, int /
     ImGui::PopStyleVar();
 
     ImGui::End();
+    
+    } else if (state == LauncherState::Notes) {
+        auto& notes_win = dover::shared::notes::GetNotesWindow();
+        if (notes_win.IsOpen()) {
+            notes_win.Render(true);
+        } else {
+            dover::shared::notes::ShutdownNotesManager();
+            state = LauncherState::Main;
+        }
+    } else if (state == LauncherState::Settings) {
+        auto& settings_win = dover::shared::settings::GetSettingsWindow();
+        if (settings_win.IsOpen()) {
+            settings_win.Render(true);
+        } else {
+            state = LauncherState::Main;
+        }
+    }
 
     ImGui::Render();
     const float clear_color_with_alpha[4] = { 0.08f, 0.09f, 0.11f, 1.00f };

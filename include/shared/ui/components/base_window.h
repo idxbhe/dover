@@ -61,6 +61,7 @@ public:
     void Close();
     void ToggleOpen();
     void SetOpenDirect(bool open) { m_is_open = open; }
+    void SetRenderContext(RenderContext ctx) { m_ctx = ctx; }
     
     bool IsOpen() const { return m_is_open; }
     bool* GetOpenPtr() { return &m_is_open; }
