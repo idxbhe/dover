@@ -3,6 +3,7 @@
 #include "shared/theme.h"
 #include "shared/game_storage.h"
 #include <imgui.h>
+#include <imgui_internal.h> // ImGui::ClearActiveID()
 
 namespace dover::shared::ui {
 
@@ -254,6 +255,10 @@ void BaseWindow::Open() {
 }
 
 void BaseWindow::Close() {
+    // Force-flush any active InputText widget before closing.
+    // ImGui holds typed characters in an internal buffer until the widget loses focus.
+    // Without this, the last keystrokes typed before close are silently lost.
+    ImGui::ClearActiveID();
     m_is_open = false;
     dover::shared::GameStorage::Get().SaveState();
 }

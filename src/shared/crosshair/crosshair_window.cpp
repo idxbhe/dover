@@ -116,6 +116,8 @@ void CrosshairWindow::Shutdown() {
             } else if (shared::GetDx9Device()) {
                 auto* tex = static_cast<IDirect3DTexture9*>(crosshairs[i].texture_id);
                 tex->Release();
+            } else if (shared::GetDx12Device()) {
+                shared::ReleaseDx12Texture(crosshairs[i].texture_id);
             }
             crosshairs[i].texture_id = nullptr;
         }
@@ -123,84 +125,70 @@ void CrosshairWindow::Shutdown() {
     m_textures_loaded = false;
 }
 
-void CrosshairWindow::RenderCrosshairOverlay() {
-    if (!m_textures_loaded) {
-        m_textures_loaded = true; // Strict guard: ONLY TRY ONCE!
-        
-        if (!assets::AssetStorage::Get().IsInitialized()) {
-            return; // If PAK is missing, do not attempt to load textures
-        }
-        
-        auto& crosshairs = assets::AssetStorage::Get().GetAssets();
-        
-        ID3D11Device* dx11 = shared::GetDx11Device();
-        IDirect3DDevice9* dx9 = shared::GetDx9Device();
-        
-        if (dx11) {
-            dover::shared::LogInfo("Loading Crosshair Textures (DX11)...");
-            for (size_t i = 0; i < crosshairs.size(); ++i) {
-                if (crosshairs[i].name.rfind("gamepad/", 0) == 0) continue;
-                
-                D3D11_TEXTURE2D_DESC desc = {};
-                desc.Width = crosshairs[i].width;
-                desc.Height = crosshairs[i].height;
-                desc.MipLevels = 1;
-                desc.ArraySize = 1;
-                desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-                desc.SampleDesc.Count = 1;
-                desc.Usage = D3D11_USAGE_DEFAULT;
-                desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+void CrosshairWindow::LoadAssetTexture(dover::shared::assets::TextureData* asset) {
+    if (!asset || asset->texture_id) return;
+    
+    ID3D11Device* dx11 = shared::GetDx11Device();
+    IDirect3DDevice9* dx9 = shared::GetDx9Device();
+    
+    if (dx11) {
+        D3D11_TEXTURE2D_DESC desc = {};
+        desc.Width = asset->width;
+        desc.Height = asset->height;
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        desc.SampleDesc.Count = 1;
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
-                D3D11_SUBRESOURCE_DATA subData = {};
-                subData.pSysMem = crosshairs[i].rgba_data;
-                subData.SysMemPitch = desc.Width * 4;
+        D3D11_SUBRESOURCE_DATA subData = {};
+        subData.pSysMem = asset->rgba_data;
+        subData.SysMemPitch = desc.Width * 4;
 
-                ID3D11Texture2D* pTexture = nullptr;
-                if (SUCCEEDED(dx11->CreateTexture2D(&desc, &subData, &pTexture))) {
-                    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-                    srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-                    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-                    srvDesc.Texture2D.MipLevels = 1;
-                    
-                    ID3D11ShaderResourceView* pSRV = nullptr;
-                    if (SUCCEEDED(dx11->CreateShaderResourceView(pTexture, &srvDesc, &pSRV))) {
-                        crosshairs[i].texture_id = pSRV;
-                    }
-                    pTexture->Release();
-                }
+        ID3D11Texture2D* pTexture = nullptr;
+        if (SUCCEEDED(dx11->CreateTexture2D(&desc, &subData, &pTexture))) {
+            D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+            srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+            srvDesc.Texture2D.MipLevels = 1;
+            
+            ID3D11ShaderResourceView* pSRV = nullptr;
+            if (SUCCEEDED(dx11->CreateShaderResourceView(pTexture, &srvDesc, &pSRV))) {
+                asset->texture_id = pSRV;
             }
-        } else if (dx9) {
-            dover::shared::LogInfo("Loading Crosshair Textures (DX9)...");
-            for (size_t i = 0; i < crosshairs.size(); ++i) {
-                if (crosshairs[i].name.rfind("gamepad/", 0) == 0) continue;
-                
-                IDirect3DTexture9* pTexture = nullptr;
-                int w = crosshairs[i].width;
-                int h = crosshairs[i].height;
-                if (SUCCEEDED(dx9->CreateTexture(w, h, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &pTexture, nullptr))) {
-                    D3DLOCKED_RECT rect;
-                    if (SUCCEEDED(pTexture->LockRect(0, &rect, nullptr, 0))) {
-                        uint8_t* dest = (uint8_t*)rect.pBits;
-                        const uint8_t* src = crosshairs[i].rgba_data;
-                        for (int y = 0; y < h; y++) {
-                            for (int x = 0; x < w; x++) {
-                                // RGBA to BGRA (DX9 standard pixel format)
-                                dest[y * rect.Pitch + x * 4 + 0] = src[(y * w + x) * 4 + 2]; // B
-                                dest[y * rect.Pitch + x * 4 + 1] = src[(y * w + x) * 4 + 1]; // G
-                                dest[y * rect.Pitch + x * 4 + 2] = src[(y * w + x) * 4 + 0]; // R
-                                dest[y * rect.Pitch + x * 4 + 3] = src[(y * w + x) * 4 + 3]; // A
-                            }
-                        }
-                        pTexture->UnlockRect(0);
-                        crosshairs[i].texture_id = pTexture;
-                    } else {
-                        pTexture->Release();
+            pTexture->Release();
+        }
+    } else if (dx9) {
+        IDirect3DTexture9* pTexture = nullptr;
+        int w = asset->width;
+        int h = asset->height;
+        if (SUCCEEDED(dx9->CreateTexture(w, h, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &pTexture, nullptr))) {
+            D3DLOCKED_RECT rect;
+            if (SUCCEEDED(pTexture->LockRect(0, &rect, nullptr, 0))) {
+                uint8_t* dest = (uint8_t*)rect.pBits;
+                const uint8_t* src = asset->rgba_data;
+                for (int y = 0; y < h; y++) {
+                    for (int x = 0; x < w; x++) {
+                        // RGBA to BGRA (DX9 standard pixel format)
+                        dest[y * rect.Pitch + x * 4 + 0] = src[(y * w + x) * 4 + 2]; // B
+                        dest[y * rect.Pitch + x * 4 + 1] = src[(y * w + x) * 4 + 1]; // G
+                        dest[y * rect.Pitch + x * 4 + 2] = src[(y * w + x) * 4 + 0]; // R
+                        dest[y * rect.Pitch + x * 4 + 3] = src[(y * w + x) * 4 + 3]; // A
                     }
                 }
+                pTexture->UnlockRect(0);
+                asset->texture_id = pTexture;
+            } else {
+                pTexture->Release();
             }
         }
+    } else if (shared::GetDx12Device()) {
+        asset->texture_id = shared::CreateDx12Texture(asset->rgba_data, asset->width, asset->height);
     }
+}
 
+void CrosshairWindow::RenderCrosshairOverlay() {
     if (!m_active) return;
     
     int total_crosshairs = static_cast<int>(dover::shared::assets::AssetStorage::Get().GetCrosshairs().size());
@@ -209,6 +197,10 @@ void CrosshairWindow::RenderCrosshairOverlay() {
 
     auto* asset = dover::shared::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
     if (!asset) return;
+
+    if (!asset->texture_id) {
+        LoadAssetTexture(asset);
+    }
 
     void* tex_id = asset->texture_id;
     if (!tex_id) return;
@@ -276,6 +268,9 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::BeginChild("PreviewBox", ImVec2(0, preview_h), true);
     if (total_crosshairs > 0 && m_selected_index >= 0 && m_selected_index < total_crosshairs) {
         auto* asset = dover::shared::assets::AssetStorage::Get().GetCrosshairs()[m_selected_index];
+        
+        if (asset) LoadAssetTexture(asset);
+        
         void* tex_id = asset ? asset->texture_id : nullptr;
         if (tex_id) {
             ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -385,6 +380,9 @@ void CrosshairWindow::RenderContent(bool interactive) {
         }
         
         ImGui::PushID(i);
+        
+        LoadAssetTexture(asset); // Lazy-load on demand!
+        
         void* tex_id = asset->texture_id;
         if (tex_id) {
             if (ImGui::ImageButton("##ch", tex_id, ImVec2(48, 48), ImVec2(0, 0), ImVec2(1, 1), ImVec4(0,0,0,0), m_color)) {

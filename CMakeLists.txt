@@ -94,6 +94,10 @@ add_library(imgui STATIC
   ${imgui_SOURCE_DIR}/misc/freetype/imgui_freetype.cpp
 )
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  target_sources(imgui PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_dx12.cpp)
+endif()
+
 target_include_directories(imgui PUBLIC
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
@@ -177,6 +181,10 @@ add_library(dover_overlay SHARED
   src/overlay/overlay_runtime.cpp
 )
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  target_sources(dover_overlay PRIVATE src/overlay/dx12_hook.cpp)
+endif()
+
 target_include_directories(dover_overlay PRIVATE
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
@@ -184,7 +192,11 @@ target_include_directories(dover_overlay PRIVATE
   ${md4c_SOURCE_DIR}/src
 )
 
-target_link_libraries(dover_overlay PRIVATE dover_shared d3d9 minhook imgui imgui_md_lib)
+target_link_libraries(dover_overlay PRIVATE dover_shared d3d11 dxgi d3d9 minhook imgui imgui_md_lib)
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  target_link_libraries(dover_overlay PRIVATE d3d12)
+endif()
 
 option(DOVER_STRICT_BUILD "Treat warnings as errors for Dover targets" OFF)
 if(DOVER_STRICT_BUILD)

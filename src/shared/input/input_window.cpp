@@ -317,7 +317,7 @@ void InputWindow::LoadGamepadTextures() {
     
     ID3D11Device* dx11 = shared::GetDx11Device();
     IDirect3DDevice9* dx9 = shared::GetDx9Device();
-    if (!dx11 && !dx9) return;
+    if (!dx11 && !dx9 && !shared::GetDx12Device()) return;
 
     for (auto& asset : assets) {
         if (asset.name.rfind("gamepad/", 0) != 0) continue; // Only load gamepad textures
@@ -377,6 +377,8 @@ void InputWindow::LoadGamepadTextures() {
                     asset.texture_id = pTexture;
                 }
             }
+        } else if (shared::GetDx12Device()) {
+            asset.texture_id = shared::CreateDx12Texture(asset.rgba_data, asset.width, asset.height);
         }
     }
     

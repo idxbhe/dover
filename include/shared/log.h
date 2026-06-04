@@ -2,7 +2,9 @@
 
 namespace dover::shared {
 
-void LogInfo(const char* message);
-void LogError(const char* message);
+void InitializeLogging();
+void LogInfo(const char* format, ...);
+void LogError(const char* format, ...);
+void LogDebug(const char* format, ...);
 
 } // namespace dover::shared

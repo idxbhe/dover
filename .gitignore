@@ -6,6 +6,7 @@ docs/
 refactor-plan/
 .agents/
 plans/
+problems/
 raw_crosshairs/unified.svg
 raw_crosshairs/svg/
 raw_crosshairs/pad_svgs.py
@@ -58,3 +59,10 @@ $RECYCLE.BIN/
 # Temporary Logs
 *.log
 *.tmp
+
+# Local debugger helpers & backup files
+run_parser.ps1
+cdb_runner.ps1
+dump_parser.cs
+dump_parser.exe
+old_crosshair.cpp

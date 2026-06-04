@@ -7,8 +7,6 @@
 #include <windows.h>
 #include <cstring>
 #include <string>
-#include <thread>
-#include <chrono>
 #include <imgui.h>
 #include <xinput.h>
 
@@ -19,6 +17,8 @@
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace dover::overlay {
+
+thread_local bool g_in_imgui_new_frame = false;
 
 // XInput Guide Button
 #define XINPUT_GAMEPAD_GUIDE 0x0400
@@ -40,6 +40,11 @@ using PeekMessageWFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
 using PeekMessageAFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
 using GetMessageWFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT);
 using GetMessageAFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT);
+using ScreenToClientFn = BOOL(WINAPI*)(HWND, LPPOINT);
+
+// Cached cursor clip rect from the game, restored when overlay closes
+static RECT g_game_clip_rect = {};
+static bool g_game_has_clip_rect = false;
 
 GetAsyncKeyStateFn g_original_get_async_key_state = nullptr;
 GetKeyStateFn g_original_get_key_state = nullptr;
@@ -51,6 +56,7 @@ PeekMessageWFn g_original_peek_message_w = nullptr;
 PeekMessageAFn g_original_peek_message_a = nullptr;
 GetMessageWFn g_original_get_message_w = nullptr;
 GetMessageAFn g_original_get_message_a = nullptr;
+ScreenToClientFn g_original_screen_to_client = nullptr;
 
 bool ProcessInputMessage(LPMSG lpMsg) {
   if (GetOverlayState().show_overlay && lpMsg) {
@@ -113,7 +119,21 @@ BOOL WINAPI HookedGetKeyboardState(PBYTE lpKeyState) {
 
 BOOL WINAPI HookedClipCursor(const RECT* lpRect) {
   if (GetOverlayState().show_overlay) {
+    // Cache the game's requested clip rect for restoration when overlay closes
+    if (lpRect) {
+      g_game_clip_rect = *lpRect;
+      g_game_has_clip_rect = true;
+    } else {
+      g_game_has_clip_rect = false;
+    }
     return TRUE;
+  }
+  // Cache even when overlay is hidden so we always have the latest
+  if (lpRect) {
+    g_game_clip_rect = *lpRect;
+    g_game_has_clip_rect = true;
+  } else {
+    g_game_has_clip_rect = false;
   }
   if (g_original_clip_cursor) {
     return g_original_clip_cursor(lpRect);
@@ -140,6 +160,26 @@ BOOL WINAPI HookedGetCursorPos(LPPOINT lpPoint) {
     return g_original_get_cursor_pos(lpPoint);
   }
   return GetCursorPos(lpPoint);
+}
+
+BOOL WINAPI HookedScreenToClient(HWND hWnd, LPPOINT lpPoint) {
+  BOOL res = g_original_screen_to_client ? g_original_screen_to_client(hWnd, lpPoint) : ScreenToClient(hWnd, lpPoint);
+  if (res && g_in_imgui_new_frame && lpPoint) {
+    uint32_t swap_w = GetOverlayState().swapchain_width;
+    uint32_t swap_h = GetOverlayState().swapchain_height;
+    if (swap_w > 0 && swap_h > 0) {
+      RECT rect;
+      if (GetClientRect(hWnd, &rect)) {
+        float client_w = static_cast<float>(rect.right - rect.left);
+        float client_h = static_cast<float>(rect.bottom - rect.top);
+        if (client_w > 0 && client_h > 0 && (client_w != swap_w || client_h != swap_h)) {
+          lpPoint->x = static_cast<LONG>(lpPoint->x * (static_cast<float>(swap_w) / client_w));
+          lpPoint->y = static_cast<LONG>(lpPoint->y * (static_cast<float>(swap_h) / client_h));
+        }
+      }
+    }
+  }
+  return res;
 }
 
 BOOL WINAPI HookedSetCursorPos(int x, int y) {
@@ -277,10 +317,19 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
     if (is_inactive && GetOverlayState().show_overlay) {
       GetOverlayState().show_overlay = false;
       
-      if (g_original_clip_cursor) {
-        g_original_clip_cursor(nullptr);
+      // Restore game's cursor clip rect
+      if (g_game_has_clip_rect) {
+        if (g_original_clip_cursor) {
+          g_original_clip_cursor(&g_game_clip_rect);
+        } else {
+          ClipCursor(&g_game_clip_rect);
+        }
       } else {
-        ClipCursor(nullptr);
+        if (g_original_clip_cursor) {
+          g_original_clip_cursor(nullptr);
+        } else {
+          ClipCursor(nullptr);
+        }
       }
       
       ImGuiIO& io = ImGui::GetIO();
@@ -296,20 +345,69 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
   if (msg == WM_KEYDOWN && wparam == (WPARAM)cfg.hotkey_toggle_main && modifier_pressed) {
     GetOverlayState().show_overlay = !GetOverlayState().show_overlay;
     
-    // Update ImGui cursor visibility state and keyboard/gamepad navigation
     ImGuiIO& io = ImGui::GetIO();
     if (GetOverlayState().show_overlay) {
+      // Opening overlay: enable cursor, nav, and release game cursor clip
       io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
       io.ConfigFlags |= (ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
+      
+      // Release game's cursor confinement for free mouse movement
+      if (g_original_clip_cursor) {
+        g_original_clip_cursor(nullptr);
+      } else {
+        ClipCursor(nullptr);
+      }
+      
+      // Force OS cursor visible (games that hide it via SetCursor(NULL))
+      SetCursor(LoadCursor(nullptr, IDC_ARROW));
     } else {
+      // Closing overlay: clear input state and restore game clip rect
+      io.ClearInputKeys();
       io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
       io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
+      
+      // Restore game's cursor confinement
+      if (g_game_has_clip_rect) {
+        if (g_original_clip_cursor) {
+          g_original_clip_cursor(&g_game_clip_rect);
+        } else {
+          ClipCursor(&g_game_clip_rect);
+        }
+      }
     }
     
     return 1; // Block input to game
   }
 
   if (GetOverlayState().show_overlay) {
+    // Permanently block the game from hiding the cursor while overlay is active.
+    // Games typically call SetCursor(NULL) inside WM_SETCURSOR on every mouse move,
+    // overriding any one-shot SetCursor call. Intercepting here is the correct defense.
+    if (msg == WM_SETCURSOR) {
+      SetCursor(LoadCursor(nullptr, IDC_ARROW));
+      return TRUE;
+    }
+
+    // Scale coordinates in client-coordinate mouse messages when window size and swapchain size mismatch
+    if ((msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) && msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL) {
+      short x = static_cast<short>(LOWORD(lparam));
+      short y = static_cast<short>(HIWORD(lparam));
+      uint32_t swap_w = GetOverlayState().swapchain_width;
+      uint32_t swap_h = GetOverlayState().swapchain_height;
+      if (swap_w > 0 && swap_h > 0) {
+        RECT rect;
+        if (GetClientRect(hwnd, &rect)) {
+          float client_w = static_cast<float>(rect.right - rect.left);
+          float client_h = static_cast<float>(rect.bottom - rect.top);
+          if (client_w > 0 && client_h > 0 && (client_w != swap_w || client_h != swap_h)) {
+            short scaled_x = static_cast<short>(x * (static_cast<float>(swap_w) / client_w));
+            short scaled_y = static_cast<short>(y * (static_cast<float>(swap_h) / client_h));
+            lparam = MAKELPARAM(scaled_x, scaled_y);
+          }
+        }
+      }
+    }
+
     shared::g_allow_input_queries = true;
     bool imgui_processed = ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam);
     shared::g_allow_input_queries = false;
@@ -349,6 +447,7 @@ bool InitializeInputHooks() {
   void* peek_message_a_addr = GetProcAddress(user32, "PeekMessageA");
   void* get_message_w_addr = GetProcAddress(user32, "GetMessageW");
   void* get_message_a_addr = GetProcAddress(user32, "GetMessageA");
+  void* screen_to_client_addr = GetProcAddress(user32, "ScreenToClient");
 
   bool success = true;
 
@@ -420,6 +519,12 @@ bool InitializeInputHooks() {
         reinterpret_cast<void*>(&HookedGetMessageA),
         reinterpret_cast<void**>(&g_original_get_message_a));
   }
+  if (screen_to_client_addr) {
+    success &= CreateAndEnableHook(
+        screen_to_client_addr,
+        reinterpret_cast<void*>(&HookedScreenToClient),
+        reinterpret_cast<void**>(&g_original_screen_to_client));
+  }
 
   // Hook XInputGetState proactively if loaded by game or by us
   HMODULE xinput14 = GetModuleHandleW(L"xinput1_4.dll");
@@ -472,9 +577,29 @@ void PollGamepadToggle() {
       if (GetOverlayState().show_overlay) {
         io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
         io.ConfigFlags |= (ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
+        
+        // Release game's cursor confinement
+        if (g_original_clip_cursor) {
+          g_original_clip_cursor(nullptr);
+        } else {
+          ClipCursor(nullptr);
+        }
+        
+        // Force OS cursor visible
+        SetCursor(LoadCursor(nullptr, IDC_ARROW));
       } else {
+        io.ClearInputKeys();
         io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
         io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
+        
+        // Restore game's cursor confinement
+        if (g_game_has_clip_rect) {
+          if (g_original_clip_cursor) {
+            g_original_clip_cursor(&g_game_clip_rect);
+          } else {
+            ClipCursor(&g_game_clip_rect);
+          }
+        }
       }
     }
     g_prev_guide_pressed = guide_pressed;
@@ -492,6 +617,9 @@ void ShutdownInputHooks() {
   DisableAndRemoveHook(reinterpret_cast<void*>(g_original_peek_message_a));
   DisableAndRemoveHook(reinterpret_cast<void*>(g_original_get_message_w));
   DisableAndRemoveHook(reinterpret_cast<void*>(g_original_get_message_a));
+  if (g_original_screen_to_client) {
+    DisableAndRemoveHook(reinterpret_cast<void*>(g_original_screen_to_client));
+  }
 
   shared::g_key_state_func = nullptr;
   g_original_get_async_key_state = nullptr;
@@ -504,6 +632,7 @@ void ShutdownInputHooks() {
   g_original_peek_message_a = nullptr;
   g_original_get_message_w = nullptr;
   g_original_get_message_a = nullptr;
+  g_original_screen_to_client = nullptr;
 
   if (g_orig_xinput14_getstate) {
     DisableAndRemoveHook(reinterpret_cast<void*>(g_orig_xinput14_getstate));
@@ -528,16 +657,13 @@ static const char* HookedGetClipboardText(void* /*user_data*/) {
   g_clipboard_buffer.clear();
   HWND hwnd = GetForegroundWindow();
   
-  bool opened = false;
-  for (int i = 0; i < 5; ++i) {
-    if (OpenClipboard(hwnd) || OpenClipboard(nullptr)) {
-      opened = true;
-      break;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  // Zero-retry, fail-fast: clipboard is on the render thread.
+  // Sleep() here — even Sleep(1) — can block up to ~15ms (OS timer granularity),
+  // tanking FPS. If clipboard is locked by another process, drop this frame silently.
+  // ImGui will retry naturally next frame while Ctrl+C/V is still held.
+  if (!OpenClipboard(hwnd) && !OpenClipboard(nullptr)) {
+    return nullptr;
   }
-  
-  if (!opened) return nullptr;
   
   HANDLE hData = GetClipboardData(CF_UNICODETEXT);
   if (hData) {
@@ -558,16 +684,10 @@ static const char* HookedGetClipboardText(void* /*user_data*/) {
 static void HookedSetClipboardText(void* /*user_data*/, const char* text) {
   HWND hwnd = GetForegroundWindow();
   
-  bool opened = false;
-  for (int i = 0; i < 5; ++i) {
-    if (OpenClipboard(hwnd) || OpenClipboard(nullptr)) {
-      opened = true;
-      break;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  // Zero-retry, fail-fast: same rationale as GetClipboardText.
+  if (!OpenClipboard(hwnd) && !OpenClipboard(nullptr)) {
+    return;
   }
-  
-  if (!opened) return;
   
   EmptyClipboard();
   int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, nullptr, 0);

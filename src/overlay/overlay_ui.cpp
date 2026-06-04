@@ -392,7 +392,10 @@ void RenderImGuiUI() {
     }
     if (ImGui::Button("##close_nav", ImVec2(button_width, button_height))) {
       GetOverlayState().show_overlay = false;
-      ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+      ImGuiIO& io = ImGui::GetIO();
+      io.ClearInputKeys();
+      io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+      io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Close");
 

@@ -3,6 +3,8 @@
 #include "shared/ui/components/base_window.h"
 #include <imgui.h>
 
+namespace dover::shared::assets { struct TextureData; }
+
 namespace dover::shared::crosshair {
 
 class CrosshairWindow : public shared::ui::BaseWindow {
@@ -14,6 +16,8 @@ public:
     
     // Releases GPU assets
     void Shutdown();
+
+    void LoadAssetTexture(dover::shared::assets::TextureData* asset);
 
     // Renders the Crosshair Picker UI window
     void RenderContent(bool interactive) override;
@@ -66,6 +70,7 @@ private:
     ImVec4 m_outline_color = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
     
     bool m_textures_loaded = false;
+    size_t m_current_load_index = 0;
 };
 
 CrosshairWindow& GetCrosshairWindow();

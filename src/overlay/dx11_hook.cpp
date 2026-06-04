@@ -5,6 +5,7 @@
 #include "overlay/hook_utils.h"
 #include "overlay/input_hook.h"
 #include "shared/log.h"
+#include "shared/renderer.h"
 
 #include <d3d11.h>
 #include <dxgi.h>
@@ -67,6 +68,8 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
       DXGI_SWAP_CHAIN_DESC desc = {};
       swapchain->GetDesc(&desc);
       g_game_hwnd = desc.OutputWindow;
+      GetOverlayState().swapchain_width = desc.BufferDesc.Width;
+      GetOverlayState().swapchain_height = desc.BufferDesc.Height;
 
       IMGUI_CHECKVERSION();
       ImGui::CreateContext();
@@ -83,6 +86,10 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
       GetOverlayState().active_dx_version = "DirectX 11";
       CreateRenderTargetView(swapchain);
 
+      // Register device with shared renderer so asset texture creation works
+      shared::SetDx11Device(g_d3d11_device);
+      shared::SetDx11Context(g_d3d11_context);
+
       g_imgui_initialized = true;
       dover::shared::LogInfo("Dear ImGui initialized inside D3D11 Present hook.");
     }
@@ -94,10 +101,20 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
     
     shared::g_allow_xinput = true;
     shared::g_allow_input_queries = true;
+    g_in_imgui_new_frame = true;
     ImGui_ImplWin32_NewFrame();
+    g_in_imgui_new_frame = false;
     shared::g_allow_input_queries = false;
     shared::g_allow_xinput = false;
     
+    // Fix for blurry UI & cursor mismatch when game does not resize swapchain
+    ImGuiIO& io = ImGui::GetIO();
+    uint32_t swap_w = GetOverlayState().swapchain_width;
+    uint32_t swap_h = GetOverlayState().swapchain_height;
+    if (swap_w > 0 && swap_h > 0) {
+        io.DisplaySize = ImVec2(static_cast<float>(swap_w), static_cast<float>(swap_h));
+    }
+
     ImGui::NewFrame();
 
     // Render shared UI
@@ -129,6 +146,11 @@ HRESULT WINAPI HookedResizeBuffers(IDXGISwapChain* swapchain, UINT buffer_count,
   }
 
   if (SUCCEEDED(hr) && g_imgui_initialized.load()) {
+    DXGI_SWAP_CHAIN_DESC desc = {};
+    if (SUCCEEDED(swapchain->GetDesc(&desc))) {
+        GetOverlayState().swapchain_width = desc.BufferDesc.Width;
+        GetOverlayState().swapchain_height = desc.BufferDesc.Height;
+    }
     ImGui_ImplDX11_CreateDeviceObjects();
     CreateRenderTargetView(swapchain);
   }

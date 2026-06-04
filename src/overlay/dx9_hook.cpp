@@ -5,6 +5,7 @@
 #include "overlay/hook_utils.h"
 #include "overlay/input_hook.h"
 #include "shared/log.h"
+#include "shared/renderer.h"
 
 #include <d3d9.h>
 #include <windows.h>
@@ -61,6 +62,10 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
           g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
 
       GetOverlayState().active_dx_version = "DirectX 9";
+
+      // Register device with shared renderer so asset texture creation works
+      shared::SetDx9Device(device);
+
       g_imgui_initialized = true;
       dover::shared::LogInfo("Dear ImGui initialized inside D3D9 EndScene hook.");
     }
@@ -201,6 +206,9 @@ void ShutdownDx9Hook() {
 
   g_end_scene_hooked = false;
   g_reset_hooked = false;
+
+  // Unregister from shared renderer
+  shared::SetDx9Device(nullptr);
   g_d3d9_device = nullptr;
 }
 

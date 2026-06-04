@@ -11,6 +11,8 @@ struct OverlayState {
     bool in_overlay_frame = false;
     WNDPROC original_wnd_proc = nullptr;
     const char* active_dx_version = "Unknown API";
+    uint32_t swapchain_width = 0;
+    uint32_t swapchain_height = 0;
 };
 
 OverlayState& GetOverlayState();

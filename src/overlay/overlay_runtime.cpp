@@ -1,5 +1,8 @@
 #include "overlay/dx9_hook.h"
 #include "overlay/dx11_hook.h"
+#if _WIN64
+#include "overlay/dx12_hook.h"
+#endif
 #include "overlay/input_hook.h"
 #include "overlay/hook_utils.h"
 #include "overlay/overlay_ui.h"
@@ -23,6 +26,7 @@ constexpr DWORD kHookRetryMaxAttempts = 120;
 std::atomic<bool> g_shutdown_requested{false};
 
 DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
+  dover::shared::InitializeLogging();
   const DWORD pid = GetCurrentProcessId();
   if (!dover::shared::SignalOverlayReadyEvent(pid)) {
     dover::shared::LogError("Failed to signal overlay ready event.");
@@ -32,7 +36,17 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   DWORD attempts = 0;
   bool hook_installed = false;
   while (!g_shutdown_requested.load() && attempts < kHookRetryMaxAttempts) {
+#if _WIN64
+    if (GetModuleHandleW(L"d3d12.dll")) {
+      if (InitializeDx12Hook()) {
+        dover::shared::LogInfo("DX12 hook installed.");
+        hook_installed = true;
+        break;
+      }
+    } else if (GetModuleHandleW(L"d3d11.dll")) {
+#else
     if (GetModuleHandleW(L"d3d11.dll")) {
+#endif
       if (InitializeDx11Hook()) {
         dover::shared::LogInfo("DX11 hook installed.");
         hook_installed = true;
@@ -59,6 +73,9 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
       dover::shared::LogError("Hook install timed out.");
       ShutdownDx9Hook();
       ShutdownDx11Hook();
+#if _WIN64
+      ShutdownDx12Hook();
+#endif
       ShutdownHookSystem();
       return 0;
     }
@@ -85,6 +102,9 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   ShutdownInputHooks();
   ShutdownDx9Hook();
   ShutdownDx11Hook();
+#if _WIN64
+  ShutdownDx12Hook();
+#endif
   ShutdownHookSystem();
   dover::shared::LogInfo("Overlay runtime stopped.");
   return 0;
