@@ -36,6 +36,7 @@ void NotesWindow::SyncEditBufferFromNote(int idx) {
 }
 
 void NotesWindow::FixupIndicesAfterMutation() {
+    std::lock_guard<std::mutex> lock(m_selected_note_filename_mutex);
     auto notes = GetNotes();
     if (notes.empty()) {
         m_selected_note_idx = 0;
@@ -122,10 +123,13 @@ void NotesWindow::SelectNote(int idx, bool save_state) {
   FlushEditBufferToNote();
   m_selected_note_idx = idx;
   auto notes = GetNotes();
-  if (idx >= 0 && static_cast<size_t>(idx) < notes.size()) {
-    strncpy_s(m_selected_note_filename, sizeof(m_selected_note_filename), notes[idx].filename, _TRUNCATE);
-  } else {
-    m_selected_note_filename[0] = '\0';
+  {
+      std::lock_guard<std::mutex> lock(m_selected_note_filename_mutex);
+      if (idx >= 0 && static_cast<size_t>(idx) < notes.size()) {
+        strncpy_s(m_selected_note_filename, sizeof(m_selected_note_filename), notes[idx].filename, _TRUNCATE);
+      } else {
+        m_selected_note_filename[0] = '\0';
+      }
   }
   SyncEditBufferFromNote(idx);
   m_view_mode = 1;
@@ -138,7 +142,10 @@ void NotesWindow::SelectNoteByFilename(const char* filename) {
   auto notes = GetNotes();
   for (size_t i = 0; i < notes.size(); ++i) {
     if (strcmp(notes[i].filename, filename) == 0) {
-      strncpy_s(m_selected_note_filename, sizeof(m_selected_note_filename), filename, _TRUNCATE);
+      {
+          std::lock_guard<std::mutex> lock(m_selected_note_filename_mutex);
+          strncpy_s(m_selected_note_filename, sizeof(m_selected_note_filename), filename, _TRUNCATE);
+      }
       SelectNote(static_cast<int>(i), false);
       return;
     }
@@ -148,11 +155,10 @@ void NotesWindow::SelectNoteByFilename(const char* filename) {
   }
 }
 
-const char* NotesWindow::GetSelectedNoteFilename() const {
-  if (m_selected_note_filename[0] != '\0') return m_selected_note_filename;
-  auto notes = GetNotes();
-  if (m_selected_note_idx >= 0 && static_cast<size_t>(m_selected_note_idx) < notes.size()) {
-    return notes[m_selected_note_idx].filename;
+std::string NotesWindow::GetSelectedNoteFilename() const {
+  std::lock_guard<std::mutex> lock(m_selected_note_filename_mutex);
+  if (m_selected_note_filename[0] != '\0') {
+      return std::string(m_selected_note_filename, strnlen(m_selected_note_filename, sizeof(m_selected_note_filename)));
   }
   return "";
 }
@@ -597,6 +603,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
                 } else {
                     SetSortMode(c, default_asc);
                 }
+                dover::shared::GameStorage::Get().SaveState();
             }
             
             if (selected) {
@@ -655,12 +662,19 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
 
     ImGui::PushFont(dover::shared::g_fonts_editor[window->m_zoom_idx]);
 
+    ImGuiID editor_id = ImGui::GetID("##ed");
     if (window->m_force_focus_frames > 0) {
-        ImGuiID editor_id = ImGui::GetID("##ed");
         ImGui::FocusWindow(ImGui::GetCurrentWindow());
         ImGui::SetActiveID(editor_id, ImGui::GetCurrentWindow());
         ImGui::SetKeyboardFocusHere(0);
         window->m_force_focus_frames--;
+    }
+
+    if (ImGui::GetActiveID() == editor_id) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight)) {
+            ImGui::ClearActiveID();
+            window->FlushEditBufferToNote();
+        }
     }
 
     ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;

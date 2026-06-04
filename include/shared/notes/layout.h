@@ -2,6 +2,7 @@
 
 #include "shared/ui/components/base_window.h"
 #include "shared/notes/formatter.h"
+#include <mutex>
 
 namespace dover::shared::notes {
 class NotesWindow;
@@ -29,7 +30,7 @@ public:
     // Public for GameStorage state persistence
     void SelectNote(int idx, bool save_state = true);
     void SelectNoteByFilename(const char* filename);
-    const char* GetSelectedNoteFilename() const;
+    std::string GetSelectedNoteFilename() const;
     void SetViewMode(int mode) { m_view_mode = mode; }
     int  GetSelectedNoteIndex() const { return m_selected_note_idx; }
     int  GetViewMode() const { return m_view_mode; }
@@ -52,13 +53,14 @@ private:
     // Local state previously in anonymous namespace
     float m_sidebar_width = 240.0f;
     bool m_sidebar_visible = true;
-    int m_view_mode = 1; // 0=editor, 1=preview
-    int m_zoom_idx = 2;
+    std::atomic<int> m_view_mode{1}; // 0=editor, 1=preview
+    std::atomic<int> m_zoom_idx{2};
     int m_force_focus_frames = 0;
     
-    int m_selected_note_idx = 0;
+    std::atomic<int> m_selected_note_idx{0};
     int m_synced_note_idx = -1;
     char m_selected_note_filename[64] = {};
+    mutable std::mutex m_selected_note_filename_mutex;
     char m_synced_note_filename[64] = {};
     float m_editor_wrap_width = 400.0f;
     

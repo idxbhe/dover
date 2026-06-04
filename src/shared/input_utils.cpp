@@ -4,6 +4,7 @@
 namespace dover::shared {
 
 thread_local bool g_allow_xinput = false;
+thread_local bool g_visualizer_xinput = false;
 thread_local bool g_allow_input_queries = false;
 
 KeyStateFunc g_key_state_func = nullptr;

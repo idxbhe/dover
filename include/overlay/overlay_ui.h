@@ -4,11 +4,13 @@
 
 struct ImFont;
 
+#include <atomic>
+
 namespace dover::overlay {
 
 struct OverlayState {
-    bool show_overlay = false;
-    bool in_overlay_frame = false;
+    std::atomic<bool> show_overlay{false};
+    std::atomic<bool> in_overlay_frame{false};
     WNDPROC original_wnd_proc = nullptr;
     const char* active_dx_version = "Unknown API";
     uint32_t swapchain_width = 0;

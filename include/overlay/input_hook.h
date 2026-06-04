@@ -6,4 +6,7 @@ bool InitializeInputHooks();
 void ShutdownInputHooks();
 void PollGamepadToggle();
 void OverrideImGuiClipboardFunctions();
+void SetOverlayVisible(bool visible);
+void TickInputCooldown();
 } // namespace dover::overlay
+

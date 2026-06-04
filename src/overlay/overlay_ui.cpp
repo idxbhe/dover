@@ -17,6 +17,7 @@
 #include <windows.h>
 #include <psapi.h>
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <misc/freetype/imgui_freetype.h>
 #include <imgui_impl_win32.h>
 #include <cstring>
@@ -138,6 +139,42 @@ static void RenderNavButton(
 
 void RenderImGuiUI() {
   PollGamepadToggle();
+
+  if (!dover::shared::GameStorage::Get().IsConfigFlushReady()) {
+      if (dover::shared::GameStorage::Get().TestAndClearConfigCaptureRequested()) {
+          dover::shared::GameStorage::Get().ExecuteConfigCapture();
+          dover::shared::GameStorage::Get().SetConfigFlushReady();
+      }
+  }
+  if (!dover::shared::GameStorage::Get().IsStateFlushReady()) {
+      if (dover::shared::GameStorage::Get().TestAndClearStateCaptureRequested()) {
+          dover::shared::GameStorage::Get().ExecuteStateCapture();
+          dover::shared::GameStorage::Get().SetStateFlushReady();
+      }
+  }
+
+  static bool s_last_show_overlay = false;
+  bool curr_show_overlay = GetOverlayState().show_overlay;
+  if (curr_show_overlay != s_last_show_overlay) {
+    ImGuiIO& io = ImGui::GetIO();
+    if (curr_show_overlay) {
+      io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
+      io.ConfigFlags |= (ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
+    } else {
+      io.ClearInputKeys();
+      io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+      io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
+      
+      // Interactive overlay was just closed:
+      // 1. Force-flush active ImGui text input widgets so latest edits are written to our buffer
+      ImGui::ClearActiveID();
+      // 2. Flush notes editor buffer to note content
+      shared::notes::GetNotesWindow().FlushEditBuffer();
+      // 3. Save all dirty notes immediately
+      shared::notes::AutoSaveAll();
+    }
+    s_last_show_overlay = curr_show_overlay;
+  }
 
   // 1. Draw Pinned Info Window (transparent corner overlay) - Hidden when interactive overlay is active
   if (!GetOverlayState().show_overlay && (shared::GetAppConfig().show_fps || shared::GetAppConfig().show_clock || shared::GetAppConfig().show_api)) {
@@ -391,11 +428,7 @@ void RenderImGuiUI() {
       ImGui::GetWindowDrawList()->AddText(text_pos, ImGui::GetColorU32(text_color), ICON_WINDOW_CLOSE);
     }
     if (ImGui::Button("##close_nav", ImVec2(button_width, button_height))) {
-      GetOverlayState().show_overlay = false;
-      ImGuiIO& io = ImGui::GetIO();
-      io.ClearInputKeys();
-      io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-      io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
+      SetOverlayVisible(false);
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Close");
 
@@ -422,6 +455,51 @@ void RenderImGuiUI() {
   // Render the gamepad visualizer directly on the background draw list
   shared::input::GetInputWindow().RenderGamepadOverlay();
 }
+
+namespace {
+struct ConfigSnapshot {
+    shared::AppConfig app;
+    bool window_notes_maximized;
+    bool window_notes_fullscreen;
+    bool window_notes_pinned;
+    bool window_settings_maximized;
+    bool window_settings_fullscreen;
+    bool window_settings_pinned;
+    bool window_crosshair_maximized;
+    bool window_crosshair_fullscreen;
+    bool window_crosshair_pinned;
+    bool window_input_maximized;
+    bool window_input_fullscreen;
+    bool window_input_pinned;
+};
+static ConfigSnapshot s_cfg_snap;
+
+struct StateSnapshot {
+    char selected_note_filename[256];
+    int notes_view_mode;
+    int notes_zoom_idx;
+    int notes_sort_criteria;
+    bool notes_sort_ascending;
+    bool notes_is_open;
+    
+    int settings_selected_category;
+    bool settings_is_open;
+    
+    bool crosshair_is_open;
+    bool crosshair_is_active;
+    int crosshair_selected_index;
+    ImVec4 crosshair_color;
+    bool crosshair_outline_enabled;
+    ImVec4 crosshair_outline_color;
+    float crosshair_scale;
+    float crosshair_opacity;
+    float crosshair_pos_x;
+    float crosshair_pos_y;
+    
+    bool inputmap_is_open;
+};
+static StateSnapshot s_st_snap;
+} // namespace
 
 void InitializeOverlay() {
     // 1. Resolve game exe name
@@ -478,36 +556,98 @@ void InitializeOverlay() {
 
         shared::notes::GetNotesWindow().SetBgAlpha(shared::GetAppConfig().global_window_alpha);
         shared::settings::GetSettingsWindow().SetBgAlpha(shared::GetAppConfig().global_window_alpha);
+
+        auto load_window_state = [&](const char* id, shared::ui::BaseWindow& wnd) {
+            wnd.SetMaximized(shared::ReadIniBool(cfg, id, "maximized", false));
+            wnd.SetFullscreen(shared::ReadIniBool(cfg, id, "fullscreen", false));
+            wnd.SetPinned(shared::ReadIniBool(cfg, id, "pinned", false));
+        };
+        load_window_state("window_notes", shared::notes::GetNotesWindow());
+        load_window_state("window_settings", shared::settings::GetSettingsWindow());
+        load_window_state("window_crosshair", shared::crosshair::GetCrosshairWindow());
+        load_window_state("window_input", shared::input::GetInputWindow());
+    });
+
+    dover::shared::GameStorage::Get().RegisterConfigCapture([]() {
+        s_cfg_snap.app = shared::GetAppConfig();
+        s_cfg_snap.window_notes_maximized = shared::notes::GetNotesWindow().IsMaximized();
+        s_cfg_snap.window_notes_fullscreen = shared::notes::GetNotesWindow().IsFullscreen();
+        s_cfg_snap.window_notes_pinned = shared::notes::GetNotesWindow().IsPinned();
+        s_cfg_snap.window_settings_maximized = shared::settings::GetSettingsWindow().IsMaximized();
+        s_cfg_snap.window_settings_fullscreen = shared::settings::GetSettingsWindow().IsFullscreen();
+        s_cfg_snap.window_settings_pinned = shared::settings::GetSettingsWindow().IsPinned();
+        s_cfg_snap.window_crosshair_maximized = shared::crosshair::GetCrosshairWindow().IsMaximized();
+        s_cfg_snap.window_crosshair_fullscreen = shared::crosshair::GetCrosshairWindow().IsFullscreen();
+        s_cfg_snap.window_crosshair_pinned = shared::crosshair::GetCrosshairWindow().IsPinned();
+        s_cfg_snap.window_input_maximized = shared::input::GetInputWindow().IsMaximized();
+        s_cfg_snap.window_input_fullscreen = shared::input::GetInputWindow().IsFullscreen();
+        s_cfg_snap.window_input_pinned = shared::input::GetInputWindow().IsPinned();
+    });
+
+    dover::shared::GameStorage::Get().RegisterStateCapture([]() {
+        std::string fn = shared::notes::GetNotesWindow().GetSelectedNoteFilename();
+        strncpy_s(s_st_snap.selected_note_filename, sizeof(s_st_snap.selected_note_filename), fn.c_str(), _TRUNCATE);
+        s_st_snap.notes_view_mode = shared::notes::GetNotesWindow().GetViewMode();
+        s_st_snap.notes_zoom_idx = shared::notes::GetNotesWindow().GetZoomIndex();
+        s_st_snap.notes_sort_criteria = static_cast<int>(shared::notes::GetSortCriteria());
+        s_st_snap.notes_sort_ascending = shared::notes::IsSortAscending();
+        s_st_snap.notes_is_open = shared::notes::GetNotesWindow().IsOpen();
+        
+        s_st_snap.settings_selected_category = shared::settings::GetSettingsWindow().GetSelectedCategory();
+        s_st_snap.settings_is_open = shared::settings::GetSettingsWindow().IsOpen();
+        
+        s_st_snap.crosshair_is_open = shared::crosshair::GetCrosshairWindow().IsOpen();
+        s_st_snap.crosshair_is_active = shared::crosshair::GetCrosshairWindow().IsCrosshairActive();
+        s_st_snap.crosshair_selected_index = shared::crosshair::GetCrosshairWindow().GetSelectedIndex();
+        s_st_snap.crosshair_color = shared::crosshair::GetCrosshairWindow().GetColor();
+        s_st_snap.crosshair_outline_enabled = shared::crosshair::GetCrosshairWindow().IsOutlineEnabled();
+        s_st_snap.crosshair_outline_color = shared::crosshair::GetCrosshairWindow().GetOutlineColor();
+        s_st_snap.crosshair_scale = shared::crosshair::GetCrosshairWindow().GetScale();
+        s_st_snap.crosshair_opacity = shared::crosshair::GetCrosshairWindow().GetOpacity();
+        s_st_snap.crosshair_pos_x = shared::crosshair::GetCrosshairWindow().GetPosX();
+        s_st_snap.crosshair_pos_y = shared::crosshair::GetCrosshairWindow().GetPosY();
+        
+        s_st_snap.inputmap_is_open = shared::input::GetInputWindow().IsOpen();
     });
 
     dover::shared::GameStorage::Get().RegisterConfigSave([](const std::filesystem::path& cfg) {
-        shared::WriteIniBool(cfg, "osd", "show_fps",   shared::GetAppConfig().show_fps);
-        shared::WriteIniBool(cfg, "osd", "show_clock", shared::GetAppConfig().show_clock);
-        shared::WriteIniBool(cfg, "osd", "show_api",   shared::GetAppConfig().show_api);
-        shared::WriteIniBool(cfg, "osd", "show_gamepad_hud",     shared::GetAppConfig().show_gamepad_hud);
-        shared::WriteIniInt(cfg, "osd", "gamepad_hud_position", shared::GetAppConfig().gamepad_hud_position);
-        shared::WriteIniFloat(cfg, "osd", "gamepad_hud_scale",    shared::GetAppConfig().gamepad_hud_scale);
+        shared::WriteIniBool(cfg, "osd", "show_fps",   s_cfg_snap.app.show_fps);
+        shared::WriteIniBool(cfg, "osd", "show_clock", s_cfg_snap.app.show_clock);
+        shared::WriteIniBool(cfg, "osd", "show_api",   s_cfg_snap.app.show_api);
+        shared::WriteIniBool(cfg, "osd", "show_gamepad_hud",     s_cfg_snap.app.show_gamepad_hud);
+        shared::WriteIniInt(cfg, "osd", "gamepad_hud_position", s_cfg_snap.app.gamepad_hud_position);
+        shared::WriteIniFloat(cfg, "osd", "gamepad_hud_scale",    s_cfg_snap.app.gamepad_hud_scale);
 
-        shared::WriteIniFloat(cfg, "theme", "window_alpha",  shared::GetAppConfig().global_window_alpha);
-        shared::WriteIniFloat(cfg, "theme", "overlay_alpha", shared::GetAppConfig().overlay_bg_alpha);
+        shared::WriteIniFloat(cfg, "theme", "window_alpha",  s_cfg_snap.app.global_window_alpha);
+        shared::WriteIniFloat(cfg, "theme", "overlay_alpha", s_cfg_snap.app.overlay_bg_alpha);
 
-        shared::WriteIniInt(cfg, "hotkeys", "toggle_main", shared::GetAppConfig().hotkey_toggle_main);
-        shared::WriteIniInt(cfg, "hotkeys", "toggle_modifier", shared::GetAppConfig().hotkey_toggle_modifier);
+        shared::WriteIniInt(cfg, "hotkeys", "toggle_main", s_cfg_snap.app.hotkey_toggle_main);
+        shared::WriteIniInt(cfg, "hotkeys", "toggle_modifier", s_cfg_snap.app.hotkey_toggle_modifier);
 
         for (int i = 0; i < 18; ++i) {
             char key[32];
             snprintf(key, sizeof(key), "map_%d", i);
-            shared::WriteIniInt(cfg, "input", key, shared::GetAppConfig().gamepad_to_vk_map[i].vk_code);
+            shared::WriteIniInt(cfg, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].vk_code);
             
             snprintf(key, sizeof(key), "map_%d_ctrl", i);
-            shared::WriteIniBool(cfg, "input", key, shared::GetAppConfig().gamepad_to_vk_map[i].modifier_ctrl);
+            shared::WriteIniBool(cfg, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_ctrl);
             
             snprintf(key, sizeof(key), "map_%d_shift", i);
-            shared::WriteIniBool(cfg, "input", key, shared::GetAppConfig().gamepad_to_vk_map[i].modifier_shift);
+            shared::WriteIniBool(cfg, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_shift);
             
             snprintf(key, sizeof(key), "map_%d_alt", i);
-            shared::WriteIniBool(cfg, "input", key, shared::GetAppConfig().gamepad_to_vk_map[i].modifier_alt);
+            shared::WriteIniBool(cfg, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_alt);
         }
+
+        auto save_window_state = [&](const char* id, bool is_max, bool is_full, bool is_pin) {
+            shared::WriteIniBool(cfg, id, "maximized", is_max);
+            shared::WriteIniBool(cfg, id, "fullscreen", is_full);
+            shared::WriteIniBool(cfg, id, "pinned", is_pin);
+        };
+        save_window_state("window_notes", s_cfg_snap.window_notes_maximized, s_cfg_snap.window_notes_fullscreen, s_cfg_snap.window_notes_pinned);
+        save_window_state("window_settings", s_cfg_snap.window_settings_maximized, s_cfg_snap.window_settings_fullscreen, s_cfg_snap.window_settings_pinned);
+        save_window_state("window_crosshair", s_cfg_snap.window_crosshair_maximized, s_cfg_snap.window_crosshair_fullscreen, s_cfg_snap.window_crosshair_pinned);
+        save_window_state("window_input", s_cfg_snap.window_input_maximized, s_cfg_snap.window_input_fullscreen, s_cfg_snap.window_input_pinned);
     });
 
     dover::shared::GameStorage::Get().RegisterStateLoad([](const std::filesystem::path& st) {
@@ -521,6 +661,10 @@ void InitializeOverlay() {
             shared::notes::GetNotesWindow().SelectNote(0, false);
         }
         shared::notes::GetNotesWindow().SetViewMode(view_mode);
+        
+        int sort_crit = shared::ReadIniInt(st, "notes", "sort_criteria", 0);
+        bool sort_asc = shared::ReadIniBool(st, "notes", "sort_ascending", true);
+        shared::notes::SetSortMode(static_cast<shared::notes::NoteSortCriteria>(sort_crit), sort_asc);
 
         int zoom_idx = shared::ReadIniInt(st, "notes", "zoom_idx", 2);
         shared::notes::GetNotesWindow().SetZoomIndex(zoom_idx);
@@ -574,37 +718,36 @@ void InitializeOverlay() {
     });
 
     dover::shared::GameStorage::Get().RegisterStateSave([](const std::filesystem::path& st) {
-        const char* note_fn = shared::notes::GetNotesWindow().GetSelectedNoteFilename();
-        shared::WriteIniString(st, "notes", "selected_note_filename", note_fn);
-        shared::WriteIniInt(st, "notes", "view_mode",           shared::notes::GetNotesWindow().GetViewMode());
-        shared::WriteIniInt(st, "notes", "zoom_idx",            shared::notes::GetNotesWindow().GetZoomIndex());
-        shared::WriteIniInt(st, "settings", "selected_category", shared::settings::GetSettingsWindow().GetSelectedCategory());
+        shared::WriteIniString(st, "notes", "selected_note_filename", s_st_snap.selected_note_filename);
+        shared::WriteIniInt(st, "notes", "view_mode",           s_st_snap.notes_view_mode);
+        shared::WriteIniInt(st, "notes", "zoom_idx",            s_st_snap.notes_zoom_idx);
+        shared::WriteIniInt(st, "notes", "sort_criteria",       s_st_snap.notes_sort_criteria);
+        shared::WriteIniBool(st, "notes", "sort_ascending",     s_st_snap.notes_sort_ascending);
+        shared::WriteIniInt(st, "settings", "selected_category", s_st_snap.settings_selected_category);
 
-        shared::WriteIniBool(st, "notes", "is_open",            shared::notes::GetNotesWindow().IsOpen());
-        shared::WriteIniBool(st, "settings", "is_open",         shared::settings::GetSettingsWindow().IsOpen());
-        shared::WriteIniBool(st, "crosshair", "is_open",        shared::crosshair::GetCrosshairWindow().IsOpen());
-        shared::WriteIniBool(st, "inputmap", "is_open",         shared::input::GetInputWindow().IsOpen());
+        shared::WriteIniBool(st, "notes", "is_open",            s_st_snap.notes_is_open);
+        shared::WriteIniBool(st, "settings", "is_open",         s_st_snap.settings_is_open);
+        shared::WriteIniBool(st, "crosshair", "is_open",        s_st_snap.crosshair_is_open);
+        shared::WriteIniBool(st, "inputmap", "is_open",         s_st_snap.inputmap_is_open);
         
-        shared::WriteIniBool(st, "crosshair", "is_active",      shared::crosshair::GetCrosshairWindow().IsCrosshairActive());
-        shared::WriteIniInt(st, "crosshair", "selected_index",  shared::crosshair::GetCrosshairWindow().GetSelectedIndex());
+        shared::WriteIniBool(st, "crosshair", "is_active",      s_st_snap.crosshair_is_active);
+        shared::WriteIniInt(st, "crosshair", "selected_index",  s_st_snap.crosshair_selected_index);
         
-        const ImVec4& ccolor = shared::crosshair::GetCrosshairWindow().GetColor();
-        shared::WriteIniFloat(st, "crosshair", "color_r",       ccolor.x);
-        shared::WriteIniFloat(st, "crosshair", "color_g",       ccolor.y);
-        shared::WriteIniFloat(st, "crosshair", "color_b",       ccolor.z);
-        shared::WriteIniFloat(st, "crosshair", "color_a",       ccolor.w);
+        shared::WriteIniFloat(st, "crosshair", "color_r",       s_st_snap.crosshair_color.x);
+        shared::WriteIniFloat(st, "crosshair", "color_g",       s_st_snap.crosshair_color.y);
+        shared::WriteIniFloat(st, "crosshair", "color_b",       s_st_snap.crosshair_color.z);
+        shared::WriteIniFloat(st, "crosshair", "color_a",       s_st_snap.crosshair_color.w);
         
-        shared::WriteIniBool(st, "crosshair", "outline_enabled",shared::crosshair::GetCrosshairWindow().IsOutlineEnabled());
-        const ImVec4& ocolor = shared::crosshair::GetCrosshairWindow().GetOutlineColor();
-        shared::WriteIniFloat(st, "crosshair", "outline_r",     ocolor.x);
-        shared::WriteIniFloat(st, "crosshair", "outline_g",     ocolor.y);
-        shared::WriteIniFloat(st, "crosshair", "outline_b",     ocolor.z);
-        shared::WriteIniFloat(st, "crosshair", "outline_a",     ocolor.w);
+        shared::WriteIniBool(st, "crosshair", "outline_enabled",s_st_snap.crosshair_outline_enabled);
+        shared::WriteIniFloat(st, "crosshair", "outline_r",     s_st_snap.crosshair_outline_color.x);
+        shared::WriteIniFloat(st, "crosshair", "outline_g",     s_st_snap.crosshair_outline_color.y);
+        shared::WriteIniFloat(st, "crosshair", "outline_b",     s_st_snap.crosshair_outline_color.z);
+        shared::WriteIniFloat(st, "crosshair", "outline_a",     s_st_snap.crosshair_outline_color.w);
         
-        shared::WriteIniFloat(st, "crosshair", "scale",         shared::crosshair::GetCrosshairWindow().GetScale());
-        shared::WriteIniFloat(st, "crosshair", "opacity",       shared::crosshair::GetCrosshairWindow().GetOpacity());
-        shared::WriteIniFloat(st, "crosshair", "pos_x",         shared::crosshair::GetCrosshairWindow().GetPosX());
-        shared::WriteIniFloat(st, "crosshair", "pos_y",         shared::crosshair::GetCrosshairWindow().GetPosY());
+        shared::WriteIniFloat(st, "crosshair", "scale",         s_st_snap.crosshair_scale);
+        shared::WriteIniFloat(st, "crosshair", "opacity",       s_st_snap.crosshair_opacity);
+        shared::WriteIniFloat(st, "crosshair", "pos_x",         s_st_snap.crosshair_pos_x);
+        shared::WriteIniFloat(st, "crosshair", "pos_y",         s_st_snap.crosshair_pos_y);
     });
 
     // 6. Load persistent config/state

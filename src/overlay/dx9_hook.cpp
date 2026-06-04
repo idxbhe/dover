@@ -6,6 +6,7 @@
 #include "overlay/input_hook.h"
 #include "shared/log.h"
 #include "shared/renderer.h"
+#include "overlay_runtime.h"
 
 #include <d3d9.h>
 #include <windows.h>
@@ -36,12 +37,14 @@ HWND g_game_hwnd = nullptr;
 IDirect3DDevice9* g_d3d9_device = nullptr;
 
 HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
-  if (!device) {
+  if (!device || IsOverlayShutdownRequested()) {
     if (g_original_end_scene) {
       return g_original_end_scene(device);
     }
     return D3D_OK;
   }
+
+  TickInputCooldown();
 
   if (!g_imgui_initialized.load()) {
     D3DDEVICE_CREATION_PARAMETERS params = {};

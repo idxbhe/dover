@@ -1,12 +1,12 @@
 # Dover
 
-A lightweight, high-performance in-game overlay for DirectX 9 and DirectX 11 games. Built with C++ and Dear ImGui.
+A lightweight, high-performance in-game overlay for DirectX 9, DirectX 11, and DirectX 12 games. Built with C++ and Dear ImGui.
 
 ---
 
 ## Features
 
-*   **Universal Support:** Works on x86 and x64 architectures for DX9/DX11.
+*   **Universal Support:** Works on x86 and x64 architectures for DX9/DX11/DX12 (DX12 is x64 only).
 *   **In-Game Notes:** Markdown-supported notes with pinning capability.
 *   **Custom Crosshair:** Load custom reticles from `assets.pak` with scaling and positioning controls.
 *   **Controller Remapping:** Map controller inputs (including LT/RT triggers) to keyboard keys with modifiers.

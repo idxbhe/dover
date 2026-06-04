@@ -6,9 +6,12 @@
 
 #include <windows.h>
 #include <cstring>
+#include <atomic>
 #include <string>
+#include <thread>
 #include <imgui.h>
 #include <xinput.h>
+#include <cmath>
 
 #include "shared/input_utils.h"
 #include "shared/input_mapper.h"
@@ -41,6 +44,7 @@ using PeekMessageAFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT, UINT);
 using GetMessageWFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT);
 using GetMessageAFn = BOOL(WINAPI*)(LPMSG, HWND, UINT, UINT);
 using ScreenToClientFn = BOOL(WINAPI*)(HWND, LPPOINT);
+using ShowCursorFn = int(WINAPI*)(BOOL);
 
 // Cached cursor clip rect from the game, restored when overlay closes
 static RECT g_game_clip_rect = {};
@@ -57,9 +61,27 @@ PeekMessageAFn g_original_peek_message_a = nullptr;
 GetMessageWFn g_original_get_message_w = nullptr;
 GetMessageAFn g_original_get_message_a = nullptr;
 ScreenToClientFn g_original_screen_to_client = nullptr;
+ShowCursorFn g_original_show_cursor = nullptr;
+
+static std::atomic<int> g_game_show_cursor_count{0};
+static std::atomic<bool> g_cursor_initialized{false};
+static std::atomic<HWND> g_game_hwnd{nullptr};
+static bool g_last_overlay_visible = false;
+static std::atomic<ULONGLONG> g_overlay_closed_time{0};
+
+static bool IsInputBlocked() {
+  if (GetOverlayState().show_overlay) {
+    return true;
+  }
+  ULONGLONG closed_time = g_overlay_closed_time.load();
+  if (closed_time > 0 && (GetTickCount64() - closed_time < 200)) {
+    return true;
+  }
+  return false;
+}
 
 bool ProcessInputMessage(LPMSG lpMsg) {
-  if (GetOverlayState().show_overlay && lpMsg) {
+  if (IsInputBlocked() && lpMsg) {
     if ((lpMsg->message >= WM_MOUSEFIRST && lpMsg->message <= WM_MOUSELAST) ||
         (lpMsg->message >= WM_KEYFIRST && lpMsg->message <= WM_KEYLAST) ||
         lpMsg->message == WM_INPUT) {
@@ -75,7 +97,7 @@ bool ProcessInputMessage(LPMSG lpMsg) {
 }
 
 SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
-  if (GetOverlayState().show_overlay && !shared::g_allow_input_queries) {
+  if (IsInputBlocked() && !shared::g_allow_input_queries) {
     auto& cfg = shared::GetAppConfig();
     if (vKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && vKey == cfg.hotkey_toggle_modifier)) {
         if (shared::g_allow_input_queries) {
@@ -91,7 +113,7 @@ SHORT WINAPI HookedGetAsyncKeyState(int vKey) {
 }
 
 SHORT WINAPI HookedGetKeyState(int nVirtKey) {
-  if (GetOverlayState().show_overlay && !shared::g_allow_input_queries) {
+  if (IsInputBlocked() && !shared::g_allow_input_queries) {
     auto& cfg = shared::GetAppConfig();
     if (nVirtKey == cfg.hotkey_toggle_main || (cfg.hotkey_toggle_modifier != 0 && nVirtKey == cfg.hotkey_toggle_modifier)) {
       if (g_original_get_key_state) {
@@ -107,7 +129,7 @@ SHORT WINAPI HookedGetKeyState(int nVirtKey) {
 }
 
 BOOL WINAPI HookedGetKeyboardState(PBYTE lpKeyState) {
-  if (GetOverlayState().show_overlay && !shared::g_allow_input_queries && lpKeyState) {
+  if (IsInputBlocked() && !shared::g_allow_input_queries && lpKeyState) {
     std::memset(lpKeyState, 0, 256);
     return TRUE;
   }
@@ -260,24 +282,131 @@ using XInputGetStateFn = DWORD(WINAPI*)(DWORD, XINPUT_STATE*);
 XInputGetStateFn g_orig_xinput14_getstate = nullptr;
 XInputGetStateFn g_orig_xinput13_getstate = nullptr;
 
-void ModifyXInputState(XINPUT_STATE* pState) {
-  bool should_zero = false;
-  if (shared::g_allow_xinput) {
-    // Caller is ImGui: Zero inputs if overlay is hidden
-    if (!GetOverlayState().show_overlay) should_zero = true;
-  } else {
-    // Caller is Game: Zero inputs if overlay is showing
-    if (GetOverlayState().show_overlay) should_zero = true;
-  }
+static std::atomic<WORD> g_latched_buttons[4]{};
 
-  if (should_zero) {
-    pState->Gamepad.wButtons = 0;
-    pState->Gamepad.bLeftTrigger = 0;
-    pState->Gamepad.bRightTrigger = 0;
-    pState->Gamepad.sThumbLX = 0;
-    pState->Gamepad.sThumbLY = 0;
-    pState->Gamepad.sThumbRX = 0;
-    pState->Gamepad.sThumbRY = 0;
+struct LatchedAnalogState {
+    std::atomic<bool> left_stick_latched{false};
+    std::atomic<bool> right_stick_latched{false};
+    std::atomic<bool> left_trigger_latched{false};
+    std::atomic<bool> right_trigger_latched{false};
+};
+static LatchedAnalogState g_latched_analogs[4];
+
+void ModifyXInputState(DWORD dwUserIndex, XINPUT_STATE* pState) {
+  if (shared::g_visualizer_xinput) return;
+  if (dwUserIndex >= 4) return;
+
+  WORD hw_buttons = pState->Gamepad.wButtons;
+
+  if (shared::g_allow_xinput) {
+    // Caller is ImGui:
+    if (GetOverlayState().show_overlay) {
+      // Latch buttons pressed while overlay is open
+      g_latched_buttons[dwUserIndex].fetch_or(hw_buttons);
+
+      if (std::abs(pState->Gamepad.sThumbLX) > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE || std::abs(pState->Gamepad.sThumbLY) > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
+          g_latched_analogs[dwUserIndex].left_stick_latched = true;
+      }
+      if (std::abs(pState->Gamepad.sThumbRX) > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE || std::abs(pState->Gamepad.sThumbRY) > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE) {
+          g_latched_analogs[dwUserIndex].right_stick_latched = true;
+      }
+      if (pState->Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD) {
+          g_latched_analogs[dwUserIndex].left_trigger_latched = true;
+      }
+      if (pState->Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD) {
+          g_latched_analogs[dwUserIndex].right_trigger_latched = true;
+      }
+    } else {
+      // Zero inputs if overlay is hidden
+      pState->Gamepad.wButtons = 0;
+      pState->Gamepad.bLeftTrigger = 0;
+      pState->Gamepad.bRightTrigger = 0;
+      pState->Gamepad.sThumbLX = 0;
+      pState->Gamepad.sThumbLY = 0;
+      pState->Gamepad.sThumbRX = 0;
+      pState->Gamepad.sThumbRY = 0;
+    }
+  } else {
+    // Caller is Game:
+    if (GetOverlayState().show_overlay) {
+      // Zero all inputs if overlay is showing
+      pState->Gamepad.wButtons = 0;
+      pState->Gamepad.bLeftTrigger = 0;
+      pState->Gamepad.bRightTrigger = 0;
+      pState->Gamepad.sThumbLX = 0;
+      pState->Gamepad.sThumbLY = 0;
+      pState->Gamepad.sThumbRX = 0;
+      pState->Gamepad.sThumbRY = 0;
+      // Also latch buttons so they don't leak on close
+      g_latched_buttons[dwUserIndex].fetch_or(hw_buttons);
+
+      if (std::abs(pState->Gamepad.sThumbLX) > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE || std::abs(pState->Gamepad.sThumbLY) > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
+          g_latched_analogs[dwUserIndex].left_stick_latched = true;
+      }
+      if (std::abs(pState->Gamepad.sThumbRX) > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE || std::abs(pState->Gamepad.sThumbRY) > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE) {
+          g_latched_analogs[dwUserIndex].right_stick_latched = true;
+      }
+      if (pState->Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD) {
+          g_latched_analogs[dwUserIndex].left_trigger_latched = true;
+      }
+      if (pState->Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD) {
+          g_latched_analogs[dwUserIndex].right_trigger_latched = true;
+      }
+    } else {
+      // Overlay is closed:
+      // Update latched buttons: if a button is no longer physically pressed, unlatch it
+      WORD prev_latched = g_latched_buttons[dwUserIndex].fetch_and(hw_buttons);
+      WORD still_pressed = prev_latched & hw_buttons;
+
+      // Block any buttons that are still latched
+      pState->Gamepad.wButtons &= ~still_pressed;
+
+      // Unlatch and block analog sticks/triggers if they haven't returned to zero
+      if (g_latched_analogs[dwUserIndex].left_stick_latched) {
+          if (std::abs(pState->Gamepad.sThumbLX) <= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE && std::abs(pState->Gamepad.sThumbLY) <= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) {
+              g_latched_analogs[dwUserIndex].left_stick_latched = false;
+          } else {
+              pState->Gamepad.sThumbLX = 0;
+              pState->Gamepad.sThumbLY = 0;
+          }
+      }
+      
+      if (g_latched_analogs[dwUserIndex].right_stick_latched) {
+          if (std::abs(pState->Gamepad.sThumbRX) <= XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE && std::abs(pState->Gamepad.sThumbRY) <= XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE) {
+              g_latched_analogs[dwUserIndex].right_stick_latched = false;
+          } else {
+              pState->Gamepad.sThumbRX = 0;
+              pState->Gamepad.sThumbRY = 0;
+          }
+      }
+
+      if (g_latched_analogs[dwUserIndex].left_trigger_latched) {
+          if (pState->Gamepad.bLeftTrigger <= XINPUT_GAMEPAD_TRIGGER_THRESHOLD) {
+              g_latched_analogs[dwUserIndex].left_trigger_latched = false;
+          } else {
+              pState->Gamepad.bLeftTrigger = 0;
+          }
+      }
+
+      if (g_latched_analogs[dwUserIndex].right_trigger_latched) {
+          if (pState->Gamepad.bRightTrigger <= XINPUT_GAMEPAD_TRIGGER_THRESHOLD) {
+              g_latched_analogs[dwUserIndex].right_trigger_latched = false;
+          } else {
+              pState->Gamepad.bRightTrigger = 0;
+          }
+      }
+
+      // If in input block cooldown, zero triggers/sticks/buttons
+      if (IsInputBlocked()) {
+        pState->Gamepad.bLeftTrigger = 0;
+        pState->Gamepad.bRightTrigger = 0;
+        pState->Gamepad.sThumbLX = 0;
+        pState->Gamepad.sThumbLY = 0;
+        pState->Gamepad.sThumbRX = 0;
+        pState->Gamepad.sThumbRY = 0;
+        pState->Gamepad.wButtons = 0;
+      }
+    }
   }
 }
 
@@ -287,7 +416,7 @@ DWORD WINAPI HookedXInput14GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
       if (!shared::g_allow_xinput && !GetOverlayState().show_overlay) {
           shared::input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
       }
-      ModifyXInputState(pState);
+      ModifyXInputState(dwUserIndex, pState);
   }
   return result;
 }
@@ -298,14 +427,180 @@ DWORD WINAPI HookedXInput13GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
       if (!shared::g_allow_xinput && !GetOverlayState().show_overlay) {
           shared::input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
       }
-      ModifyXInputState(pState);
+      ModifyXInputState(dwUserIndex, pState);
   }
   return result;
 }
 
+int WINAPI HookedShowCursor(BOOL bShow) {
+  if (GetOverlayState().show_overlay) {
+    if (bShow) {
+      int new_count = ++g_game_show_cursor_count;
+      if (new_count > 0) {
+        if (g_original_show_cursor) {
+          g_original_show_cursor(TRUE);
+        } else {
+          ShowCursor(TRUE);
+        }
+      }
+      return new_count;
+    } else {
+      int new_count = --g_game_show_cursor_count;
+      if (new_count >= 0) {
+        if (g_original_show_cursor) {
+          g_original_show_cursor(FALSE);
+        } else {
+          ShowCursor(FALSE);
+        }
+      }
+      return new_count;
+    }
+  }
+
+  int ret = 0;
+  if (g_original_show_cursor) {
+    ret = g_original_show_cursor(bShow);
+  } else {
+    ret = ShowCursor(bShow);
+  }
+  g_game_show_cursor_count.store(ret);
+  return ret;
+}
+
+void UpdateOverlayVisibilityState() {
+  bool current_visible = GetOverlayState().show_overlay;
+  if (current_visible == g_last_overlay_visible) return;
+  g_last_overlay_visible = current_visible;
+  
+  if (current_visible) {
+    if (g_original_clip_cursor) {
+      g_original_clip_cursor(nullptr);
+    } else {
+      ClipCursor(nullptr);
+    }
+    
+    SetCursor(LoadCursor(nullptr, IDC_ARROW));
+    
+    int current_count = g_game_show_cursor_count.load();
+    if (current_count < 0) {
+      int needed_shows = -current_count;
+      for (int i = 0; i < needed_shows; ++i) {
+        if (g_original_show_cursor) {
+          g_original_show_cursor(TRUE);
+        } else {
+          ShowCursor(TRUE);
+        }
+      }
+    }
+  } else {
+    if (g_game_has_clip_rect) {
+      if (g_original_clip_cursor) {
+        g_original_clip_cursor(&g_game_clip_rect);
+      } else {
+        ClipCursor(&g_game_clip_rect);
+      }
+    }
+    
+    int current_count = g_game_show_cursor_count.load();
+    if (current_count < 0) {
+      int needed_hides = -current_count;
+      for (int i = 0; i < needed_hides; ++i) {
+        if (g_original_show_cursor) {
+          g_original_show_cursor(FALSE);
+        } else {
+          ShowCursor(FALSE);
+        }
+      }
+    }
+  }
+}
+
+static std::atomic<bool> g_sticky_reset_pending{false};
+
+static void ResetStickyInputs() {
+  if (!g_game_hwnd) return;
+
+  // 1. Release mouse buttons if they are physically up
+  if (g_original_get_async_key_state) {
+    if ((g_original_get_async_key_state(VK_LBUTTON) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_LBUTTONUP, 0, 0);
+    if ((g_original_get_async_key_state(VK_RBUTTON) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_RBUTTONUP, 0, 0);
+    if ((g_original_get_async_key_state(VK_MBUTTON) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_MBUTTONUP, 0, 0);
+    if ((g_original_get_async_key_state(VK_XBUTTON1) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_XBUTTONUP, MAKEWPARAM(0, 1), 0);
+    if ((g_original_get_async_key_state(VK_XBUTTON2) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_XBUTTONUP, MAKEWPARAM(0, 2), 0);
+  } else {
+    if ((GetAsyncKeyState(VK_LBUTTON) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_LBUTTONUP, 0, 0);
+    if ((GetAsyncKeyState(VK_RBUTTON) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_RBUTTONUP, 0, 0);
+    if ((GetAsyncKeyState(VK_MBUTTON) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_MBUTTONUP, 0, 0);
+    if ((GetAsyncKeyState(VK_XBUTTON1) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_XBUTTONUP, MAKEWPARAM(0, 1), 0);
+    if ((GetAsyncKeyState(VK_XBUTTON2) & 0x8000) == 0) PostMessageW(g_game_hwnd, WM_XBUTTONUP, MAKEWPARAM(0, 2), 0);
+  }
+
+  // 2. Release keyboard keys if they are physically up
+  for (int vk = 1; vk < 256; ++vk) {
+    if (vk == VK_LBUTTON || vk == VK_RBUTTON || vk == VK_MBUTTON || vk == VK_XBUTTON1 || vk == VK_XBUTTON2) continue;
+
+    bool is_up = false;
+    if (g_original_get_async_key_state) {
+      is_up = (g_original_get_async_key_state(vk) & 0x8000) == 0;
+    } else {
+      is_up = (GetAsyncKeyState(vk) & 0x8000) == 0;
+    }
+
+    if (is_up) {
+      LPARAM lparam = 0xC0000001;
+      UINT scan_code = MapVirtualKeyW(vk, MAPVK_VK_TO_VSC);
+      lparam |= (scan_code << 16);
+      PostMessageW(g_game_hwnd, WM_KEYUP, vk, lparam);
+    }
+  }
+}
+
 } // namespace
 
+void TickInputCooldown() {
+  if (!g_sticky_reset_pending.load(std::memory_order_relaxed)) return;
+
+  ULONGLONG closed_time = g_overlay_closed_time.load(std::memory_order_relaxed);
+  if (closed_time > 0 && (GetTickCount64() - closed_time >= 200)) {
+    ResetStickyInputs();
+    g_sticky_reset_pending.store(false);
+  }
+}
+
+void SetOverlayVisible(bool visible) {
+  if (GetOverlayState().show_overlay == visible) return;
+  if (!visible) {
+    g_overlay_closed_time.store(GetTickCount64());
+    g_sticky_reset_pending.store(true);
+  }
+  GetOverlayState().show_overlay = visible;
+  if (g_game_hwnd) {
+    if (GetCurrentThreadId() == GetWindowThreadProcessId(g_game_hwnd, nullptr)) {
+      UpdateOverlayVisibilityState();
+    } else {
+      PostMessageW(g_game_hwnd, WM_USER + 0x1337, 0, 0);
+    }
+  }
+}
+
 LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+  if (!g_game_hwnd) {
+    g_game_hwnd = hwnd;
+  }
+
+  if (!g_cursor_initialized.load(std::memory_order_relaxed)) {
+    int cur = ShowCursor(TRUE);
+    ShowCursor(FALSE);
+    g_game_show_cursor_count.store(cur - 1);
+    g_cursor_initialized.store(true, std::memory_order_relaxed);
+  }
+
+  UpdateOverlayVisibilityState();
+
+  if (msg == WM_USER + 0x1337) {
+    return 0;
+  }
+
   if (msg == WM_ACTIVATE || msg == WM_ACTIVATEAPP) {
     bool is_inactive = false;
     if (msg == WM_ACTIVATE) {
@@ -315,27 +610,7 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
     }
 
     if (is_inactive && GetOverlayState().show_overlay) {
-      GetOverlayState().show_overlay = false;
-      
-      // Restore game's cursor clip rect
-      if (g_game_has_clip_rect) {
-        if (g_original_clip_cursor) {
-          g_original_clip_cursor(&g_game_clip_rect);
-        } else {
-          ClipCursor(&g_game_clip_rect);
-        }
-      } else {
-        if (g_original_clip_cursor) {
-          g_original_clip_cursor(nullptr);
-        } else {
-          ClipCursor(nullptr);
-        }
-      }
-      
-      ImGuiIO& io = ImGui::GetIO();
-      io.ClearInputKeys();
-      io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-      io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
+      SetOverlayVisible(false);
     }
   }
 
@@ -343,80 +618,55 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
   bool modifier_pressed = cfg.hotkey_toggle_modifier == 0 || (GetKeyState(cfg.hotkey_toggle_modifier) & 0x8000);
   
   if (msg == WM_KEYDOWN && wparam == (WPARAM)cfg.hotkey_toggle_main && modifier_pressed) {
-    GetOverlayState().show_overlay = !GetOverlayState().show_overlay;
-    
-    ImGuiIO& io = ImGui::GetIO();
-    if (GetOverlayState().show_overlay) {
-      // Opening overlay: enable cursor, nav, and release game cursor clip
-      io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
-      io.ConfigFlags |= (ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
-      
-      // Release game's cursor confinement for free mouse movement
-      if (g_original_clip_cursor) {
-        g_original_clip_cursor(nullptr);
-      } else {
-        ClipCursor(nullptr);
-      }
-      
-      // Force OS cursor visible (games that hide it via SetCursor(NULL))
-      SetCursor(LoadCursor(nullptr, IDC_ARROW));
-    } else {
-      // Closing overlay: clear input state and restore game clip rect
-      io.ClearInputKeys();
-      io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-      io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
-      
-      // Restore game's cursor confinement
-      if (g_game_has_clip_rect) {
-        if (g_original_clip_cursor) {
-          g_original_clip_cursor(&g_game_clip_rect);
-        } else {
-          ClipCursor(&g_game_clip_rect);
-        }
-      }
-    }
-    
+    SetOverlayVisible(!GetOverlayState().show_overlay);
     return 1; // Block input to game
   }
 
-  if (GetOverlayState().show_overlay) {
-    // Permanently block the game from hiding the cursor while overlay is active.
-    // Games typically call SetCursor(NULL) inside WM_SETCURSOR on every mouse move,
-    // overriding any one-shot SetCursor call. Intercepting here is the correct defense.
-    if (msg == WM_SETCURSOR) {
-      SetCursor(LoadCursor(nullptr, IDC_ARROW));
-      return TRUE;
-    }
+  if (IsInputBlocked()) {
+    if (GetOverlayState().show_overlay) {
+      if (msg == WM_SETCURSOR) {
+        if (LOWORD(lparam) == HTCLIENT) {
+          shared::g_allow_input_queries = true;
+          bool imgui_processed = ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam);
+          shared::g_allow_input_queries = false;
+          if (imgui_processed) {
+            return TRUE;
+          }
+          SetCursor(LoadCursor(nullptr, IDC_ARROW));
+          return TRUE;
+        }
+      }
 
-    // Scale coordinates in client-coordinate mouse messages when window size and swapchain size mismatch
-    if ((msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) && msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL) {
-      short x = static_cast<short>(LOWORD(lparam));
-      short y = static_cast<short>(HIWORD(lparam));
-      uint32_t swap_w = GetOverlayState().swapchain_width;
-      uint32_t swap_h = GetOverlayState().swapchain_height;
-      if (swap_w > 0 && swap_h > 0) {
-        RECT rect;
-        if (GetClientRect(hwnd, &rect)) {
-          float client_w = static_cast<float>(rect.right - rect.left);
-          float client_h = static_cast<float>(rect.bottom - rect.top);
-          if (client_w > 0 && client_h > 0 && (client_w != swap_w || client_h != swap_h)) {
-            short scaled_x = static_cast<short>(x * (static_cast<float>(swap_w) / client_w));
-            short scaled_y = static_cast<short>(y * (static_cast<float>(swap_h) / client_h));
-            lparam = MAKELPARAM(scaled_x, scaled_y);
+      // Scale coordinates in client-coordinate mouse messages when window size and swapchain size mismatch
+      if ((msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) && msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL) {
+        short x = static_cast<short>(LOWORD(lparam));
+        short y = static_cast<short>(HIWORD(lparam));
+        uint32_t swap_w = GetOverlayState().swapchain_width;
+        uint32_t swap_h = GetOverlayState().swapchain_height;
+        if (swap_w > 0 && swap_h > 0) {
+          RECT rect;
+          if (GetClientRect(hwnd, &rect)) {
+            float client_w = static_cast<float>(rect.right - rect.left);
+            float client_h = static_cast<float>(rect.bottom - rect.top);
+            if (client_w > 0 && client_h > 0 && (client_w != swap_w || client_h != swap_h)) {
+              short scaled_x = static_cast<short>(x * (static_cast<float>(swap_w) / client_w));
+              short scaled_y = static_cast<short>(y * (static_cast<float>(swap_h) / client_h));
+              lparam = MAKELPARAM(scaled_x, scaled_y);
+            }
           }
         }
       }
+
+      shared::g_allow_input_queries = true;
+      bool imgui_processed = ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam);
+      shared::g_allow_input_queries = false;
+      
+      if (imgui_processed) {
+        return true; // ImGui processed, block from game
+      }
     }
 
-    shared::g_allow_input_queries = true;
-    bool imgui_processed = ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam);
-    shared::g_allow_input_queries = false;
-    
-    if (imgui_processed) {
-      return true; // ImGui processed, block from game
-    }
-
-    // Block keyboard, mouse and raw input events from leaking into the game when overlay is active
+    // Block keyboard, mouse and raw input events from leaking into the game when overlay is active or in cooldown
     if (msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) {
       return 1;
     }
@@ -448,6 +698,7 @@ bool InitializeInputHooks() {
   void* get_message_w_addr = GetProcAddress(user32, "GetMessageW");
   void* get_message_a_addr = GetProcAddress(user32, "GetMessageA");
   void* screen_to_client_addr = GetProcAddress(user32, "ScreenToClient");
+  void* show_cursor_addr = GetProcAddress(user32, "ShowCursor");
 
   bool success = true;
 
@@ -525,6 +776,12 @@ bool InitializeInputHooks() {
         reinterpret_cast<void*>(&HookedScreenToClient),
         reinterpret_cast<void**>(&g_original_screen_to_client));
   }
+  if (show_cursor_addr) {
+    success &= CreateAndEnableHook(
+        show_cursor_addr,
+        reinterpret_cast<void*>(&HookedShowCursor),
+        reinterpret_cast<void**>(&g_original_show_cursor));
+  }
 
   // Hook XInputGetState proactively if loaded by game or by us
   HMODULE xinput14 = GetModuleHandleW(L"xinput1_4.dll");
@@ -571,36 +828,7 @@ void PollGamepadToggle() {
     bool guide_pressed = (state.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0;
     
     if (guide_pressed && !g_prev_guide_pressed) {
-      GetOverlayState().show_overlay = !GetOverlayState().show_overlay;
-      
-      ImGuiIO& io = ImGui::GetIO();
-      if (GetOverlayState().show_overlay) {
-        io.ConfigFlags &= ~ImGuiConfigFlags_NoMouseCursorChange;
-        io.ConfigFlags |= (ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
-        
-        // Release game's cursor confinement
-        if (g_original_clip_cursor) {
-          g_original_clip_cursor(nullptr);
-        } else {
-          ClipCursor(nullptr);
-        }
-        
-        // Force OS cursor visible
-        SetCursor(LoadCursor(nullptr, IDC_ARROW));
-      } else {
-        io.ClearInputKeys();
-        io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-        io.ConfigFlags &= ~(ImGuiConfigFlags_NavEnableGamepad | ImGuiConfigFlags_NavEnableKeyboard);
-        
-        // Restore game's cursor confinement
-        if (g_game_has_clip_rect) {
-          if (g_original_clip_cursor) {
-            g_original_clip_cursor(&g_game_clip_rect);
-          } else {
-            ClipCursor(&g_game_clip_rect);
-          }
-        }
-      }
+      SetOverlayVisible(!GetOverlayState().show_overlay);
     }
     g_prev_guide_pressed = guide_pressed;
   }
@@ -620,6 +848,9 @@ void ShutdownInputHooks() {
   if (g_original_screen_to_client) {
     DisableAndRemoveHook(reinterpret_cast<void*>(g_original_screen_to_client));
   }
+  if (g_original_show_cursor) {
+    DisableAndRemoveHook(reinterpret_cast<void*>(g_original_show_cursor));
+  }
 
   shared::g_key_state_func = nullptr;
   g_original_get_async_key_state = nullptr;
@@ -633,6 +864,7 @@ void ShutdownInputHooks() {
   g_original_get_message_w = nullptr;
   g_original_get_message_a = nullptr;
   g_original_screen_to_client = nullptr;
+  g_original_show_cursor = nullptr;
 
   if (g_orig_xinput14_getstate) {
     DisableAndRemoveHook(reinterpret_cast<void*>(g_orig_xinput14_getstate));
@@ -655,13 +887,11 @@ static std::string g_clipboard_buffer;
 
 static const char* HookedGetClipboardText(void* /*user_data*/) {
   g_clipboard_buffer.clear();
-  HWND hwnd = GetForegroundWindow();
   
   // Zero-retry, fail-fast: clipboard is on the render thread.
-  // Sleep() here — even Sleep(1) — can block up to ~15ms (OS timer granularity),
-  // tanking FPS. If clipboard is locked by another process, drop this frame silently.
-  // ImGui will retry naturally next frame while Ctrl+C/V is still held.
-  if (!OpenClipboard(hwnd) && !OpenClipboard(nullptr)) {
+  // Avoid passing a window HWND as it can cause Windows to coordinate with the busy game thread,
+  // causing 1-3s freezes. OpenClipboard(nullptr) is safe and doesn't block.
+  if (!OpenClipboard(nullptr)) {
     return nullptr;
   }
   
@@ -669,10 +899,11 @@ static const char* HookedGetClipboardText(void* /*user_data*/) {
   if (hData) {
       wchar_t* wtext = (wchar_t*)GlobalLock(hData);
       if (wtext) {
-          int len = WideCharToMultiByte(CP_UTF8, 0, wtext, -1, nullptr, 0, nullptr, nullptr);
+          int wlen = (int)wcslen(wtext);
+          int len = WideCharToMultiByte(CP_UTF8, 0, wtext, wlen, nullptr, 0, nullptr, nullptr);
           if (len > 0) {
-              g_clipboard_buffer.resize(len - 1);
-              WideCharToMultiByte(CP_UTF8, 0, wtext, -1, &g_clipboard_buffer[0], len, nullptr, nullptr);
+              g_clipboard_buffer.resize(len);
+              WideCharToMultiByte(CP_UTF8, 0, wtext, wlen, &g_clipboard_buffer[0], len, nullptr, nullptr);
           }
           GlobalUnlock(hData);
       }
@@ -682,22 +913,30 @@ static const char* HookedGetClipboardText(void* /*user_data*/) {
 }
 
 static void HookedSetClipboardText(void* /*user_data*/, const char* text) {
-  HWND hwnd = GetForegroundWindow();
-  
-  // Zero-retry, fail-fast: same rationale as GetClipboardText.
-  if (!OpenClipboard(hwnd) && !OpenClipboard(nullptr)) {
+  if (!text || text[0] == '\0') return;
+
+  // Run clipboard write synchronously and fail-fast to prevent thread creation overhead and
+  // potential clipboard lock contention with background threads.
+  if (!OpenClipboard(nullptr)) {
     return;
   }
-  
+
   EmptyClipboard();
   int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, nullptr, 0);
-  HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, (wlen + 1) * sizeof(wchar_t));
-  if (hMem) {
+  if (wlen > 0) {
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, wlen * sizeof(wchar_t));
+    if (hMem) {
       wchar_t* dest = (wchar_t*)GlobalLock(hMem);
-      MultiByteToWideChar(CP_UTF8, 0, text, -1, dest, wlen);
-      dest[wlen] = L'\0';
-      GlobalUnlock(hMem);
-      SetClipboardData(CF_UNICODETEXT, hMem);
+      if (dest) {
+        MultiByteToWideChar(CP_UTF8, 0, text, -1, dest, wlen);
+        GlobalUnlock(hMem);
+        if (!SetClipboardData(CF_UNICODETEXT, hMem)) {
+          GlobalFree(hMem);
+        }
+      } else {
+        GlobalFree(hMem);
+      }
+    }
   }
   CloseClipboard();
 }

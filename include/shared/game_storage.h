@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <functional>
 #include <vector>
+#include <atomic>
 
 namespace dover::shared {
 
@@ -35,8 +36,33 @@ public:
 
     void LoadConfig();
     void SaveConfig();
+    void FlushConfig();
+    
     void LoadState();
     void SaveState();
+    void FlushState();
+    
+    using CaptureCallback = std::function<void()>;
+    void RegisterConfigCapture(CaptureCallback cb) { m_cfg_capture.push_back(std::move(cb)); }
+    void RegisterStateCapture(CaptureCallback cb) { m_state_capture.push_back(std::move(cb)); }
+
+    bool IsConfigCaptureRequested() const { return m_config_capture_requested.load(std::memory_order_acquire); }
+    bool TestAndClearConfigCaptureRequested() { return m_config_capture_requested.exchange(false, std::memory_order_acq_rel); }
+    void ClearConfigCaptureRequested() { m_config_capture_requested.store(false, std::memory_order_release); }
+    bool IsStateCaptureRequested() const { return m_state_capture_requested.load(std::memory_order_acquire); }
+    bool TestAndClearStateCaptureRequested() { return m_state_capture_requested.exchange(false, std::memory_order_acq_rel); }
+    void ClearStateCaptureRequested() { m_state_capture_requested.store(false, std::memory_order_release); }
+
+    void ExecuteConfigCapture() { for(auto& cb : m_cfg_capture) cb(); }
+    void ExecuteStateCapture() { for(auto& cb : m_state_capture) cb(); }
+
+    bool IsConfigFlushReady() const { return m_config_flush_ready.load(std::memory_order_acquire); }
+    void SetConfigFlushReady() { m_config_flush_ready.store(true, std::memory_order_release); }
+    void ClearConfigFlushReady() { m_config_flush_ready.store(false, std::memory_order_release); }
+
+    bool IsStateFlushReady() const { return m_state_flush_ready.load(std::memory_order_acquire); }
+    void SetStateFlushReady() { m_state_flush_ready.store(true, std::memory_order_release); }
+    void ClearStateFlushReady() { m_state_flush_ready.store(false, std::memory_order_release); }
 
 private:
     GameStorage() = default;
@@ -50,6 +76,14 @@ private:
     std::vector<StorageCallback> m_cfg_save;
     std::vector<StorageCallback> m_state_load;
     std::vector<StorageCallback> m_state_save;
+    
+    std::vector<CaptureCallback> m_cfg_capture;
+    std::vector<CaptureCallback> m_state_capture;
+    
+    std::atomic<bool> m_config_capture_requested{false};
+    std::atomic<bool> m_state_capture_requested{false};
+    std::atomic<bool> m_config_flush_ready{false};
+    std::atomic<bool> m_state_flush_ready{false};
 };
 
 } // namespace dover::shared

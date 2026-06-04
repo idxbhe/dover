@@ -54,10 +54,14 @@ void GameStorage::LoadConfig() {
     for (auto& cb : m_cfg_load) cb(cfg);
 }
 
-void GameStorage::SaveConfig() {
+void GameStorage::FlushConfig() {
     if (!m_initialized) return;
     auto cfg = GetConfigPath();
     for (auto& cb : m_cfg_save) cb(cfg);
+}
+
+void GameStorage::SaveConfig() {
+    m_config_capture_requested.store(true, std::memory_order_release);
 }
 
 void GameStorage::LoadState() {
@@ -66,10 +70,14 @@ void GameStorage::LoadState() {
     for (auto& cb : m_state_load) cb(st);
 }
 
-void GameStorage::SaveState() {
+void GameStorage::FlushState() {
     if (!m_initialized) return;
     auto st = GetStatePath();
     for (auto& cb : m_state_save) cb(st);
+}
+
+void GameStorage::SaveState() {
+    m_state_capture_requested.store(true, std::memory_order_release);
 }
 
 } // namespace dover::shared

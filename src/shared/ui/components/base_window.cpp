@@ -43,8 +43,12 @@ void BaseWindow::Render(bool interactive) {
         win_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
     } else {
         if (m_was_maximized || m_was_fullscreen) {
+            ImVec2 target_size = m_prev_size;
+            if (target_size.x <= 0.0f || target_size.y <= 0.0f) {
+                target_size = m_default_size;
+            }
             ImGui::SetNextWindowPos(m_prev_pos, ImGuiCond_Always);
-            ImGui::SetNextWindowSize(m_prev_size, ImGuiCond_Always);
+            ImGui::SetNextWindowSize(target_size, ImGuiCond_Always);
             m_was_maximized = false;
             m_was_fullscreen = false;
         } else {
@@ -67,7 +71,9 @@ void BaseWindow::Render(bool interactive) {
     ImGui::SetNextWindowBgAlpha(m_bg_alpha);
 
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
-    bool begin_ok = ImGui::Begin(m_window_name.c_str(), &m_is_open, win_flags);
+    bool is_open_local = m_is_open.load();
+    bool begin_ok = ImGui::Begin(m_window_name.c_str(), &is_open_local, win_flags);
+    if (is_open_local != m_is_open.load()) m_is_open.store(is_open_local);
     ImGui::PopStyleColor();
 
     if (no_border) {
@@ -136,7 +142,7 @@ void BaseWindow::Render(bool interactive) {
 void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary, float custom_y_pos) {
     if (!interactive) return;
 
-    auto DrawCustomButton = [&](const char* icon, float same_line_pos, const char* tooltip, bool* toggle_state = nullptr) -> bool {
+    auto DrawCustomButton = [&](const char* icon, float same_line_pos, const char* tooltip, std::atomic<bool>* toggle_state = nullptr) -> bool {
         ImGui::SameLine(same_line_pos);
         if (custom_y_pos >= 0.0f) {
             ImGui::SetCursorPosY(custom_y_pos);
@@ -150,8 +156,7 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0, 0, 0, 0));
-        
-        bool is_toggled = (toggle_state && *toggle_state);
+        bool is_toggled = (toggle_state && toggle_state->load());
         
         bool clicked = ImGui::Button(icon);
         
@@ -204,7 +209,7 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
         }
         
         if (clicked && toggle_state) {
-            *toggle_state = !*toggle_state;
+            toggle_state->store(!toggle_state->load());
         }
         
         return clicked;
@@ -219,23 +224,28 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
     }
 
     if (HasFeature(m_features, WindowFeature::Maximize)) {
-        const char* icon = m_is_maximized ? ICON_WINDOW_WINDOWED : ICON_WINDOW_MAXIMIZE;
-        const char* tooltip = m_is_maximized ? "Restore Window Size" : "Maximize Window";
+        bool is_max = m_is_maximized.load();
+        const char* icon = is_max ? ICON_WINDOW_WINDOWED : ICON_WINDOW_MAXIMIZE;
+        const char* tooltip = is_max ? "Restore Window Size" : "Maximize Window";
         if (DrawCustomButton(icon, right_boundary - offset, tooltip)) {
-            if (!m_is_maximized && !m_is_fullscreen) {
+            if (is_max) {
                 m_was_maximized = true;
             }
-            m_is_maximized = !m_is_maximized;
+            m_is_maximized.store(!is_max);
+            dover::shared::GameStorage::Get().SaveConfig();
         }
         offset += 26.0f;
     }
 
     if (HasFeature(m_features, WindowFeature::Fullscreen)) {
         if (m_ctx == RenderContext::Overlay) {
-            if (DrawCustomButton(ICON_WINDOW_FULLSCREEN, right_boundary - offset, m_is_fullscreen ? "Exit Fullscreen" : "Fullscreen", &m_is_fullscreen)) {
-                if (m_is_fullscreen && !m_is_maximized) {
+            bool is_full = m_is_fullscreen.load();
+            if (DrawCustomButton(ICON_WINDOW_FULLSCREEN, right_boundary - offset, is_full ? "Exit Fullscreen" : "Fullscreen")) {
+                if (is_full) {
                     m_was_fullscreen = true;
                 }
+                m_is_fullscreen.store(!is_full);
+                dover::shared::GameStorage::Get().SaveConfig();
             }
             offset += 26.0f;
         }
@@ -243,7 +253,9 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
 
     if (HasFeature(m_features, WindowFeature::Pin)) {
         if (m_ctx == RenderContext::Overlay) {
-            DrawCustomButton(ICON_WINDOW_PINNED, right_boundary - offset, m_is_pinned ? "Unpin from screen" : "Pin to screen", &m_is_pinned);
+            if (DrawCustomButton(ICON_WINDOW_PINNED, right_boundary - offset, m_is_pinned ? "Unpin from screen" : "Pin to screen", &m_is_pinned)) {
+                dover::shared::GameStorage::Get().SaveConfig();
+            }
             offset += 26.0f;
         }
     }
@@ -264,7 +276,7 @@ void BaseWindow::Close() {
 }
 
 void BaseWindow::ToggleOpen() {
-    m_is_open = !m_is_open;
+    m_is_open.store(!m_is_open.load());
     dover::shared::GameStorage::Get().SaveState();
 }
 

@@ -3,6 +3,7 @@
 namespace dover::shared {
 
 extern thread_local bool g_allow_xinput;
+extern thread_local bool g_visualizer_xinput;
 extern thread_local bool g_allow_input_queries;
 
 using KeyStateFunc = bool(*)(int);

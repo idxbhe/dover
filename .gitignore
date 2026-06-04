@@ -3,6 +3,7 @@ AGENTS.md
 promts.md
 doverlay/
 docs/
+docs-by-agents/
 refactor-plan/
 .agents/
 plans/
@@ -66,3 +67,6 @@ cdb_runner.ps1
 dump_parser.cs
 dump_parser.exe
 old_crosshair.cpp
+
+# user specific
+BUGS & TODO.md

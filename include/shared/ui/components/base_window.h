@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <atomic>
 #include <imgui.h>
 
 namespace dover::shared::ui {
@@ -33,11 +34,11 @@ protected:
     WindowFeature m_features;
     
     // Core Window States
-    bool m_is_open = false;
-    bool m_is_pinned = false;
-    bool m_is_maximized = false;
+    std::atomic<bool> m_is_open{false};
+    std::atomic<bool> m_is_pinned{false};
+    std::atomic<bool> m_is_maximized{false};
     bool m_was_maximized = false;
-    bool m_is_fullscreen = false;
+    std::atomic<bool> m_is_fullscreen{false};
     bool m_was_fullscreen = false;
     bool m_is_focused = false;
     
@@ -64,9 +65,29 @@ public:
     void SetRenderContext(RenderContext ctx) { m_ctx = ctx; }
     
     bool IsOpen() const { return m_is_open; }
-    bool* GetOpenPtr() { return &m_is_open; }
+
     
     bool IsPinned() const { return m_is_pinned; }
+    void SetPinned(bool p) { m_is_pinned = p; }
+    
+    bool IsMaximized() const { return m_is_maximized; }
+    void SetMaximized(bool m) { 
+        m_is_maximized = m; 
+        if (m) m_was_maximized = true;
+    }
+    
+    bool IsFullscreen() const { return m_is_fullscreen; }
+    void SetFullscreen(bool f) { 
+        m_is_fullscreen = f; 
+        if (f) m_was_fullscreen = true;
+    }
+    
+    ImVec2 GetPrevPos() const { return m_prev_pos; }
+    void SetPrevPos(ImVec2 pos) { m_prev_pos = pos; }
+    
+    ImVec2 GetPrevSize() const { return m_prev_size; }
+    void SetPrevSize(ImVec2 sz) { m_prev_size = sz; }
+    
     bool IsFocused() const { return m_is_focused; }
     
     float GetBgAlpha() const { return m_bg_alpha; }

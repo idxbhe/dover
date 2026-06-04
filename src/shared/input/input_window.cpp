@@ -613,14 +613,14 @@ void InputWindow::RenderVisualizer() {
     
     ImGui::GetWindowDrawList()->AddImage(chassis_asset->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
     
-    shared::g_allow_xinput = true;
+    shared::g_visualizer_xinput = true;
     XINPUT_STATE state = {};
     for (DWORD i = 0; i < 4; ++i) {
         if (XInputGetState(i, &state) == ERROR_SUCCESS) {
             break;
         }
     }
-    shared::g_allow_xinput = false;
+    shared::g_visualizer_xinput = false;
     
     WORD b = state.Gamepad.wButtons;
 
@@ -704,7 +704,7 @@ void InputWindow::RenderGamepadOverlay() {
     
     dl->AddImage(chassis->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
     
-    shared::g_allow_xinput = true;
+    shared::g_visualizer_xinput = true;
     XINPUT_STATE state = {};
     static DWORD s_active_index = 0;
     static int s_poll_timer = 0;
@@ -724,7 +724,7 @@ void InputWindow::RenderGamepadOverlay() {
     } else {
         s_poll_timer = 0;
     }
-    shared::g_allow_xinput = false;
+    shared::g_visualizer_xinput = false;
     
     WORD b = state.Gamepad.wButtons;
     for (int i = 0; i < m_visualizer_button_count; ++i) {

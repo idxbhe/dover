@@ -6,6 +6,7 @@
 #include "overlay/input_hook.h"
 #include "shared/log.h"
 #include "shared/renderer.h"
+#include "overlay_runtime.h"
 
 #include <d3d11.h>
 #include <dxgi.h>
@@ -54,12 +55,14 @@ void CreateRenderTargetView(IDXGISwapChain* swapchain) {
 }
 
 HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT flags) {
-  if (!swapchain) {
+  if (!swapchain || IsOverlayShutdownRequested()) {
     if (g_original_present) {
       return g_original_present(swapchain, sync_interval, flags);
     }
     return S_OK;
   }
+
+  TickInputCooldown();
 
   if (!g_imgui_initialized.load()) {
     if (SUCCEEDED(swapchain->GetDevice(IID_PPV_ARGS(&g_d3d11_device)))) {

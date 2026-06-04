@@ -35,7 +35,7 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   dover::shared::LogInfo("Overlay runtime started.");
   DWORD attempts = 0;
   bool hook_installed = false;
-  while (!g_shutdown_requested.load() && attempts < kHookRetryMaxAttempts) {
+  while (!g_shutdown_requested.load(std::memory_order_acquire) && attempts < kHookRetryMaxAttempts) {
 #if _WIN64
     if (GetModuleHandleW(L"d3d12.dll")) {
       if (InitializeDx12Hook()) {
@@ -88,17 +88,33 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
     }
 
     dover::shared::LogInfo("Overlay runtime entering wait loop.");
-    while (!g_shutdown_requested.load()) {
+    while (!g_shutdown_requested.load(std::memory_order_acquire)) {
       Sleep(100);
+      if (dover::shared::GameStorage::Get().IsConfigFlushReady()) {
+        dover::shared::GameStorage::Get().FlushConfig();
+        dover::shared::GameStorage::Get().ClearConfigFlushReady();
+      }
+      if (dover::shared::GameStorage::Get().IsStateFlushReady()) {
+        dover::shared::GameStorage::Get().FlushState();
+        dover::shared::GameStorage::Get().ClearStateFlushReady();
+      }
     }
   }
+
+  // Ensure render thread has time to observe shutdown and exit the hot path
+  Sleep(200);
 
   shared::notes::GetNotesWindow().Shutdown();
   shared::crosshair::GetCrosshairWindow().Shutdown();
   shared::notes::AutoSaveAll();
   shared::notes::ShutdownNotesManager();
-  dover::shared::GameStorage::Get().SaveState();
-  dover::shared::GameStorage::Get().SaveConfig();
+  
+  if (dover::shared::GameStorage::Get().IsStateFlushReady()) {
+    dover::shared::GameStorage::Get().FlushState();
+  }
+  if (dover::shared::GameStorage::Get().IsConfigFlushReady()) {
+    dover::shared::GameStorage::Get().FlushConfig();
+  }
   ShutdownInputHooks();
   ShutdownDx9Hook();
   ShutdownDx11Hook();
@@ -123,7 +139,11 @@ bool StartOverlayRuntime(HMODULE module) {
 }
 
 void RequestOverlayShutdown() {
-  g_shutdown_requested.store(true);
+  g_shutdown_requested.store(true, std::memory_order_release);
+}
+
+bool IsOverlayShutdownRequested() {
+  return g_shutdown_requested.load(std::memory_order_acquire);
 }
 
 } // namespace dover::overlay
