@@ -185,7 +185,7 @@ void NotesWindow::Shutdown() {
 
 namespace detail {
 
-enum class FloatBtnAction { None, ToggleMode, DeleteNote };
+enum class FloatBtnAction { None, ToggleMode, DeleteNote, SaveNote };
 
 PendingFormat RenderToolbarInternal(NotesWindow* window, bool interactive, float win_w) {
     if (!interactive) return FORMAT_NONE;
@@ -670,14 +670,32 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
         window->m_force_focus_frames--;
     }
 
+    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
+    
     if (ImGui::GetActiveID() == editor_id) {
         if (ImGui::IsKeyPressed(ImGuiKey_Escape) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight)) {
             ImGui::ClearActiveID();
             window->FlushEditBufferToNote();
         }
+
+        bool is_tab = ImGui::IsKeyPressed(ImGuiKey_Tab, true);
+        bool shift = ImGui::GetIO().KeyShift;
+
+        if (is_tab) {
+            int s_start = GetFormatterState().saved_selection_start;
+            int s_end = GetFormatterState().saved_selection_end;
+            if (s_start > s_end) std::swap(s_start, s_end);
+
+            bool has_selection = (s_start != s_end);
+
+            if (shift || has_selection) {
+                GetFormatterState().pending_format = shift ? FORMAT_OUTDENT : FORMAT_INDENT;
+                GetFormatterState().focus_editor_restore_frames = 1;
+                input_flags &= ~ImGuiInputTextFlags_AllowTabInput;
+            }
+        }
     }
 
-    ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_AllowTabInput | ImGuiInputTextFlags_CallbackAlways;
     SetFormatterContext(window->m_editor_wrap_width, dover::shared::g_fonts_editor[window->m_zoom_idx]);
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
@@ -790,6 +808,7 @@ FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
     FloatBtnAction action = FloatBtnAction::None;
     ImVec2 content_pos = ImGui::GetWindowPos();
     ImVec2 content_size = ImGui::GetWindowSize();
+    ImVec2 save_btn_pos = ImVec2(content_pos.x + content_size.x - 115.0f, content_pos.y + 4.0f);
     ImVec2 float_btn_pos = ImVec2(content_pos.x + content_size.x - 80.0f, content_pos.y + 4.0f);
     ImVec2 delete_btn_pos = ImVec2(content_pos.x + content_size.x - 45.0f, content_pos.y + 4.0f);
 
@@ -842,6 +861,54 @@ FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
 
         if (clicked_toggle) {
             action = FloatBtnAction::ToggleMode;
+        }
+    }
+
+    // 3. Save Note Button
+    {
+        ImGui::SetCursorScreenPos(save_btn_pos);
+        bool clicked_save = ImGui::InvisibleButton("##save_note_btn", ImVec2(30.0f, 30.0f));
+        bool hovered_save = ImGui::IsItemHovered();
+        bool active_save = ImGui::IsItemActive();
+
+        ImVec2 min_p = save_btn_pos;
+        ImVec2 max_p = ImVec2(save_btn_pos.x + 30.0f, save_btn_pos.y + 30.0f);
+        ImVec2 center = ImVec2(save_btn_pos.x + 15.0f, save_btn_pos.y + 15.0f);
+
+        ImVec4 bg_color = ImVec4(0.118f, 0.478f, 0.812f, 0.90f);
+        ImVec4 border_color = ImVec4(0.200f, 0.569f, 0.902f, 0.35f);
+
+        if (active_save) {
+            bg_color = ImVec4(0.000f, 0.384f, 0.722f, 1.00f);
+            border_color = ImVec4(0.100f, 0.486f, 0.847f, 0.50f);
+        } else if (hovered_save) {
+            bg_color = ImVec4(0.200f, 0.639f, 1.000f, 0.98f);
+            border_color = ImVec4(0.360f, 0.710f, 1.000f, 0.45f);
+        }
+
+        ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
+        ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
+        ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImVec4(0.960f, 0.965f, 0.973f, 1.00f));
+
+        draw_list->AddRectFilled(min_p, max_p, bg_col32, 2.0f);
+
+        ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
+        ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
+        draw_list->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+        draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+
+        ImGui::PushFont(dover::shared::g_font_gui);
+        ImVec2 text_size = ImGui::CalcTextSize(ICON_SAVE);
+        ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
+        draw_list->AddText(text_pos, text_col32, ICON_SAVE);
+        ImGui::PopFont();
+
+        if (hovered_save) {
+            ImGui::SetTooltip("Save Note (Ctrl+S)");
+        }
+
+        if (clicked_save) {
+            action = FloatBtnAction::SaveNote;
         }
     }
 
@@ -922,11 +989,13 @@ void NotesWindow::RenderContent(bool interactive) {
   uint32_t curr_win_keys = 0;
   if (ImGui::IsKeyDown(ImGuiKey_V)) curr_win_keys |= (1 << 0);
   if (ImGui::IsKeyDown(ImGuiKey_N)) curr_win_keys |= (1 << 1);
+  if (ImGui::IsKeyDown(ImGuiKey_S)) curr_win_keys |= (1 << 2);
   uint32_t win_pressed = curr_win_keys & ~s_prev_win_keys;
   s_prev_win_keys = curr_win_keys;
 
   bool trigger_toggle = ImGui::GetIO().KeyAlt && (win_pressed & (1 << 0));
   bool trigger_new_note = ImGui::GetIO().KeyCtrl && (win_pressed & (1 << 1));
+  bool trigger_save = ImGui::GetIO().KeyCtrl && (win_pressed & (1 << 2));
 
   if (trigger_new_note) {
     const char* new_title = CreateAutoNote();
@@ -1029,7 +1098,10 @@ void NotesWindow::RenderContent(bool interactive) {
 
   if (trigger_toggle) {
     btn_action = detail::FloatBtnAction::ToggleMode;
+  } else if (trigger_save) {
+    btn_action = detail::FloatBtnAction::SaveNote;
   }
+  
   if (btn_action == detail::FloatBtnAction::ToggleMode) {
     if (m_view_mode == 0) {
       FlushEditBufferToNote();
@@ -1037,6 +1109,9 @@ void NotesWindow::RenderContent(bool interactive) {
     } else {
       SwitchToEditor();
     }
+  } else if (btn_action == detail::FloatBtnAction::SaveNote) {
+    FlushEditBufferToNote();
+    SaveNote(m_synced_note_idx);
   } else if (btn_action == detail::FloatBtnAction::DeleteNote) {
     if (!notes.empty()) {
       DeleteNote(m_selected_note_idx);

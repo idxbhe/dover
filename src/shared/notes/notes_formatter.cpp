@@ -335,7 +335,7 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
       case FORMAT_H5: WrapSelection(data, "##### ", ""); break;
       case FORMAT_LIST_BULLET: WrapSelection(data, "- ", ""); break;
       case FORMAT_LIST_NUMBER: WrapSelection(data, "1. ", ""); break;
-      case FORMAT_INDENT: WrapSelection(data, "\t", ""); break;
+
       case FORMAT_COPY: {
         if (data->HasSelection()) {
           int s_start = data->SelectionStart;
@@ -408,6 +408,94 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
           data->SelectionStart = data->CursorPos;
           data->SelectionEnd = data->CursorPos;
         }
+        break;
+      }
+      case FORMAT_INDENT: {
+        int s_start = data->SelectionStart;
+        int s_end = data->SelectionEnd;
+        if (s_start > s_end) std::swap(s_start, s_end);
+
+        int line_start = s_start;
+        while (line_start > 0 && data->Buf[line_start - 1] != '\n') line_start--;
+
+        constexpr int MAX_COPY = 131072;
+        static char clean_copy[MAX_COPY];
+        int c_idx = 0;
+        
+        int total_inserted = 0;
+        int start_offset = 0;
+
+        for (int i = 0; i < data->BufTextLen; i++) {
+            bool is_line_start = (i == 0 || data->Buf[i - 1] == '\n');
+            if (is_line_start && i >= line_start && i <= s_end) {
+                if (!(i == s_end && s_start != s_end)) {
+                    if (c_idx < MAX_COPY - 1) {
+                        clean_copy[c_idx++] = '\t';
+                        total_inserted += 1;
+                        if (i <= s_start) start_offset += 1;
+                    }
+                }
+            }
+            if (c_idx < MAX_COPY - 1) clean_copy[c_idx++] = data->Buf[i];
+        }
+        clean_copy[c_idx] = '\0';
+        
+        data->DeleteChars(0, data->BufTextLen);
+        data->InsertChars(0, clean_copy);
+        data->SelectionStart = s_start + start_offset;
+        data->SelectionEnd = s_end + total_inserted;
+        data->CursorPos = data->SelectionEnd;
+        break;
+      }
+      case FORMAT_OUTDENT: {
+        int s_start = data->SelectionStart;
+        int s_end = data->SelectionEnd;
+        if (s_start > s_end) std::swap(s_start, s_end);
+
+        int line_start = s_start;
+        while (line_start > 0 && data->Buf[line_start - 1] != '\n') line_start--;
+
+        constexpr int MAX_COPY = 131072;
+        static char clean_copy[MAX_COPY];
+        int c_idx = 0;
+        
+        int total_removed = 0;
+        int start_offset = 0;
+
+        for (int i = 0; i < data->BufTextLen; ) {
+            bool is_line_start = (i == 0 || (i > 0 && data->Buf[i - 1] == '\n'));
+            
+            if (is_line_start && i >= line_start && i <= s_end && !(i == s_end && s_start != s_end)) {
+                if (data->Buf[i] == '\t') {
+                    total_removed += 1;
+                    if (i < s_start) start_offset += 1;
+                    i++;
+                    continue;
+                } else if (data->Buf[i] == ' ') {
+                    int removed = 1;
+                    i++;
+                    while (removed < 4 && i < data->BufTextLen && data->Buf[i] == ' ') {
+                        removed++;
+                        i++;
+                    }
+                    total_removed += removed;
+                    if (i - removed <= s_start) start_offset += removed;
+                    continue;
+                }
+            }
+            
+            if (c_idx < MAX_COPY - 1) clean_copy[c_idx++] = data->Buf[i];
+            i++;
+        }
+        clean_copy[c_idx] = '\0';
+        
+        data->DeleteChars(0, data->BufTextLen);
+        data->InsertChars(0, clean_copy);
+        data->SelectionStart = s_start >= start_offset ? s_start - start_offset : 0;
+        data->SelectionEnd = s_end >= total_removed ? s_end - total_removed : 0;
+        if (data->SelectionStart < 0) data->SelectionStart = 0;
+        if (data->SelectionEnd < data->SelectionStart) data->SelectionEnd = data->SelectionStart;
+        data->CursorPos = data->SelectionEnd;
         break;
       }
       default: break;

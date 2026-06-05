@@ -263,20 +263,58 @@ bool CreateNote(const char* title) {
   if (g_active_notes_count >= MAX_NOTES) return false;
 
   char safe_title[64];
-  strncpy_s(safe_title, sizeof(safe_title), title, _TRUNCATE);
-  for (char* c = safe_title; *c != '\0'; ++c) {
-    if (!isalnum(*c) && *c != '_' && *c != '-' && *c != ' ') *c = '_';
+  int j = 0;
+  for (int i = 0; title[i] != '\0' && j < 24; ++i) {
+      char c = title[i];
+      // Only accept alphanumeric, space, dash, and underscore. Exclude invalid OS characters entirely.
+      if (isalnum((unsigned char)c) || c == '-' || c == ' ' || c == '_') {
+          safe_title[j++] = c;
+      }
   }
-  
-  for (size_t i = 0; i < g_active_notes_count; ++i) {
-    if (strcmp(g_notes[i].title, safe_title) == 0) return false;
+  safe_title[j] = '\0';
+
+  // Trim trailing spaces
+  while (j > 0 && safe_title[j - 1] == ' ') {
+      safe_title[--j] = '\0';
   }
 
-  NoteFile& note = g_notes[g_active_notes_count];
-  strncpy_s(note.title, sizeof(note.title), safe_title, _TRUNCATE);
-  snprintf(note.filename, sizeof(note.filename), "%s.md", safe_title);
+  // Trim leading spaces
+  int start = 0;
+  while (safe_title[start] == ' ') start++;
+
+  if (start > 0) {
+      memmove(safe_title, safe_title + start, j - start + 1);
+      j -= start;
+  }
+
+  // Fallback to "untitled" if all characters were stripped or empty
+  if (j == 0) {
+      strncpy_s(safe_title, sizeof(safe_title), "untitled", _TRUNCATE);
+  }
+
+  // Handle name collisions
+  char final_title[64];
+  strncpy_s(final_title, sizeof(final_title), safe_title, _TRUNCATE);
+  int suffix = 2;
+  while (true) {
+      bool conflict = false;
+      for (size_t i = 0; i < g_active_notes_count; ++i) {
+          if (strcmp(g_notes[i].title, final_title) == 0) {
+              conflict = true;
+              break;
+          }
+      }
+      if (!conflict) break;
+      snprintf(final_title, sizeof(final_title), "%.50s_%d", safe_title, suffix++);
+  }
   
-  snprintf(note.content.get(), MAX_NOTE_SIZE, "# %s\n\nStart writing your notes here...\n", safe_title);
+  // Note: CreateAutoNote can bypass collision check now, but checking again here ensures robust API usage.
+
+  NoteFile& note = g_notes[g_active_notes_count];
+  strncpy_s(note.title, sizeof(note.title), final_title, _TRUNCATE);
+  snprintf(note.filename, sizeof(note.filename), "%s.md", final_title);
+  
+  snprintf(note.content.get(), MAX_NOTE_SIZE, "# %s\n\nStart writing your notes here...\n", final_title);
     PushIoCommand(IoCommandType::Save, note.filename, note.content.get());
 
   note.is_dirty = false;
