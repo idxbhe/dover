@@ -60,14 +60,14 @@ bool InjectDll(HANDLE process, const std::filesystem::path& dll_path) {
   void* remote_buffer = VirtualAllocEx(process, nullptr, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
   if (!remote_buffer) {
     DWORD err = GetLastError();
-    LogError(("VirtualAllocEx failed for DLL path. Error: " + std::to_string(err)).c_str());
+    LogError("VirtualAllocEx failed for DLL path. Error: %lu", err);
     return false;
   }
 
   const BOOL wrote = WriteProcessMemory(process, remote_buffer, dll_string.c_str(), bytes, nullptr);
   if (!wrote) {
     DWORD err = GetLastError();
-    LogError(("WriteProcessMemory failed for DLL path. Error: " + std::to_string(err)).c_str());
+    LogError("WriteProcessMemory failed for DLL path. Error: %lu", err);
     VirtualFreeEx(process, remote_buffer, 0, MEM_RELEASE);
     return false;
   }
@@ -89,7 +89,7 @@ bool InjectDll(HANDLE process, const std::filesystem::path& dll_path) {
   HANDLE remote_thread = CreateRemoteThread(process, nullptr, 0, load_library, remote_buffer, 0, nullptr);
   if (!remote_thread) {
     DWORD err = GetLastError();
-    LogError(("CreateRemoteThread failed. Error: " + std::to_string(err)).c_str());
+    LogError("CreateRemoteThread failed. Error: %lu", err);
     VirtualFreeEx(process, remote_buffer, 0, MEM_RELEASE);
     return false;
   }

@@ -72,7 +72,7 @@ void BaseWindow::Render(bool interactive) {
 
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
     bool is_open_local = m_is_open.load();
-    bool begin_ok = ImGui::Begin(m_window_name.c_str(), &is_open_local, win_flags);
+    bool begin_ok = ImGui::Begin(m_window_name, &is_open_local, win_flags);
     if (is_open_local != m_is_open.load()) m_is_open.store(is_open_local);
     ImGui::PopStyleColor();
 
@@ -111,7 +111,7 @@ void BaseWindow::Render(bool interactive) {
 
         // Standardized Header / Toolbar
         if (interactive) {
-            if (m_window_name != "Settings" && m_window_name != "Input Mapper") {
+            if (strcmp(m_window_name, "Settings") != 0 && strcmp(m_window_name, "Input Mapper") != 0) {
                 ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f); // Move decorations & toolbar 3px lower
                 RenderToolbar(interactive);
                 

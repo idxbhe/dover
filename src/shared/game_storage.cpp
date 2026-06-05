@@ -51,13 +51,13 @@ void GameStorage::Initialize(const std::wstring& exe_name) {
 void GameStorage::LoadConfig() {
     if (!m_initialized) return;
     auto cfg = GetConfigPath();
-    for (auto& cb : m_cfg_load) cb(cfg);
+    for (size_t i = 0; i < m_cfg_load_count; ++i) m_cfg_load[i](cfg);
 }
 
 void GameStorage::FlushConfig() {
     if (!m_initialized) return;
     auto cfg = GetConfigPath();
-    for (auto& cb : m_cfg_save) cb(cfg);
+    for (size_t i = 0; i < m_cfg_save_count; ++i) m_cfg_save[i](cfg);
 }
 
 void GameStorage::SaveConfig() {
@@ -67,13 +67,13 @@ void GameStorage::SaveConfig() {
 void GameStorage::LoadState() {
     if (!m_initialized) return;
     auto st = GetStatePath();
-    for (auto& cb : m_state_load) cb(st);
+    for (size_t i = 0; i < m_state_load_count; ++i) m_state_load[i](st);
 }
 
 void GameStorage::FlushState() {
     if (!m_initialized) return;
     auto st = GetStatePath();
-    for (auto& cb : m_state_save) cb(st);
+    for (size_t i = 0; i < m_state_save_count; ++i) m_state_save[i](st);
 }
 
 void GameStorage::SaveState() {

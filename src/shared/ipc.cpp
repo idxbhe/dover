@@ -1,14 +1,16 @@
 #include "shared/ipc.h"
+#include <cstdio>
 
 namespace dover::shared {
 
-std::wstring GetOverlayReadyEventName(DWORD pid) {
-  return L"DoverOverlayReady_" + std::to_wstring(pid);
+void GetOverlayReadyEventName(DWORD pid, wchar_t* out_name, size_t max_count) {
+  swprintf_s(out_name, max_count, L"DoverOverlayReady_%u", pid);
 }
 
 HANDLE CreateOverlayReadyEvent(DWORD pid) {
-  const std::wstring name = GetOverlayReadyEventName(pid);
-  return CreateEventW(nullptr, TRUE, FALSE, name.c_str());
+  wchar_t name[128];
+  GetOverlayReadyEventName(pid, name, 128);
+  return CreateEventW(nullptr, TRUE, FALSE, name);
 }
 
 bool SignalOverlayReadyEvent(DWORD pid) {

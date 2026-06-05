@@ -11,6 +11,7 @@ problems/
 raw_crosshairs/unified.svg
 raw_crosshairs/svg/
 raw_crosshairs/pad_svgs.py
+tools/
 
 # IDE Workspace Settings & Metadata
 .vscode/

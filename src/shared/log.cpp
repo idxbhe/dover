@@ -18,6 +18,7 @@ namespace dover::shared {
 namespace {
 bool g_debug_mode = false;
 std::filesystem::path g_log_file_path;
+std::ofstream g_log_stream;
 std::mutex g_log_mutex;
 
 void LogWithTag(const char* tag, const char* format, va_list args) {
@@ -37,18 +38,16 @@ void LogWithTag(const char* tag, const char* format, va_list args) {
     }
 
     std::lock_guard<std::mutex> lock(g_log_mutex);
-    if (!g_log_file_path.empty()) {
-        std::ofstream ofs(g_log_file_path, std::ios::app);
-        if (ofs.is_open()) {
-            auto now = std::chrono::system_clock::now();
-            auto time_t_now = std::chrono::system_clock::to_time_t(now);
-            auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-            struct tm time_info;
-            localtime_s(&time_info, &time_t_now);
-            ofs << "[" << std::put_time(&time_info, "%H:%M:%S") << "."
-                << std::setfill('0') << std::setw(3) << ms.count() << "] "
-                << "[" << tag << "] " << msg_buffer << "\n";
-        }
+    if (g_log_stream.is_open()) {
+        auto now = std::chrono::system_clock::now();
+        auto time_t_now = std::chrono::system_clock::to_time_t(now);
+        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+        struct tm time_info;
+        localtime_s(&time_info, &time_t_now);
+        g_log_stream << "[" << std::put_time(&time_info, "%H:%M:%S") << "."
+            << std::setfill('0') << std::setw(3) << ms.count() << "] "
+            << "[" << tag << "] " << msg_buffer << "\n";
+        g_log_stream.flush();
     }
 }
 } // namespace
@@ -70,6 +69,14 @@ void InitializeLogging() {
         char filename[256];
         snprintf(filename, sizeof(filename), "dover_%s_%lu.log", exe_name.c_str(), pid);
         g_log_file_path = debug_dir / filename;
+        
+        {
+            std::lock_guard<std::mutex> lock(g_log_mutex);
+            if (g_log_stream.is_open()) {
+                g_log_stream.close();
+            }
+            g_log_stream.open(g_log_file_path, std::ios::app);
+        }
         
         LogInfo("Logging initialized. Target: %s, PID: %lu, Debug Mode: %s", exe_name.c_str(), pid, g_debug_mode ? "ON" : "OFF");
     }

@@ -320,7 +320,7 @@ void InputWindow::LoadGamepadTextures() {
     if (!dx11 && !dx9 && !shared::GetDx12Device()) return;
 
     for (auto& asset : assets) {
-        if (asset.name.rfind("gamepad/", 0) != 0) continue; // Only load gamepad textures
+        if (std::strncmp(asset.name, "gamepad/", 8) != 0) continue; // Only load gamepad textures
         if (asset.texture_id) continue;
 
         if (dx11) {

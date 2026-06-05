@@ -16,7 +16,7 @@ bool EnsureMinHookInitialized() {
     g_mh_status = MH_Initialize();
     g_mh_ready = (g_mh_status == MH_OK || g_mh_status == MH_ERROR_ALREADY_INITIALIZED);
     if (!g_mh_ready) {
-      dover::shared::LogError(("MinHook initialization failed with status: " + std::to_string(g_mh_status)).c_str());
+      dover::shared::LogError("MinHook initialization failed with status: %d", g_mh_status);
     }
   });
   return g_mh_ready;
@@ -45,13 +45,13 @@ bool CreateAndEnableHook(void* target, void* detour, void** original) {
 
   MH_STATUS status = MH_CreateHook(target, detour, original);
   if (status != MH_OK && status != MH_ERROR_ALREADY_CREATED) {
-    dover::shared::LogError(("MH_CreateHook failed with status: " + std::to_string(status)).c_str());
+    dover::shared::LogError("MH_CreateHook failed with status: %d", status);
     return false;
   }
 
   status = MH_EnableHook(target);
   if (status != MH_OK && status != MH_ERROR_ENABLED) {
-    dover::shared::LogError(("MH_EnableHook failed with status: " + std::to_string(status)).c_str());
+    dover::shared::LogError("MH_EnableHook failed with status: %d", status);
     return false;
   }
 

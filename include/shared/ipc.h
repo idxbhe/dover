@@ -6,7 +6,7 @@
 
 namespace dover::shared {
 
-std::wstring GetOverlayReadyEventName(DWORD pid);
+void GetOverlayReadyEventName(DWORD pid, wchar_t* out_name, size_t max_count);
 HANDLE CreateOverlayReadyEvent(DWORD pid);
 bool SignalOverlayReadyEvent(DWORD pid);
 

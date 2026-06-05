@@ -74,14 +74,16 @@ struct UploadBufferEntry {
     ID3D12Resource* upload_buffer = nullptr;
     UINT64 fence_value = 0;
 };
-std::vector<UploadBufferEntry> g_deferred_uploads;
+UploadBufferEntry g_deferred_uploads[kMaxSrvDescriptors];
+UINT g_deferred_uploads_count = 0;
 
 struct TextureEntry {
     void* tex_id = nullptr;
     ID3D12Resource* resource = nullptr;
     int srv_index = -1;
 };
-std::vector<TextureEntry> g_allocated_textures;
+TextureEntry g_allocated_textures[kMaxSrvDescriptors];
+UINT g_allocated_textures_count = 0;
 
 void WaitForGpu() {
     if (g_command_queue && g_fence && g_fence_event) {
@@ -93,17 +95,18 @@ void WaitForGpu() {
 }
 
 void ProcessDeferredUploads() {
-    if (g_deferred_uploads.empty() || !g_fence) return;
+    if (g_deferred_uploads_count == 0 || !g_fence) return;
     
     UINT64 completed = g_fence->GetCompletedValue();
-    for (auto it = g_deferred_uploads.begin(); it != g_deferred_uploads.end(); ) {
-        if (completed >= it->fence_value) {
-            if (it->upload_buffer) {
-                it->upload_buffer->Release();
+    for (UINT i = 0; i < g_deferred_uploads_count; ) {
+        if (completed >= g_deferred_uploads[i].fence_value) {
+            if (g_deferred_uploads[i].upload_buffer) {
+                g_deferred_uploads[i].upload_buffer->Release();
             }
-            it = g_deferred_uploads.erase(it);
+            g_deferred_uploads[i] = g_deferred_uploads[g_deferred_uploads_count - 1];
+            g_deferred_uploads_count--;
         } else {
-            ++it;
+            ++i;
         }
     }
 }
@@ -475,20 +478,20 @@ void ResetDx12State(bool device_lost) {
         ImGui_ImplWin32_Shutdown();
         ImGui::DestroyContext();
         
-        for (auto& entry : g_allocated_textures) {
-            if (entry.resource) {
-                entry.resource->Release();
-                entry.resource = nullptr;
+        for (UINT i = 0; i < g_allocated_textures_count; ++i) {
+            if (g_allocated_textures[i].resource) {
+                g_allocated_textures[i].resource->Release();
+                g_allocated_textures[i].resource = nullptr;
             }
         }
-        g_allocated_textures.clear();
+        g_allocated_textures_count = 0;
         
-        for (auto& entry : g_deferred_uploads) {
-            if (entry.upload_buffer) {
-                entry.upload_buffer->Release();
+        for (UINT i = 0; i < g_deferred_uploads_count; ++i) {
+            if (g_deferred_uploads[i].upload_buffer) {
+                g_deferred_uploads[i].upload_buffer->Release();
             }
         }
-        g_deferred_uploads.clear();
+        g_deferred_uploads_count = 0;
 
         for (UINT i = 0; i < kMaxFrameBuffers; ++i) {
             if (g_frame_contexts[i].command_allocator) {
@@ -540,9 +543,10 @@ void* CreateDx12TextureInternal(const uint8_t* rgba_data, int width, int height)
 
     // Find free SRV index (0 is ImGui Font)
     int srv_index = -1;
-    std::vector<bool> used_slots(kMaxSrvDescriptors, false);
+    bool used_slots[kMaxSrvDescriptors] = {false};
     used_slots[0] = true;
-    for (const auto& entry : g_allocated_textures) {
+    for (UINT i = 0; i < g_allocated_textures_count; ++i) {
+        const auto& entry = g_allocated_textures[i];
         if (entry.srv_index >= 0 && entry.srv_index < kMaxSrvDescriptors) {
             used_slots[entry.srv_index] = true;
         }
@@ -655,7 +659,11 @@ void* CreateDx12TextureInternal(const uint8_t* rgba_data, int width, int height)
     barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
     g_command_list->ResourceBarrier(1, &barrier);
 
-    g_deferred_uploads.push_back({upload_buffer, g_fence_value + 1});
+    if (g_deferred_uploads_count < kMaxSrvDescriptors) {
+        g_deferred_uploads[g_deferred_uploads_count++] = {upload_buffer, g_fence_value + 1};
+    } else {
+        dover::shared::LogError("CreateDx12TextureInternal: g_deferred_uploads capacity exceeded!");
+    }
 
     D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = g_srv_heap->GetCPUDescriptorHandleForHeapStart();
     cpu_handle.ptr += srv_index * g_srv_descriptor_size;
@@ -671,7 +679,11 @@ void* CreateDx12TextureInternal(const uint8_t* rgba_data, int width, int height)
     gpu_handle.ptr += srv_index * g_srv_descriptor_size;
     void* tex_id = reinterpret_cast<void*>(gpu_handle.ptr);
     
-    g_allocated_textures.push_back({tex_id, tex_resource, srv_index});
+    if (g_allocated_textures_count < kMaxSrvDescriptors) {
+        g_allocated_textures[g_allocated_textures_count++] = {tex_id, tex_resource, srv_index};
+    } else {
+        dover::shared::LogError("CreateDx12TextureInternal: g_allocated_textures capacity exceeded!");
+    }
     dover::shared::LogInfo("CreateDx12TextureInternal: Texture created. ID: %p, Resource: %p", tex_id, tex_resource);
     return tex_id;
 }
@@ -687,18 +699,19 @@ void* CreateDx12Texture(const uint8_t* rgba_data, int width, int height) {
 
 void ReleaseDx12Texture(void* texture_id) {
     if (!texture_id) return;
-    for (auto it = g_allocated_textures.begin(); it != g_allocated_textures.end(); ++it) {
-        if (it->tex_id == texture_id) {
-            if (it->resource) {
+    for (UINT i = 0; i < g_allocated_textures_count; ++i) {
+        if (g_allocated_textures[i].tex_id == texture_id) {
+            if (g_allocated_textures[i].resource) {
                 // Must ensure GPU is done with this texture. 
                 // Since this might be called randomly, we wait for GPU. 
                 // Better: push to a deferred delete queue, but since this is rare (window reload), 
                 // a GPU wait is acceptable, or we can just release it immediately if we're sure it's not bound.
                 // For safety, we wait for GPU.
                 WaitForGpu();
-                it->resource->Release();
+                g_allocated_textures[i].resource->Release();
             }
-            g_allocated_textures.erase(it);
+            g_allocated_textures[i] = g_allocated_textures[g_allocated_textures_count - 1];
+            g_allocated_textures_count--;
             break;
         }
     }

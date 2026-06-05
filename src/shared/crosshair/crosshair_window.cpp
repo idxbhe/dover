@@ -108,7 +108,7 @@ void CrosshairWindow::Initialize() {
 void CrosshairWindow::Shutdown() {
     auto& crosshairs = assets::AssetStorage::Get().GetAssets();
     for (size_t i = 0; i < crosshairs.size(); ++i) {
-        if (crosshairs[i].name.rfind("gamepad/", 0) == 0) continue;
+        if (std::strncmp(crosshairs[i].name, "gamepad/", 8) == 0) continue;
         if (crosshairs[i].texture_id) {
             if (shared::GetDx11Device()) {
                 auto* srv = static_cast<ID3D11ShaderResourceView*>(crosshairs[i].texture_id);
@@ -389,7 +389,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
                 m_selected_index = i;
             }
             if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("%s", asset->name.c_str());
+                ImGui::SetTooltip("%s", asset->name);
             }
         } else {
             if (ImGui::Button("N/A", ImVec2(48, 48))) {

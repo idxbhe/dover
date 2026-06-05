@@ -2,7 +2,7 @@
 
 #include <filesystem>
 #include <functional>
-#include <vector>
+#include <array>
 #include <atomic>
 
 namespace dover::shared {
@@ -29,10 +29,10 @@ public:
 
     // Delegation pattern for loading/saving
     using StorageCallback = std::function<void(const std::filesystem::path&)>;
-    void RegisterConfigLoad(StorageCallback cb) { m_cfg_load.push_back(std::move(cb)); }
-    void RegisterConfigSave(StorageCallback cb) { m_cfg_save.push_back(std::move(cb)); }
-    void RegisterStateLoad(StorageCallback cb) { m_state_load.push_back(std::move(cb)); }
-    void RegisterStateSave(StorageCallback cb) { m_state_save.push_back(std::move(cb)); }
+    void RegisterConfigLoad(StorageCallback cb) { if (m_cfg_load_count < kMaxCallbacks) m_cfg_load[m_cfg_load_count++] = std::move(cb); }
+    void RegisterConfigSave(StorageCallback cb) { if (m_cfg_save_count < kMaxCallbacks) m_cfg_save[m_cfg_save_count++] = std::move(cb); }
+    void RegisterStateLoad(StorageCallback cb) { if (m_state_load_count < kMaxCallbacks) m_state_load[m_state_load_count++] = std::move(cb); }
+    void RegisterStateSave(StorageCallback cb) { if (m_state_save_count < kMaxCallbacks) m_state_save[m_state_save_count++] = std::move(cb); }
 
     void LoadConfig();
     void SaveConfig();
@@ -43,8 +43,8 @@ public:
     void FlushState();
     
     using CaptureCallback = std::function<void()>;
-    void RegisterConfigCapture(CaptureCallback cb) { m_cfg_capture.push_back(std::move(cb)); }
-    void RegisterStateCapture(CaptureCallback cb) { m_state_capture.push_back(std::move(cb)); }
+    void RegisterConfigCapture(CaptureCallback cb) { if (m_cfg_capture_count < kMaxCallbacks) m_cfg_capture[m_cfg_capture_count++] = std::move(cb); }
+    void RegisterStateCapture(CaptureCallback cb) { if (m_state_capture_count < kMaxCallbacks) m_state_capture[m_state_capture_count++] = std::move(cb); }
 
     bool IsConfigCaptureRequested() const { return m_config_capture_requested.load(std::memory_order_acquire); }
     bool TestAndClearConfigCaptureRequested() { return m_config_capture_requested.exchange(false, std::memory_order_acq_rel); }
@@ -53,8 +53,8 @@ public:
     bool TestAndClearStateCaptureRequested() { return m_state_capture_requested.exchange(false, std::memory_order_acq_rel); }
     void ClearStateCaptureRequested() { m_state_capture_requested.store(false, std::memory_order_release); }
 
-    void ExecuteConfigCapture() { for(auto& cb : m_cfg_capture) cb(); }
-    void ExecuteStateCapture() { for(auto& cb : m_state_capture) cb(); }
+    void ExecuteConfigCapture() { for(size_t i = 0; i < m_cfg_capture_count; ++i) m_cfg_capture[i](); }
+    void ExecuteStateCapture() { for(size_t i = 0; i < m_state_capture_count; ++i) m_state_capture[i](); }
 
     bool IsConfigFlushReady() const { return m_config_flush_ready.load(std::memory_order_acquire); }
     void SetConfigFlushReady() { m_config_flush_ready.store(true, std::memory_order_release); }
@@ -72,13 +72,24 @@ private:
 
     char m_layout_path_utf8[260] = {0};
 
-    std::vector<StorageCallback> m_cfg_load;
-    std::vector<StorageCallback> m_cfg_save;
-    std::vector<StorageCallback> m_state_load;
-    std::vector<StorageCallback> m_state_save;
+    static constexpr size_t kMaxCallbacks = 16;
+    std::array<StorageCallback, kMaxCallbacks> m_cfg_load;
+    size_t m_cfg_load_count = 0;
     
-    std::vector<CaptureCallback> m_cfg_capture;
-    std::vector<CaptureCallback> m_state_capture;
+    std::array<StorageCallback, kMaxCallbacks> m_cfg_save;
+    size_t m_cfg_save_count = 0;
+    
+    std::array<StorageCallback, kMaxCallbacks> m_state_load;
+    size_t m_state_load_count = 0;
+    
+    std::array<StorageCallback, kMaxCallbacks> m_state_save;
+    size_t m_state_save_count = 0;
+    
+    std::array<CaptureCallback, kMaxCallbacks> m_cfg_capture;
+    size_t m_cfg_capture_count = 0;
+    
+    std::array<CaptureCallback, kMaxCallbacks> m_state_capture;
+    size_t m_state_capture_count = 0;
     
     std::atomic<bool> m_config_capture_requested{false};
     std::atomic<bool> m_state_capture_requested{false};

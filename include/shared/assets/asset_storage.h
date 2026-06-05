@@ -7,7 +7,7 @@
 namespace dover::shared::assets {
 
 struct TextureData {
-    std::string name;
+    char name[33];
     uint32_t width;
     uint32_t height;
     const uint8_t* rgba_data;
@@ -33,14 +33,14 @@ public:
     
     TextureData* GetAsset(const std::string& name) {
         for (auto& asset : m_assets) {
-            if (asset.name == name) return &asset;
+            if (name == asset.name) return &asset;
         }
         return nullptr;
     }
     
     TextureData* GetAsset(const char* name) {
         for (auto& asset : m_assets) {
-            if (std::strcmp(asset.name.c_str(), name) == 0) return &asset;
+            if (std::strcmp(asset.name, name) == 0) return &asset;
         }
         return nullptr;
     }

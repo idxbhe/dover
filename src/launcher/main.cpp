@@ -21,6 +21,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <thread>
 #include <windows.h>
 #include <shellapi.h>
 #include <d3d11.h>
@@ -568,19 +569,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*pCmdLine*/, int /
               ShowWindow(hwnd, SW_HIDE);
               AddTrayIcon(hwnd);
 
-              struct WaitThreadData {
-                HWND hwnd;
-                HANDLE hProcess;
-              };
-              WaitThreadData* data = new WaitThreadData{ hwnd, hProcess };
-              CreateThread(nullptr, 0, [](LPVOID lpParam) -> DWORD {
-                WaitThreadData* d = static_cast<WaitThreadData*>(lpParam);
-                WaitForSingleObject(d->hProcess, INFINITE);
-                CloseHandle(d->hProcess);
-                PostMessageW(d->hwnd, WM_GAME_EXITED, 0, 0);
-                delete d;
-                return 0;
-              }, data, 0, nullptr);
+              std::thread([hwnd, hProcess]() {
+                WaitForSingleObject(hProcess, INFINITE);
+                CloseHandle(hProcess);
+                PostMessageW(hwnd, WM_GAME_EXITED, 0, 0);
+              }).detach();
             }
         }
         ImGui::PopFont();
@@ -676,14 +669,33 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*pCmdLine*/, int /
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.2f, 0.4f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.1f, 0.6f));
         if (ImGui::Button("Remove", ImVec2(80.0f, 25.0f))) {
-            // Remove from config
+            // Remove from config by fully rebuilding the list
             auto root = dover::shared::GetDoverRootDir();
             if (!root.empty()) {
                 auto config_path = root / L"launcher" / L"games.ini";
-                wchar_t key[32] = {};
-                wsprintfW(key, L"Game%d", selected_game_idx);
-                WritePrivateProfileStringW(L"Games", key, L"", config_path.c_str()); // Empty string effectively disables it. A full list rebuild is better but this works for now.
-                games = LoadSavedGames();
+
+                // Clear the entire [Games] section in the ini file to remove holes
+                WritePrivateProfileStringW(L"Games", nullptr, nullptr, config_path.c_str());
+
+                // Remove game from local list
+                games.erase(games.begin() + selected_game_idx);
+
+                // Rewrite the contiguous list
+                for (size_t i = 0; i < games.size(); ++i) {
+                    wchar_t key[32] = {};
+                    wsprintfW(key, L"Game%zu", i);
+                    WritePrivateProfileStringW(L"Games", key, games[i].path.c_str(), config_path.c_str());
+                }
+                WritePrivateProfileStringW(L"Games", L"Count", std::to_wstring(games.size()).c_str(), config_path.c_str());
+
+                // Fix up active_game_idx so UI remains correct
+                if (active_game_idx == selected_game_idx) {
+                    active_game_idx = -1;
+                    active_win = ActiveWindow::None;
+                } else if (active_game_idx > selected_game_idx) {
+                    active_game_idx--;
+                }
+
                 selected_game_idx = 0;
             }
         }

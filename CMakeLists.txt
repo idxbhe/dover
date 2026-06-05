@@ -1,13 +1,57 @@
 cmake_minimum_required(VERSION 3.20)
+
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW) # Fix timestamp warning for FetchContent
+endif()
+if(POLICY CMP0169)
+  cmake_policy(SET CMP0169 OLD) # Allow FetchContent_Populate for manual targets
+endif()
+
 project(dover LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Enable MSVC Whole Program Optimization / Link-Time Code Generation (LTCG)
+if(POLICY CMP0069)
+  cmake_policy(SET CMP0069 NEW)
+endif()
+include(CheckIPOSupported)
+check_ipo_supported(RESULT ipo_supported OUTPUT error)
+if(ipo_supported)
+  set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+endif()
+
 if(MSVC)
-  add_compile_options(/W4 /permissive- /EHsc /MP)
+  # Modern MSVC 2026 Flags:
+  # /Zc:preprocessor & /Zc:__cplusplus for strict standard compliance
+  # /Zi for PDB generation (useful for SPGO and post-mortem)
+  # /Ob2 aggressive inline
+  add_compile_options(/W4 /permissive- /EHsc /MP /Zc:preprocessor /Zc:__cplusplus /Zi /Ob2)
+  add_link_options(/DEBUG /OPT:REF /OPT:ICF)
+
+  option(DOVER_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+  if(DOVER_ENABLE_ASAN)
+    add_compile_options(/fsanitize=address)
+  endif()
+
+  option(DOVER_ENABLE_ANALYZE "Enable MSVC Static Code Analysis" OFF)
+  if(DOVER_ENABLE_ANALYZE)
+    # Perform strict static analysis, treating analysis warnings as errors
+    add_compile_options(/analyze /analyze:WX-) # Not all analysis warnings should break the build immediately, keep WX- initially or map it to DOVER_STRICT_BUILD.
+  endif()
+
+  option(DOVER_PGO_INSTRUMENT "Enable PGO Instrumentation" OFF)
+  option(DOVER_PGO_OPTIMIZE "Enable PGO Optimization" OFF)
+  
+  if(DOVER_PGO_INSTRUMENT)
+    add_link_options(/GENPROFILE)
+  elseif(DOVER_PGO_OPTIMIZE)
+    add_link_options(/USEPROFILE)
+  endif()
+
 else()
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()

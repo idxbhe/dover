@@ -15,7 +15,7 @@
 
 #include "shared/input_utils.h"
 #include "shared/input_mapper.h"
-
+#include "shared/log.h"
 // Forward declaration of imgui wndproc handler
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -883,10 +883,11 @@ void ShutdownInputHooks() {
   }
 }
 
-static std::string g_clipboard_buffer;
+constexpr size_t kMaxClipboardSize = 256 * 1024; // 256KB buffer
+static char g_clipboard_buffer[kMaxClipboardSize];
 
 static const char* HookedGetClipboardText(void* /*user_data*/) {
-  g_clipboard_buffer.clear();
+  g_clipboard_buffer[0] = '\0';
   
   // Zero-retry, fail-fast: clipboard is on the render thread.
   // Avoid passing a window HWND as it can cause Windows to coordinate with the busy game thread,
@@ -901,15 +902,17 @@ static const char* HookedGetClipboardText(void* /*user_data*/) {
       if (wtext) {
           int wlen = (int)wcslen(wtext);
           int len = WideCharToMultiByte(CP_UTF8, 0, wtext, wlen, nullptr, 0, nullptr, nullptr);
-          if (len > 0) {
-              g_clipboard_buffer.resize(len);
-              WideCharToMultiByte(CP_UTF8, 0, wtext, wlen, &g_clipboard_buffer[0], len, nullptr, nullptr);
+          if (len > 0 && len < kMaxClipboardSize) {
+              WideCharToMultiByte(CP_UTF8, 0, wtext, wlen, g_clipboard_buffer, len, nullptr, nullptr);
+              g_clipboard_buffer[len] = '\0';
+          } else if (len >= kMaxClipboardSize) {
+              dover::shared::LogError("Clipboard text too large (%d bytes). Max is %zu.", len, kMaxClipboardSize - 1);
           }
           GlobalUnlock(hData);
       }
   }
   CloseClipboard();
-  return g_clipboard_buffer.empty() ? nullptr : g_clipboard_buffer.c_str();
+  return g_clipboard_buffer[0] == '\0' ? nullptr : g_clipboard_buffer;
 }
 
 static void HookedSetClipboardText(void* /*user_data*/, const char* text) {

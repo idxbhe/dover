@@ -11,9 +11,7 @@ static std::wstring ToWide(const std::filesystem::path& path) {
 }
 
 std::string ReadIniString(const std::filesystem::path& path, const char* section, const char* key, const char* default_val) {
-    char buf[512] = {};
     std::wstring wide_path = ToWide(path);
-    GetPrivateProfileStringA(section, key, default_val, buf, sizeof(buf), nullptr);
     // Windows API needs the file path as the last argument
     // Use WritePrivateProfileStringA with wide path via the W variant
     wchar_t wbuf[512] = {};

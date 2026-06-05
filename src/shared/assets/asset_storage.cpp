@@ -146,9 +146,8 @@ bool AssetStorage::Initialize() {
 
         TextureData data;
         // Ensure null-termination
-        char safe_name[33] = {0};
-        std::memcpy(safe_name, toc[i].name, 32);
-        data.name = std::string(safe_name);
+        std::memcpy(data.name, toc[i].name, 32);
+        data.name[32] = '\0';
         
         data.width = toc[i].width;
         data.height = toc[i].height;
@@ -165,7 +164,7 @@ bool AssetStorage::Initialize() {
     m_crosshair_cache.clear();
     m_crosshair_cache.reserve(m_assets.size());
     for (auto& asset : m_assets) {
-        if (asset.name.rfind("gamepad/", 0) != 0) {
+        if (std::strncmp(asset.name, "gamepad/", 8) != 0) {
             m_crosshair_cache.push_back(&asset);
         }
     }

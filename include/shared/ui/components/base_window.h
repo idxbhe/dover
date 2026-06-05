@@ -30,7 +30,7 @@ inline bool HasFeature(WindowFeature flags, WindowFeature feature) {
 class BaseWindow {
 protected:
     RenderContext m_ctx;
-    std::string m_window_name;
+    char m_window_name[64];
     WindowFeature m_features;
     
     // Core Window States
@@ -50,8 +50,10 @@ protected:
     float m_bg_alpha = 0.95f;
 
 public:
-    BaseWindow(RenderContext ctx, const std::string& name, WindowFeature features = WindowFeature::Default, ImVec2 default_size = ImVec2(800.0f, 500.0f))
-        : m_ctx(ctx), m_window_name(name), m_features(features), m_default_size(default_size) {}
+    BaseWindow(RenderContext ctx, const char* name, WindowFeature features = WindowFeature::Default, ImVec2 default_size = ImVec2(800.0f, 500.0f))
+        : m_ctx(ctx), m_features(features), m_default_size(default_size) {
+        strncpy_s(m_window_name, sizeof(m_window_name), name, _TRUNCATE);
+    }
     
     virtual ~BaseWindow() = default;
 
