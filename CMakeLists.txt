@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(MSVC)
-  add_compile_options(/W4 /permissive- /EHsc)
+  add_compile_options(/W4 /permissive- /EHsc /MP)
 else()
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()

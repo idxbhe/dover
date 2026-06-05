@@ -1,7 +1,9 @@
-# PowerShell Build Automation Script for Dover
-$ErrorActionPreference = "Stop"
+param(
+    [string]$Config = "Debug",
+    [switch]$ForceConfigure
+)
 
-$Config = "Debug"
+$ErrorActionPreference = "Stop"
 
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "      DOVER AUTOMATED BUILD SYSTEM      " -ForegroundColor Cyan
@@ -9,7 +11,11 @@ Write-Host "=========================================" -ForegroundColor Cyan
 
 # 1. Build x64 Target
 Write-Host "`n[1/3] Building 64-bit Architecture (x64)..." -ForegroundColor Yellow
-cmake -B build_x64 -S . -A x64 -DDOVER_STRICT_BUILD=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF -DCMAKE_CXX_FLAGS="" -DCMAKE_C_FLAGS=""
+$ConfigureX64 = $ForceConfigure -or !(Test-Path "build_x64\CMakeCache.txt")
+if ($ConfigureX64) {
+    Write-Host "Configuring build directory for x64..." -ForegroundColor Gray
+    cmake -B build_x64 -S . -A x64 -DDOVER_STRICT_BUILD=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF -DCMAKE_CXX_FLAGS="" -DCMAKE_C_FLAGS=""
+}
 cmake --build build_x64 --config $Config --parallel
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`n[ERROR] Failed to compile 64-bit target." -ForegroundColor Red
@@ -18,7 +24,11 @@ if ($LASTEXITCODE -ne 0) {
 
 # 2. Build x86 Target
 Write-Host "`n[2/3] Building 32-bit Architecture (x86)..." -ForegroundColor Yellow
-cmake -B build_x86 -S . -A Win32 -DDOVER_STRICT_BUILD=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF -DCMAKE_CXX_FLAGS="" -DCMAKE_C_FLAGS=""
+$ConfigureX86 = $ForceConfigure -or !(Test-Path "build_x86\CMakeCache.txt")
+if ($ConfigureX86) {
+    Write-Host "Configuring build directory for x86..." -ForegroundColor Gray
+    cmake -B build_x86 -S . -A Win32 -DDOVER_STRICT_BUILD=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF -DCMAKE_CXX_FLAGS="" -DCMAKE_C_FLAGS=""
+}
 cmake --build build_x86 --config $Config --parallel
 if ($LASTEXITCODE -ne 0) {
     Write-Host "`n[ERROR] Failed to compile 32-bit target." -ForegroundColor Red

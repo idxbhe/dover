@@ -242,14 +242,10 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
             
             FrameContext& frame = g_frame_contexts[backbuffer_index];
             
-            // Wait for GPU if allocator is still in flight (Warning 1 Fix)
             // Wait for GPU if allocator is still in flight
             if (g_fence && frame.fence_value != 0 && g_fence->GetCompletedValue() < frame.fence_value) {
                 g_fence->SetEventOnCompletion(frame.fence_value, g_fence_event);
-                DWORD wait_res = WaitForSingleObject(g_fence_event, 1000);
-                if (wait_res == WAIT_TIMEOUT) {
-                    dover::shared::LogError("DX12: GPU fence wait timed out! (fence: %llu, completed: %llu)", frame.fence_value, g_fence->GetCompletedValue());
-                }
+                WaitForSingleObject(g_fence_event, INFINITE);
             }
             
             if (frame.command_allocator) {
