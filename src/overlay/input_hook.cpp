@@ -178,6 +178,9 @@ BOOL WINAPI HookedGetCursorPos(LPPOINT lpPoint) {
       }
     }
   }
+  if (!lpPoint) {
+    return FALSE;
+  }
   if (g_original_get_cursor_pos) {
     return g_original_get_cursor_pos(lpPoint);
   }
@@ -547,9 +550,9 @@ static void ResetStickyInputs() {
     }
 
     if (is_up) {
-      LPARAM lparam = 0xC0000001;
+      LPARAM lparam = static_cast<LPARAM>(0xC0000001U);
       UINT scan_code = MapVirtualKeyW(vk, MAPVK_VK_TO_VSC);
-      lparam |= (scan_code << 16);
+      lparam |= (static_cast<LPARAM>(scan_code) << 16);
       PostMessageW(g_game_hwnd, WM_KEYUP, vk, lparam);
     }
   }

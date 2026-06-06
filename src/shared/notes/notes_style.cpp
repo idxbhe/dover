@@ -9,6 +9,7 @@
 #undef private
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 namespace dover::overlay {
   // Extern references to the global overlay fonts
@@ -85,8 +86,10 @@ struct DoverMarkdownRenderer : public imgui_md {
   MD_ALIGN m_cell_align = MD_ALIGN_DEFAULT;
   bool m_cell_text_aligned = false;
   float m_cell_total_text_width = 0.0f;
-  float m_table_col_max_width[64] = {};
-  float m_table_col_current_width[64] = {};
+  
+  static constexpr size_t kMaxTableCols = 64;
+  float m_table_col_max_width[kMaxTableCols] = {};
+  float m_table_col_current_width[kMaxTableCols] = {};
 
   static constexpr float kListIndent = 15.0f;
 
@@ -430,7 +433,7 @@ struct DoverMarkdownRenderer : public imgui_md {
     }
     imgui_md::BLOCK_TABLE(d, e);
     if (!e) {
-      for (size_t i = 0; i < 64; ++i) {
+      for (size_t i = 0; i < kMaxTableCols; ++i) {
         m_table_col_max_width[i] = m_table_col_current_width[i];
       }
     }
@@ -469,12 +472,12 @@ struct DoverMarkdownRenderer : public imgui_md {
       // Accumulate intrinsic physical width for auto-expansion (ignore alignment shifts)
       m_cell_total_text_width += text_width;
       float required_width = m_cell_total_text_width + 16.0f; // 16px aesthetic padding
-      if (col_idx < 64 && required_width > m_table_col_current_width[col_idx]) {
+      if (col_idx < kMaxTableCols && required_width > m_table_col_current_width[col_idx]) {
         m_table_col_current_width[col_idx] = required_width;
       }
 
       // Determine the maximum available column width from the cross-frame cache
-      float col_width = m_table_col_max_width[col_idx];
+      float col_width = col_idx < kMaxTableCols ? m_table_col_max_width[col_idx] : text_width;
       if (col_width == 0.0f) col_width = text_width; // Frame 1 fallback
 
       // Handle horizontal alignment
@@ -493,7 +496,7 @@ struct DoverMarkdownRenderer : public imgui_md {
 
       // Force imgui_md to use our maximum tracked width for the column boundaries
       if (m_is_table_header) {
-        float target_end_x = col_left + m_table_col_max_width[col_idx];
+        float target_end_x = col_left + (col_idx < kMaxTableCols ? m_table_col_max_width[col_idx] : text_width);
         if (m_table_last_pos.x < target_end_x) {
           m_table_last_pos.x = target_end_x;
         }

@@ -17,7 +17,7 @@ ICONS_DIR = os.path.join(SCRIPT_DIR, "icons")
 TEMPLATE_TTF = os.path.join(SCRIPT_DIR, "template.ttf")
 OUTPUT_TTF = os.path.join(SCRIPT_DIR, "fonts", "icons.ttf")
 MAPPING_JSON_OUTPUT = os.path.join(SCRIPT_DIR, "icons.json")
-CPP_HEADER_OUTPUT = os.path.join(PROJECT_ROOT, "include", "overlay", "icons.h")
+CPP_HEADER_OUTPUT = os.path.join(PROJECT_ROOT, "include", "shared", "icons.h")
 
 def format_macro_name(name):
     upper_name = name.upper().replace("-", "_")

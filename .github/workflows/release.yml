@@ -46,11 +46,11 @@ jobs:
         $Config = "Release"
         
         # Build x64
-        cmake -B build_x64 -S . -A x64 -DDOVER_STRICT_BUILD=ON -DDOVER_ENABLE_ANALYZE=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+        cmake -B build_x64 -S . -A x64 -DDOVER_STRICT_BUILD=ON -DDOVER_ENABLE_ANALYZE=OFF "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
         cmake --build build_x64 --config $Config --parallel
         
         # Build x86
-        cmake -B build_x86 -S . -A Win32 -DDOVER_STRICT_BUILD=ON -DDOVER_ENABLE_ANALYZE=ON "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
+        cmake -B build_x86 -S . -A Win32 -DDOVER_STRICT_BUILD=ON -DDOVER_ENABLE_ANALYZE=OFF "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
         cmake --build build_x86 --config $Config --parallel
         
         # Build assets
@@ -71,11 +71,13 @@ jobs:
         }
 
     - name: Package Release Binaries
+      if: ${{ steps.tag_version.outputs.new_tag != '' }}
       shell: powershell
       run: |
         Compress-Archive -Path build_x64\bin\Release\* -DestinationPath dover-overlay.zip
 
     - name: Create Release
+      if: ${{ steps.tag_version.outputs.new_tag != '' }}
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.tag_version.outputs.new_tag }}

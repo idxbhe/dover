@@ -479,16 +479,22 @@
         "codepoint_hex": "U+F14F",
         "utf8_cpp": "\\xef\\x85\\x8f"
     },
-    "window-pinned": {
-        "macro": "ICON_WINDOW_PINNED",
+    "window-minimize": {
+        "macro": "ICON_WINDOW_MINIMIZE",
         "codepoint_dec": 61776,
         "codepoint_hex": "U+F150",
         "utf8_cpp": "\\xef\\x85\\x90"
     },
-    "window-windowed": {
-        "macro": "ICON_WINDOW_WINDOWED",
+    "window-pinned": {
+        "macro": "ICON_WINDOW_PINNED",
         "codepoint_dec": 61777,
         "codepoint_hex": "U+F151",
         "utf8_cpp": "\\xef\\x85\\x91"
+    },
+    "window-windowed": {
+        "macro": "ICON_WINDOW_WINDOWED",
+        "codepoint_dec": 61778,
+        "codepoint_hex": "U+F152",
+        "utf8_cpp": "\\xef\\x85\\x92"
     }
 }

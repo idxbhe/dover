@@ -6,7 +6,7 @@ A lightweight, high-performance in-game overlay for DirectX 9, DirectX 11, and D
 
 ## Features
 
-*   **Universal Support:** Works on x86 and x64 architectures for DX9/DX11/DX12 (DX12 is x64 only).
+*   **Universal Support:** Highly optimized x86 and x64 core for DX9/DX11/DX12 (DX12 is x64 only) with zero-overhead memory mapping.
 *   **In-Game Notes:** Markdown-supported notes with pinning capability.
 *   **Custom Crosshair:** Load custom reticles from `assets.pak` with scaling and positioning controls.
 *   **Controller Remapping:** Map controller inputs (including LT/RT triggers) to keyboard keys with modifiers.
@@ -21,7 +21,7 @@ A lightweight, high-performance in-game overlay for DirectX 9, DirectX 11, and D
 
 1. Extract the release package. Ensure `launcher.exe`, the DLLs, injectors, and `assets.pak` are in the same directory.
 2. Run `launcher.exe` to open the graphical launcher.
-3. Use the "Browse..." button or manually enter your game's absolute executable path to add it, or click a previously saved game to launch it. The launcher will automatically minimize to the system tray while the game is running.
+3. Use the "+ ADD NEW GAME" button to add your game's executable. The launcher will automatically minimize to the system tray while the game is running.
 4. Once in-game, press **`Shift + Tab`** to toggle the overlay.
 
 *(Alternatively, you can launch a game directly via command line: `launcher.exe "C:\Path\To\Game.exe"`)*
@@ -30,18 +30,18 @@ A lightweight, high-performance in-game overlay for DirectX 9, DirectX 11, and D
 
 ## Build Guide
 
-Compiled using MSVC on Windows.
+Compiled using modern MSVC on Windows.
 
 ### Requirements
 *   Windows 10/11
 *   CMake (3.20+)
-*   Visual Studio (C++ Desktop workload)
+*   MSVC 2026 (C++23)
 
 ### Compiling
-Run the provided build script to compile and consolidate both x64 and x86 targets automatically:
+Run the optimized parallel build script to compile and consolidate both x64 and x86 targets simultaneously:
 
 ```powershell
 .\build.ps1
 ```
 
-The final compiled binaries will be available in the `build_x64\bin\Debug` (or `Release`) directory.
+The final compiled binaries will be available in the `build_x64\bin\Release` (or `Debug`) directory.

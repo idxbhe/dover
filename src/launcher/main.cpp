@@ -13,6 +13,7 @@
 #include "shared/renderer.h"
 #include "shared/assets/asset_storage.h"
 #include "shared/theme.h"
+#include "shared/icons.h"
 #include "shared/game_storage.h"
 
 #pragma comment(lib, "d3d11.lib")
@@ -169,14 +170,23 @@ HANDLE LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv
     dover::shared::LogError("Failed to create overlay ready event.");
   }
 
-  if (!dover::shared::InjectDll(process_info.hProcess, overlay_path)) {
-    dover::shared::LogError("DLL injection failed.");
-    TerminateProcess(process_info.hProcess, 1);
+  if (process_info.hProcess && process_info.hProcess != INVALID_HANDLE_VALUE) {
+    if (!dover::shared::InjectDll(process_info.hProcess, overlay_path)) {
+      dover::shared::LogError("DLL injection failed.");
+      TerminateProcess(process_info.hProcess, 1);
+      if (ready_event) {
+        CloseHandle(ready_event);
+      }
+      if (process_info.hThread) {
+        CloseHandle(process_info.hThread);
+      }
+      CloseHandle(process_info.hProcess);
+      return nullptr;
+    }
+  } else {
     if (ready_event) {
       CloseHandle(ready_event);
     }
-    CloseHandle(process_info.hThread);
-    CloseHandle(process_info.hProcess);
     return nullptr;
   }
 
@@ -185,8 +195,10 @@ HANDLE LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv
     CloseHandle(ready_event);
   }
 
-  ResumeThread(process_info.hThread);
-  CloseHandle(process_info.hThread);
+  if (process_info.hThread && process_info.hThread != INVALID_HANDLE_VALUE) {
+    ResumeThread(process_info.hThread);
+    CloseHandle(process_info.hThread);
+  }
 
   dover::shared::LogInfo("Launcher injected overlay and resumed target.");
   return process_info.hProcess;
@@ -210,10 +222,11 @@ NOTIFYICONDATAW g_nid = {};
 bool g_has_tray_icon = false;
 
 void CreateRenderTarget() {
-  ID3D11Texture2D* pBackBuffer;
-  g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
-  g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
-  pBackBuffer->Release();
+  ID3D11Texture2D* pBackBuffer = nullptr;
+  if (SUCCEEDED(g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer))) && pBackBuffer) {
+    g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
+    pBackBuffer->Release();
+  }
 }
 
 void CleanupRenderTarget() {
@@ -283,27 +296,117 @@ void RemoveTrayIcon() {
   g_has_tray_icon = false;
 }
 
+struct LauncherState {
+  int x = 100;
+  int y = 100;
+  int width = 800;
+  int height = 500;
+  bool maximized = false;
+};
+
+LauncherState LoadLauncherState() {
+  LauncherState state;
+  auto root = dover::shared::GetDoverRootDir();
+  if (root.empty()) return state;
+  auto config_path = root / L"launcher" / L"games.ini";
+  if (!std::filesystem::exists(config_path)) return state;
+
+  state.x = GetPrivateProfileIntW(L"Launcher", L"x", 100, config_path.c_str());
+  state.y = GetPrivateProfileIntW(L"Launcher", L"y", 100, config_path.c_str());
+  state.width = GetPrivateProfileIntW(L"Launcher", L"width", 800, config_path.c_str());
+  state.height = GetPrivateProfileIntW(L"Launcher", L"height", 500, config_path.c_str());
+  state.maximized = GetPrivateProfileIntW(L"Launcher", L"maximized", 0, config_path.c_str()) != 0;
+
+  return state;
+}
+
+void SaveLauncherState(HWND hwnd) {
+  auto root = dover::shared::GetDoverRootDir();
+  if (root.empty()) return;
+  auto config_path = root / L"launcher" / L"games.ini";
+
+  // Ensure directory exists for WritePrivateProfileString
+  std::error_code ec;
+  std::filesystem::create_directories(config_path.parent_path(), ec);
+
+  WINDOWPLACEMENT wp = {};
+  wp.length = sizeof(wp);
+  if (GetWindowPlacement(hwnd, &wp)) {
+    bool maximized = false;
+    if (wp.showCmd == SW_SHOWMINIMIZED) {
+      maximized = (wp.flags & WPF_RESTORETOMAXIMIZED) != 0;
+    } else {
+      maximized = (wp.showCmd == SW_SHOWMAXIMIZED);
+    }
+
+    int x = wp.rcNormalPosition.left;
+    int y = wp.rcNormalPosition.top;
+    int width = wp.rcNormalPosition.right - wp.rcNormalPosition.left;
+    int height = wp.rcNormalPosition.bottom - wp.rcNormalPosition.top;
+
+    WritePrivateProfileStringW(L"Launcher", L"x", std::to_wstring(x).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"y", std::to_wstring(y).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"width", std::to_wstring(width).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"height", std::to_wstring(height).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"maximized", std::to_wstring(maximized ? 1 : 0).c_str(), config_path.c_str());
+  }
+}
+
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
     return true;
 
   switch (msg) {
-  case WM_NCHITTEST: {
-    LRESULT result = ::DefWindowProcW(hWnd, msg, wParam, lParam);
-    if (result == HTCLIENT) {
-      POINT pt;
-      pt.x = ((int)(short)LOWORD(lParam));
-      pt.y = ((int)(short)HIWORD(lParam));
-      RECT rc;
-      GetWindowRect(hWnd, &rc);
-      pt.x -= rc.left;
-      pt.y -= rc.top;
-      int width = rc.right - rc.left;
-      if (pt.y >= 0 && pt.y < 35 && pt.x < width - 80) {
-        return HTCAPTION;
-      }
+  case WM_NCCALCSIZE:
+    return 0;
+
+  case WM_GETMINMAXINFO: {
+    MINMAXINFO* mmi = (MINMAXINFO*)lParam;
+    HMONITOR hMonitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = { sizeof(mi) };
+    if (GetMonitorInfoW(hMonitor, &mi)) {
+      mmi->ptMaxPosition.x = mi.rcWork.left - mi.rcMonitor.left;
+      mmi->ptMaxPosition.y = mi.rcWork.top - mi.rcMonitor.top;
+      mmi->ptMaxSize.x = mi.rcWork.right - mi.rcWork.left;
+      mmi->ptMaxSize.y = mi.rcWork.bottom - mi.rcWork.top;
     }
-    return result;
+    return 0;
+  }
+
+  case WM_NCHITTEST: {
+    POINT pt;
+    pt.x = ((int)(short)LOWORD(lParam));
+    pt.y = ((int)(short)HIWORD(lParam));
+    RECT rc;
+    GetWindowRect(hWnd, &rc);
+    int x = pt.x - rc.left;
+    int y = pt.y - rc.top;
+    int width = rc.right - rc.left;
+    int height = rc.bottom - rc.top;
+
+    bool is_maximized = IsZoomed(hWnd) != 0;
+    if (!is_maximized) {
+      constexpr int border_width = 8;
+
+      bool left = x < border_width;
+      bool right = x >= width - border_width;
+      bool top = y < border_width;
+      bool bottom = y >= height - border_width;
+
+      if (top && left) return HTTOPLEFT;
+      if (top && right) return HTTOPRIGHT;
+      if (bottom && left) return HTBOTTOMLEFT;
+      if (bottom && right) return HTBOTTOMRIGHT;
+      if (left) return HTLEFT;
+      if (right) return HTRIGHT;
+      if (top) return HTTOP;
+      if (bottom) return HTBOTTOM;
+    }
+
+    if (y >= 0 && y < 35 && x < width - 110) {
+      return HTCAPTION;
+    }
+    return HTCLIENT;
   }
   case WM_SIZE:
     if (wParam == SIZE_MINIMIZED) return 0;
@@ -328,6 +431,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     RemoveTrayIcon();
     return 0;
   case WM_DESTROY:
+    SaveLauncherState(hWnd);
     RemoveTrayIcon();
     ::PostQuitMessage(0);
     return 0;
@@ -369,7 +473,10 @@ std::wstring BrowseForExecutable(HWND owner_hwnd) {
 
 } // namespace
 
-int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*pCmdLine*/, int /*nCmdShow*/) {
+int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nShowCmd) {
+  (void)hPrevInstance;
+  (void)lpCmdLine;
+  (void)nShowCmd;
   auto dover_root = dover::shared::GetDoverRootDir();
   if (dover_root.empty()) {
     dover::shared::LogError("Failed to locate Documents/Dover directory.");
@@ -395,7 +502,21 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*pCmdLine*/, int /
 
   WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, hInstance, nullptr, nullptr, nullptr, nullptr, L"DoverLauncherClass", nullptr };
   ::RegisterClassExW(&wc);
-  HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dover Launcher", WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_SYSMENU, 100, 100, 800, 500, nullptr, nullptr, wc.hInstance, nullptr);
+
+  auto state = LoadLauncherState();
+  
+  // Ensure the window position is visible on at least one monitor
+  POINT pt = { state.x + state.width / 2, state.y + state.height / 2 };
+  HMONITOR hMonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONULL);
+  if (!hMonitor) {
+    state.x = 100;
+    state.y = 100;
+    state.width = 800;
+    state.height = 500;
+  }
+
+  HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dover Launcher", WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU,
+                              state.x, state.y, state.width, state.height, nullptr, nullptr, wc.hInstance, nullptr);
   g_hwnd = hwnd;
 
   if (!CreateDeviceD3D(hwnd)) {
@@ -404,7 +525,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*pCmdLine*/, int /
     return 1;
   }
 
-  ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+  ::ShowWindow(hwnd, state.maximized ? SW_SHOWMAXIMIZED : SW_SHOWDEFAULT);
   ::UpdateWindow(hwnd);
 
   IMGUI_CHECKVERSION();
@@ -529,20 +650,100 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*pCmdLine*/, int /
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.10f, 0.11f, 0.13f, 1.0f));
     ImGui::BeginChild("MainContent", ImVec2(0, 0), false, ImGuiWindowFlags_None);
 
-    // Window controls at top right
-    float button_width = 40.0f;
-    ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - button_width * 2, 0));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
-    if (ImGui::Button("-", ImVec2(button_width, 35))) { ShowWindow(g_hwnd, SW_MINIMIZE); }
-    ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.1f, 0.1f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1.0f, 0.2f, 0.2f, 1.0f));
-    if (ImGui::Button("X", ImVec2(button_width, 35))) { PostMessageW(g_hwnd, WM_CLOSE, 0, 0); }
-    ImGui::PopStyleColor(5);
-    ImGui::PopStyleVar();
+    // Window controls at top right (styled like overlay-settings window decoration)
+    auto DrawTitlebarButton = [&](const char* icon, float same_line_pos, const char* tooltip) -> bool {
+      ImGui::SameLine();
+      ImGui::SetCursorPosX(same_line_pos);
+      ImGui::SetCursorPosY(4.0f); // 4px padding from top to fit inside the 35px titlebar
+      
+      ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0, 0, 0, 0));
+      ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+      ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0, 0, 0, 0));
+      ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0, 0, 0, 0));
+      
+      bool clicked = ImGui::Button(icon);
+      
+      ImGui::PopStyleColor(4);
+      
+      ImVec2 min_p = ImGui::GetItemRectMin();
+      ImVec2 max_p = ImGui::GetItemRectMax();
+      ImVec2 center = ImVec2(min_p.x + (max_p.x - min_p.x) * 0.5f, min_p.y + (max_p.y - min_p.y) * 0.5f);
+      
+      bool hovered = ImGui::IsItemHovered();
+      bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+      bool is_close = (strcmp(icon, ICON_WINDOW_CLOSE) == 0);
+      
+      ImVec4 bg_color;
+      ImVec4 border_color;
+      
+      if (is_close) {
+          if (active) {
+              bg_color = ImVec4(0.650f, 0.100f, 0.100f, 1.00f);
+              border_color = ImVec4(0.500f, 0.050f, 0.050f, 1.00f);
+          } else if (hovered) {
+              bg_color = ImVec4(0.850f, 0.150f, 0.150f, 1.00f);
+              border_color = ImVec4(0.700f, 0.100f, 0.100f, 1.00f);
+          } else {
+              bg_color = ImVec4(0.750f, 0.150f, 0.150f, 0.40f);
+              border_color = ImVec4(0.600f, 0.100f, 0.100f, 0.50f);
+          }
+      } else {
+          if (active) {
+              bg_color = ImVec4(0.280f, 0.370f, 0.500f, 1.00f);
+              border_color = ImVec4(0.210f, 0.280f, 0.380f, 1.00f);
+          } else if (hovered) {
+              bg_color = ImVec4(0.230f, 0.300f, 0.410f, 1.00f);
+              border_color = ImVec4(0.170f, 0.220f, 0.300f, 1.00f);
+          } else {
+              bg_color = ImVec4(0.170f, 0.200f, 0.246f, 1.00f);
+              border_color = ImVec4(0.120f, 0.141f, 0.174f, 1.00f);
+          }
+      }
+      
+      ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
+      ImU32 border_col32 = ImGui::ColorConvertFloat4ToU32(border_color);
+      ImU32 text_col32 = ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_Text]);
+      
+      ImGui::GetWindowDrawList()->AddRectFilled(min_p, max_p, bg_col32, 2.0f);
+      
+      ImVec2 mid_p = ImVec2(max_p.x, min_p.y + (max_p.y - min_p.y) * 0.5f);
+      ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
+      ImGui::GetWindowDrawList()->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
+      
+      ImGui::GetWindowDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+      
+      if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui);
+      ImVec2 text_size = ImGui::CalcTextSize(icon);
+      ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
+      ImGui::GetWindowDrawList()->AddText(text_pos, text_col32, icon);
+      if (dover::shared::g_font_gui) ImGui::PopFont();
+      
+      if (hovered && tooltip) {
+          ImGui::SetTooltip(tooltip);
+      }
+      
+      return clicked;
+    };
+
+    float right_boundary = ImGui::GetWindowWidth();
+    if (DrawTitlebarButton(ICON_WINDOW_CLOSE, right_boundary - 34.0f, "Close")) {
+      PostMessageW(g_hwnd, WM_CLOSE, 0, 0);
+    }
+
+    bool is_max = IsZoomed(g_hwnd) != 0;
+    const char* max_icon = is_max ? ICON_WINDOW_WINDOWED : ICON_WINDOW_MAXIMIZE;
+    const char* max_tooltip = is_max ? "Restore" : "Maximize";
+    if (DrawTitlebarButton(max_icon, right_boundary - 60.0f, max_tooltip)) {
+      if (is_max) {
+        ShowWindow(g_hwnd, SW_RESTORE);
+      } else {
+        ShowWindow(g_hwnd, SW_MAXIMIZE);
+      }
+    }
+
+    if (DrawTitlebarButton(ICON_WINDOW_MINIMIZE, right_boundary - 86.0f, "Minimize")) {
+      ShowWindow(g_hwnd, SW_MINIMIZE);
+    }
 
     if (games.empty() || selected_game_idx < 0 || selected_game_idx >= static_cast<int>(games.size())) {
         ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() / 2 - 100, ImGui::GetWindowHeight() / 2 - 20));

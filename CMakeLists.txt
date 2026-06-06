@@ -264,3 +264,9 @@ else()
   set_target_properties(dover_injector PROPERTIES OUTPUT_NAME "injector32")
   set_target_properties(dover_overlay PROPERTIES OUTPUT_NAME "overlay32")
 endif()
+
+install(TARGETS dover_launcher dover_injector dover_overlay
+        RUNTIME DESTINATION .
+        LIBRARY DESTINATION .
+        ARCHIVE DESTINATION lib)
+

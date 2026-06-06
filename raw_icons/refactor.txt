@@ -1,1 +1,0 @@
-window-full.svg --> window-maximize.svg

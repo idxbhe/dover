@@ -88,52 +88,57 @@ void SetupImGuiTheme() {
             g_font_panel = g_font_gui;
           }
           
-          // 2. Define 5 sizes for editor and preview styles
-          float editor_sizes[5]  = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
-          float preview_sizes[5] = { 13.0f, 15.0f, 18.0f, 22.0f, 26.0f };
-          float h1_sizes[5], h2_sizes[5], h3_sizes[5], h4_sizes[5];
+          // Full font set for both launcher and overlay contexts.
+          // Launcher previously loaded a minimal subset which caused notes read/edit
+          // mode to use identical fonts (g_font_gui fallback for everything).
+          {
+            // Define 5 sizes for editor and preview styles
+            float editor_sizes[5]  = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
+            float preview_sizes[5] = { 13.0f, 15.0f, 18.0f, 22.0f, 26.0f };
+            float h1_sizes[5], h2_sizes[5], h3_sizes[5], h4_sizes[5];
 
-          for (int i = 0; i < 5; ++i) {
-            h1_sizes[i] = preview_sizes[i] * 2.00f;
-            h2_sizes[i] = preview_sizes[i] * 1.65f;
-            h3_sizes[i] = preview_sizes[i] * 1.35f;
-            h4_sizes[i] = preview_sizes[i] * 1.15f;
-            // Editor Font (JetBrainsMono - Monospace for code/typing)
-            g_fonts_editor[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_mono_data, g_font_mono_data_size, editor_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
-            if (!g_fonts_editor[i]) g_fonts_editor[i] = g_font_gui;
+            for (int i = 0; i < 5; ++i) {
+              h1_sizes[i] = preview_sizes[i] * 2.00f;
+              h2_sizes[i] = preview_sizes[i] * 1.65f;
+              h3_sizes[i] = preview_sizes[i] * 1.35f;
+              h4_sizes[i] = preview_sizes[i] * 1.15f;
+              // Editor Font (JetBrainsMono - Monospace for code/typing)
+              g_fonts_editor[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_mono_data, g_font_mono_data_size, editor_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
+              if (!g_fonts_editor[i]) g_fonts_editor[i] = g_font_gui;
 
-            // Preview Font (Mona Sans Regular - Proportional premium sans-serif)
-            g_fonts_preview[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
-            if (!g_fonts_preview[i]) g_fonts_preview[i] = g_font_gui;
+              // Preview Font (Mona Sans Regular)
+              g_fonts_preview[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
+              if (!g_fonts_preview[i]) g_fonts_preview[i] = g_font_gui;
 
-            // Preview Bold (Mona Sans Bold)
-            g_fonts_preview_bold[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-            if (!g_fonts_preview_bold[i]) g_fonts_preview_bold[i] = g_fonts_preview[i];
+              // Preview Bold
+              g_fonts_preview_bold[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+              if (!g_fonts_preview_bold[i]) g_fonts_preview_bold[i] = g_fonts_preview[i];
 
-            // Preview Italic (Mona Sans Italic)
-            g_fonts_preview_italic[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_italic, io.Fonts->GetGlyphRangesDefault());
-            if (!g_fonts_preview_italic[i]) g_fonts_preview_italic[i] = g_fonts_preview[i];
+              // Preview Italic
+              g_fonts_preview_italic[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_italic, io.Fonts->GetGlyphRangesDefault());
+              if (!g_fonts_preview_italic[i]) g_fonts_preview_italic[i] = g_fonts_preview[i];
 
-            // Preview Bold Italic (Mona Sans Bold Italic)
-            g_fonts_preview_bold_italic[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_bi, io.Fonts->GetGlyphRangesDefault());
-            if (!g_fonts_preview_bold_italic[i]) g_fonts_preview_bold_italic[i] = g_fonts_preview[i];
+              // Preview Bold Italic
+              g_fonts_preview_bold_italic[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_bi, io.Fonts->GetGlyphRangesDefault());
+              if (!g_fonts_preview_bold_italic[i]) g_fonts_preview_bold_italic[i] = g_fonts_preview[i];
 
-            // Headings (Mona Sans Headings)
-            g_fonts_preview_h1[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h1_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-            if (!g_fonts_preview_h1[i]) g_fonts_preview_h1[i] = g_fonts_preview[i];
+              // Headings
+              g_fonts_preview_h1[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h1_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+              if (!g_fonts_preview_h1[i]) g_fonts_preview_h1[i] = g_fonts_preview[i];
 
-            g_fonts_preview_h2[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h2_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-            if (!g_fonts_preview_h2[i]) g_fonts_preview_h2[i] = g_fonts_preview[i];
+              g_fonts_preview_h2[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h2_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+              if (!g_fonts_preview_h2[i]) g_fonts_preview_h2[i] = g_fonts_preview[i];
 
-            g_fonts_preview_h3[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h3_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-            if (!g_fonts_preview_h3[i]) g_fonts_preview_h3[i] = g_fonts_preview[i];
+              g_fonts_preview_h3[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h3_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+              if (!g_fonts_preview_h3[i]) g_fonts_preview_h3[i] = g_fonts_preview[i];
 
-            g_fonts_preview_h4[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h4_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-            if (!g_fonts_preview_h4[i]) g_fonts_preview_h4[i] = g_fonts_preview[i];
-          }
-        }
-      }
-    }
+              g_fonts_preview_h4[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h4_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+              if (!g_fonts_preview_h4[i]) g_fonts_preview_h4[i] = g_fonts_preview[i];
+            }
+          } // anonymous font scope
+        } // if (last_slash != npos)
+      } // if (GetModuleFileNameW)
+    } // if (GetModuleHandleExW)
 
     if (!g_font_gui) {
       g_font_gui = io.Fonts->AddFontDefault();

@@ -5,6 +5,11 @@
 #include <imgui.h>
 #include <imgui_internal.h> // ImGui::ClearActiveID()
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 namespace dover::shared::ui {
 
 namespace {
@@ -33,13 +38,42 @@ void BaseWindow::Render(bool interactive) {
                      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoFocusOnAppearing;
     }
     
+    // If the window is initialized and has a saved position/size, but m_prev_pos/m_prev_size is still default (0,0),
+    // grab the current/saved values from ImGui's internal window registry.
+    if (m_prev_pos.x == 0.0f && m_prev_pos.y == 0.0f && m_prev_size.x == 0.0f && m_prev_size.y == 0.0f) {
+        ImGuiWindow* window = ImGui::FindWindowByName(m_window_name);
+        if (window) {
+            m_prev_pos = window->Pos;
+            m_prev_size = window->Size;
+        }
+    }
+
     if (m_is_fullscreen) {
         ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
         ImGui::SetNextWindowSize(display_size, ImGuiCond_Always);
         win_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
     } else if (m_is_maximized) {
-        ImGui::SetNextWindowPos(ImVec2(0.0f, kNavBarHeight), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(display_size.x, display_size.y - kNavBarHeight), ImGuiCond_Always);
+        if (m_ctx == RenderContext::Overlay) {
+            ImGui::SetNextWindowPos(ImVec2(0.0f, kNavBarHeight), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(display_size.x, display_size.y - kNavBarHeight), ImGuiCond_Always);
+        } else {
+#ifdef _WIN32
+            // Use Win32 Monitor API to find the monitor containing the window's last position
+            POINT pt = { static_cast<LONG>(m_prev_pos.x + m_prev_size.x * 0.5f), static_cast<LONG>(m_prev_pos.y + m_prev_size.y * 0.5f) };
+            HMONITOR hMonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+            MONITORINFO mi = { sizeof(mi) };
+            if (hMonitor && GetMonitorInfoW(hMonitor, &mi)) {
+                ImGui::SetNextWindowPos(ImVec2(static_cast<float>(mi.rcWork.left), static_cast<float>(mi.rcWork.top)), ImGuiCond_Always);
+                ImGui::SetNextWindowSize(ImVec2(static_cast<float>(mi.rcWork.right - mi.rcWork.left), static_cast<float>(mi.rcWork.bottom - mi.rcWork.top)), ImGuiCond_Always);
+            } else {
+                ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+                ImGui::SetNextWindowSize(display_size, ImGuiCond_Always);
+            }
+#else
+            ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(display_size, ImGuiCond_Always);
+#endif
+        }
         win_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
     } else {
         if (m_was_maximized || m_was_fullscreen) {
@@ -47,7 +81,15 @@ void BaseWindow::Render(bool interactive) {
             if (target_size.x <= 0.0f || target_size.y <= 0.0f) {
                 target_size = m_default_size;
             }
-            ImGui::SetNextWindowPos(m_prev_pos, ImGuiCond_Always);
+            ImVec2 target_pos = m_prev_pos;
+            if (target_pos.x == 0.0f && target_pos.y == 0.0f) {
+                const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+                if (main_viewport) {
+                    target_pos.x = main_viewport->Pos.x + (main_viewport->Size.x - target_size.x) * 0.5f;
+                    target_pos.y = main_viewport->Pos.y + (main_viewport->Size.y - target_size.y) * 0.5f;
+                }
+            }
+            ImGui::SetNextWindowPos(target_pos, ImGuiCond_Always);
             ImGui::SetNextWindowSize(target_size, ImGuiCond_Always);
             m_was_maximized = false;
             m_was_fullscreen = false;
@@ -143,7 +185,8 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
     if (!interactive) return;
 
     auto DrawCustomButton = [&](const char* icon, float same_line_pos, const char* tooltip, std::atomic<bool>* toggle_state = nullptr) -> bool {
-        ImGui::SameLine(same_line_pos);
+        ImGui::SameLine();
+        ImGui::SetCursorPosX(same_line_pos);
         if (custom_y_pos >= 0.0f) {
             ImGui::SetCursorPosY(custom_y_pos);
         } else {
@@ -168,16 +211,33 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
         
         bool hovered = ImGui::IsItemHovered();
         bool active = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        bool is_close = (strcmp(icon, ICON_WINDOW_CLOSE) == 0);
         
-        ImVec4 bg_color = ImVec4(0.170f, 0.200f, 0.246f, 1.00f);
-        ImVec4 border_color = ImVec4(0.120f, 0.141f, 0.174f, 1.00f);
+        ImVec4 bg_color;
+        ImVec4 border_color;
         
-        if (active) {
-            bg_color = ImVec4(0.280f, 0.370f, 0.500f, 1.00f);
-            border_color = ImVec4(0.210f, 0.280f, 0.380f, 1.00f);
-        } else if (hovered) {
-            bg_color = ImVec4(0.230f, 0.300f, 0.410f, 1.00f);
-            border_color = ImVec4(0.170f, 0.220f, 0.300f, 1.00f);
+        if (is_close) {
+            if (active) {
+                bg_color = ImVec4(0.650f, 0.100f, 0.100f, 1.00f);
+                border_color = ImVec4(0.500f, 0.050f, 0.050f, 1.00f);
+            } else if (hovered) {
+                bg_color = ImVec4(0.850f, 0.150f, 0.150f, 1.00f);
+                border_color = ImVec4(0.700f, 0.100f, 0.100f, 1.00f);
+            } else {
+                bg_color = ImVec4(0.750f, 0.150f, 0.150f, 0.40f);
+                border_color = ImVec4(0.600f, 0.100f, 0.100f, 0.50f);
+            }
+        } else {
+            if (active) {
+                bg_color = ImVec4(0.280f, 0.370f, 0.500f, 1.00f);
+                border_color = ImVec4(0.210f, 0.280f, 0.380f, 1.00f);
+            } else if (hovered) {
+                bg_color = ImVec4(0.230f, 0.300f, 0.410f, 1.00f);
+                border_color = ImVec4(0.170f, 0.220f, 0.300f, 1.00f);
+            } else {
+                bg_color = ImVec4(0.170f, 0.200f, 0.246f, 1.00f);
+                border_color = ImVec4(0.120f, 0.141f, 0.174f, 1.00f);
+            }
         }
         
         ImU32 bg_col32 = ImGui::ColorConvertFloat4ToU32(bg_color);
