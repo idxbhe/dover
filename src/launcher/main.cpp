@@ -305,7 +305,11 @@ struct LauncherState {
   int width = 800;
   int height = 500;
   bool maximized = false;
+  float sidebar_width = 220.0f;
+  bool sidebar_folded = false;
 };
+
+LauncherState g_LauncherState;
 
 LauncherState LoadLauncherState() {
   LauncherState state;
@@ -319,6 +323,11 @@ LauncherState LoadLauncherState() {
   state.width = GetPrivateProfileIntW(L"Launcher", L"width", 800, config_path.c_str());
   state.height = GetPrivateProfileIntW(L"Launcher", L"height", 500, config_path.c_str());
   state.maximized = GetPrivateProfileIntW(L"Launcher", L"maximized", 0, config_path.c_str()) != 0;
+
+  wchar_t sidebar_w_buf[32];
+  GetPrivateProfileStringW(L"Launcher", L"sidebar_width", L"220.0", sidebar_w_buf, 32, config_path.c_str());
+  state.sidebar_width = static_cast<float>(_wtof(sidebar_w_buf));
+  state.sidebar_folded = GetPrivateProfileIntW(L"Launcher", L"sidebar_folded", 0, config_path.c_str()) != 0;
 
   return state;
 }
@@ -352,6 +361,8 @@ void SaveLauncherState(HWND hwnd) {
     WritePrivateProfileStringW(L"Launcher", L"width", std::to_wstring(width).c_str(), config_path.c_str());
     WritePrivateProfileStringW(L"Launcher", L"height", std::to_wstring(height).c_str(), config_path.c_str());
     WritePrivateProfileStringW(L"Launcher", L"maximized", std::to_wstring(maximized ? 1 : 0).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"sidebar_width", std::to_wstring(g_LauncherState.sidebar_width).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"sidebar_folded", std::to_wstring(g_LauncherState.sidebar_folded ? 1 : 0).c_str(), config_path.c_str());
   }
 }
 
@@ -434,8 +445,11 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
       if (bottom) return HTBOTTOM;
     }
 
-    if (y >= 0 && y < 35 && x < width - 110) {
-      return HTCAPTION;
+    if (y >= 0 && y < 35) {
+      float current_sidebar_w = g_LauncherState.sidebar_folded ? 60.0f : g_LauncherState.sidebar_width;
+      if (x > current_sidebar_w && x < width - 110) {
+        return HTCAPTION;
+      }
     }
     return HTCLIENT;
   }
@@ -537,20 +551,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
   WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, hInstance, nullptr, nullptr, nullptr, nullptr, L"DoverLauncherClass", nullptr };
   ::RegisterClassExW(&wc);
 
-  auto state = LoadLauncherState();
+  g_LauncherState = LoadLauncherState();
   
   // Ensure the window position is visible on at least one monitor
-  POINT pt = { state.x + state.width / 2, state.y + state.height / 2 };
+  POINT pt = { g_LauncherState.x + g_LauncherState.width / 2, g_LauncherState.y + g_LauncherState.height / 2 };
   HMONITOR hMonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONULL);
   if (!hMonitor) {
-    state.x = 100;
-    state.y = 100;
-    state.width = 800;
-    state.height = 500;
+    g_LauncherState.x = 100;
+    g_LauncherState.y = 100;
+    g_LauncherState.width = 800;
+    g_LauncherState.height = 500;
   }
 
   HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dover Launcher", WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU,
-                              state.x, state.y, state.width, state.height, nullptr, nullptr, wc.hInstance, nullptr);
+                              g_LauncherState.x, g_LauncherState.y, g_LauncherState.width, g_LauncherState.height, nullptr, nullptr, wc.hInstance, nullptr);
   g_hwnd = hwnd;
 
   if (!CreateDeviceD3D(hwnd)) {
@@ -559,7 +573,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     return 1;
   }
 
-  ::ShowWindow(hwnd, state.maximized ? SW_SHOWMAXIMIZED : SW_SHOWDEFAULT);
+  ::ShowWindow(hwnd, g_LauncherState.maximized ? SW_SHOWMAXIMIZED : SW_SHOWDEFAULT);
   ::UpdateWindow(hwnd);
 
   IMGUI_CHECKVERSION();
@@ -665,81 +679,212 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     ImGui::Begin("Launcher UI", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
     ImGui::PopStyleVar();
 
+    // Sidebar calculation
+    float sidebar_w = g_LauncherState.sidebar_folded ? 60.0f : g_LauncherState.sidebar_width;
+
     // Side panel
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.06f, 0.07f, 0.09f, 1.0f));
-    ImGui::BeginChild("Sidebar", ImVec2(220, 0), false, ImGuiWindowFlags_NoScrollbar);
+    ImGui::BeginChild("Sidebar", ImVec2(sidebar_w, 0), false, ImGuiWindowFlags_NoScrollbar);
     
-    // Logo / Title area
-    ImGui::SetCursorPos(ImVec2(20.0f, 20.0f));
-    ImGui::PushFont(dover::shared::g_fonts_preview_h3[1]);
-    ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "DOVER");
-    ImGui::PopFont();
-    ImGui::SetCursorPos(ImVec2(20.0f, 40.0f));
-    ImGui::PushFont(dover::shared::g_font_panel);
-    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "LAUNCHER");
-    ImGui::PopFont();
+    // Toggle Button & Logo
+    auto DrawSidebarToggle = [&](const char* icon, ImVec2 pos, bool fold_action) {
+        ImGui::SetCursorPos(pos);
+        ImVec2 size = ImVec2(36, 36);
+        
+        ImGui::PushID(icon);
+        bool clicked = ImGui::InvisibleButton("##toggle", size);
+        bool hovered = ImGui::IsItemHovered();
+        bool active  = ImGui::IsItemActive();
+        
+        auto* draw_list = ImGui::GetWindowDrawList();
+        ImVec2 min_p = ImGui::GetItemRectMin();
+        ImVec2 max_p = ImGui::GetItemRectMax();
+        
+        // Draw highlight background
+        if (active) {
+            draw_list->AddRectFilled(min_p, max_p, ImGui::GetColorU32(ImGuiCol_ButtonActive), 4.0f);
+        } else if (hovered) {
+            draw_list->AddRectFilled(min_p, max_p, ImGui::GetColorU32(ImGuiCol_ButtonHovered), 4.0f);
+        }
+        
+        // Render Icon manually centered. Since font is now normalized, no manual offset needed.
+        ImGui::PushFont(dover::shared::g_font_panel);
+        ImVec2 icon_size = ImGui::CalcTextSize(icon);
+        ImVec2 icon_pos = ImVec2(
+            min_p.x + (size.x - icon_size.x) * 0.5f,
+            min_p.y + (size.y - icon_size.y) * 0.5f
+        );
+        
+        ImU32 icon_col = ImGui::GetColorU32(hovered ? ImVec4(0.4f, 0.7f, 1.0f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+        draw_list->AddText(icon_pos, icon_col, icon);
+        ImGui::PopFont();
+        
+        if (hovered) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        }
+        
+        if (clicked) {
+            g_LauncherState.sidebar_folded = fold_action;
+            g_FramesToRender = 5;
+        }
+        ImGui::PopID();
+    };
+
+    if (!g_LauncherState.sidebar_folded) {
+        ImGui::SetCursorPos(ImVec2(20.0f, 20.0f));
+        ImGui::PushFont(dover::shared::g_fonts_preview_h3[1]);
+        ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "DOVER");
+        ImGui::PopFont();
+        
+        ImGui::SetCursorPos(ImVec2(20.0f, 40.0f));
+        ImGui::PushFont(dover::shared::g_font_panel);
+        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "LAUNCHER");
+        ImGui::PopFont();
+
+        // Toggle button at top right of sidebar (Unfolded)
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+        DrawSidebarToggle(ICON_TOGGLE_HIDE_SIDEBAR, ImVec2(sidebar_w - 44.0f, 18.0f), true);
+        ImGui::PopStyleColor();
+    } else {
+        // Toggle button centered (Folded)
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.00f));
+        DrawSidebarToggle(ICON_TOGGLE_SHOW_SIDEBAR, ImVec2((sidebar_w - 36.0f) * 0.5f, 18.0f), false);
+        ImGui::PopStyleColor();
+    }
+
     ImGui::SetCursorPosY(80.0f);
 
-    // List of games
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 2));
+    // List of games - Premium Tiny Scrollbar Styling
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, ImVec4(0.3f, 0.3f, 0.35f, 0.5f));
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(0.4f, 0.4f, 0.45f, 0.7f));
+    ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, ImVec4(0.4f, 0.7f, 1.0f, 0.6f));
+
+    // Calculate height for game list: Total - Top(80) - Bottom Padding/Button(60)
+    float game_list_h = ImGui::GetWindowHeight() - 140.0f;
+    ImGui::BeginChild("GameListScroll", ImVec2(sidebar_w, game_list_h), false, ImGuiWindowFlags_None);
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 6.0f));
     for (size_t i = 0; i < games.size(); ++i) {
         ImGui::PushID(static_cast<int>(i));
         bool is_selected = (selected_game_idx == static_cast<int>(i));
+        
+        float btn_x = g_LauncherState.sidebar_folded ? 5.0f : 8.0f;
+        float btn_w = g_LauncherState.sidebar_folded ? 50.0f : sidebar_w - (g_LauncherState.sidebar_folded ? 10.0f : 20.0f);
+        float btn_h = 40.0f;
+
         if (is_selected) {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.13f, 0.15f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.14f, 0.16f, 0.20f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text,   ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
         } else {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text,   ImVec4(0.55f, 0.55f, 0.6f, 1.0f));
         }
         
-        ImGui::SetCursorPosX(10.0f);
+        ImGui::SetCursorPosX(btn_x);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
         
         ImVec2 button_pos = ImGui::GetCursorScreenPos();
-        bool clicked = ImGui::Button("##game_btn", ImVec2(200.0f, 40.0f));
-        
-        // Render Icon and Text over the button
-        ImGui::SetCursorScreenPos(ImVec2(button_pos.x + 12.0f, button_pos.y + 8.0f));
-        void* icon_srv = dover::shared::assets::AssetStorage::Get().GetIconForGame(games[i].path);
-        if (icon_srv) {
-            ImGui::Image((ImTextureID)icon_srv, ImVec2(24.0f, 24.0f));
-            ImGui::SameLine(48.0f);
-        } else {
-            // Fallback padding if icon extraction fails
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 36.0f);
-        }
-        
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4.0f);
-        ImGui::Text("%s", games[i].name_u8.c_str());
-
-        if (clicked) {
+        if (ImGui::Button("##game_btn", ImVec2(btn_w, btn_h))) {
             selected_game_idx = static_cast<int>(i);
         }
         
+        // Render Icon and Text using DrawList to avoid affecting the layout cursor
+        auto* draw_list = ImGui::GetWindowDrawList();
+        void* icon_srv = dover::shared::assets::AssetStorage::Get().GetIconForGame(games[i].path);
+        const float icon_size = 24.0f;
+        const float icon_y_off = (btn_h - icon_size) * 0.5f;
+
+        if (g_LauncherState.sidebar_folded) {
+            if (icon_srv) {
+                draw_list->AddImage((ImTextureID)icon_srv, 
+                    ImVec2(button_pos.x + (btn_w - icon_size) * 0.5f, button_pos.y + icon_y_off),
+                    ImVec2(button_pos.x + (btn_w - icon_size) * 0.5f + icon_size, button_pos.y + icon_y_off + icon_size));
+            }
+        } else {
+            const float icon_x_off = 12.0f;
+            float current_x = button_pos.x + icon_x_off;
+            if (icon_srv) {
+                draw_list->AddImage((ImTextureID)icon_srv, 
+                    ImVec2(current_x, button_pos.y + icon_y_off),
+                    ImVec2(current_x + icon_size, button_pos.y + icon_y_off + icon_size));
+                current_x += icon_size + 12.0f;
+            } else {
+                current_x += 36.0f; // Padding if no icon
+            }
+            
+            float text_y_off = (btn_h - ImGui::GetTextLineHeight()) * 0.5f;
+            draw_list->AddText(ImGui::GetFont(), ImGui::GetFontSize(), 
+                ImVec2(current_x, button_pos.y + text_y_off), 
+                ImGui::GetColorU32(is_selected ? ImGuiCol_Text : ImGuiCol_TextDisabled), 
+                games[i].name_u8.c_str());
+        }
+        
+        ImGui::PopStyleVar();
         ImGui::PopStyleColor(2);
         ImGui::PopID();
     }
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(); // ItemSpacing
+    ImGui::EndChild(); // GameListScroll
+    
+    ImGui::PopStyleColor(4); // Scrollbar colors
+    ImGui::PopStyleVar(2); // Scrollbar vars
 
     // Add new game at the bottom
-    ImGui::SetCursorPos(ImVec2(10.0f, ImGui::GetWindowHeight() - 50.0f));
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 0.8f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
-    if (ImGui::Button("+ ADD NEW GAME", ImVec2(200.0f, 40.0f))) {
-      std::wstring selected_path = BrowseForExecutable(hwnd);
-      if (!selected_path.empty()) {
-        SaveGamePath(selected_path);
-        games = LoadSavedGames(); // Reload list
-        selected_game_idx = static_cast<int>(games.size()) - 1;
-      }
+    float add_btn_x = g_LauncherState.sidebar_folded ? 5.0f : 8.0f;
+    float add_btn_w = g_LauncherState.sidebar_folded ? 50.0f : sidebar_w - 16.0f;
+    ImGui::SetCursorPos(ImVec2(add_btn_x, ImGui::GetWindowHeight() - 50.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+
+    if (!g_LauncherState.sidebar_folded) {
+        if (ImGui::Button("+ ADD NEW GAME", ImVec2(add_btn_w, 40.0f))) {
+            std::wstring selected_path = BrowseForExecutable(hwnd);
+            if (!selected_path.empty()) {
+                SaveGamePath(selected_path);
+                games = LoadSavedGames(); 
+                selected_game_idx = static_cast<int>(games.size()) - 1;
+            }
+        }
+    } else {
+        ImGui::PushFont(dover::shared::g_font_gui);
+        if (ImGui::Button(ICON_ADD_NEW, ImVec2(add_btn_w, 40.0f))) {
+            std::wstring selected_path = BrowseForExecutable(hwnd);
+            if (!selected_path.empty()) {
+                SaveGamePath(selected_path);
+                games = LoadSavedGames(); 
+                selected_game_idx = static_cast<int>(games.size()) - 1;
+            }
+        }
+        ImGui::PopFont();
     }
-    ImGui::PopStyleColor(3);
+    ImGui::PopStyleVar();
 
     ImGui::EndChild();
     ImGui::PopStyleColor(); // End Sidebar
 
     ImGui::SameLine(0, 0);
+
+    // Splitter
+    if (!g_LauncherState.sidebar_folded) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.7f, 1.0f, 0.2f));
+        ImGui::Button("##splitter", ImVec2(4.0f, -1));
+        ImGui::PopStyleColor(3);
+
+        if (ImGui::IsItemActive()) {
+            g_LauncherState.sidebar_width += ImGui::GetIO().MouseDelta.x;
+            if (g_LauncherState.sidebar_width < 150.0f) g_LauncherState.sidebar_width = 150.0f;
+            if (g_LauncherState.sidebar_width > 400.0f) g_LauncherState.sidebar_width = 400.0f;
+            g_FramesToRender = 5;
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        }
+        ImGui::SameLine(0, 0);
+    }
 
     // Main Content Panel
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.10f, 0.11f, 0.13f, 1.0f));
@@ -863,18 +1008,20 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         bool launch_hovered = ImGui::IsItemHovered();
         bool launch_active = ImGui::IsItemActive();
         
-        ImVec4 col_grad_top = launch_active ? ImVec4(0.12f, 0.55f, 0.32f, 1.0f) : (launch_hovered ? ImVec4(0.20f, 0.75f, 0.45f, 1.0f) : ImVec4(0.18f, 0.68f, 0.38f, 1.0f));
-        ImVec4 col_grad_bot = launch_active ? ImVec4(0.08f, 0.45f, 0.25f, 1.0f) : (launch_hovered ? ImVec4(0.15f, 0.65f, 0.38f, 1.0f) : ImVec4(0.12f, 0.58f, 0.32f, 1.0f));
+        ImVec4 col_grad_top = launch_active ? ImVec4(0.10f, 0.38f, 0.20f, 1.0f) : (launch_hovered ? ImVec4(0.16f, 0.58f, 0.32f, 1.0f) : ImVec4(0.13f, 0.48f, 0.26f, 1.0f));
+        ImVec4 col_grad_bot = launch_active ? ImVec4(0.07f, 0.28f, 0.15f, 1.0f) : (launch_hovered ? ImVec4(0.13f, 0.48f, 0.26f, 1.0f) : ImVec4(0.10f, 0.38f, 0.20f, 1.0f));
         
         ImU32 c_top = ImGui::ColorConvertFloat4ToU32(col_grad_top);
         ImU32 c_bot = ImGui::ColorConvertFloat4ToU32(col_grad_bot);
         
         auto* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilledMultiColor(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y), c_top, c_top, c_bot, c_bot);
-        dl->AddRect(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y), ImGui::ColorConvertFloat4ToU32(ImVec4(1,1,1,0.05f)), 0.0f);
+        const float rounding = 4.0f;
+        dl->AddRectFilled(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y * 0.5f), c_top, rounding, ImDrawFlags_RoundCornersTop);
+        dl->AddRectFilled(ImVec2(launch_p.x, launch_p.y + launch_size.y * 0.5f), ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y), c_bot, rounding, ImDrawFlags_RoundCornersBottom);
+        dl->AddRect(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y), ImGui::ColorConvertFloat4ToU32(ImVec4(1,1,1,0.05f)), rounding);
         
         // Glossy highlight
-        dl->AddRectFilled(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y * 0.5f), ImGui::ColorConvertFloat4ToU32(ImVec4(1,1,1,0.03f)));
+        dl->AddRectFilled(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y * 0.25f), ImGui::ColorConvertFloat4ToU32(ImVec4(1,1,1,0.03f)), rounding, ImDrawFlags_RoundCornersTop);
 
         ImGui::PushFont(dover::shared::g_fonts_preview_bold[1]);
         const char* launch_label = is_active_game ? "RUNNING" : "LAUNCH GAME";
@@ -911,29 +1058,31 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         
         ImGui::SetCursorPos(ImVec2(40.0f, 190.0f));
         
-        // Modules Grid
-        float card_width = 160.0f;
-        float card_height = 100.0f;
+        // Modules Vertical List
+        float card_width = ImGui::GetContentRegionAvail().x - 80.0f;
+        float card_height = 45.0f;
         
         auto draw_module_card = [&](const char* id, const char* title, const char* icon, ActiveWindow win_type) {
             bool is_open = (active_game_idx == selected_game_idx && active_win == win_type);
             ImGui::PushID(id);
             ImGui::PushStyleColor(ImGuiCol_ChildBg, is_open ? ImVec4(0.15f, 0.2f, 0.3f, 1.0f) : ImVec4(0.15f, 0.16f, 0.18f, 1.0f));
-            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+            
+            ImGui::SetCursorPosX(40.0f);
             ImGui::BeginChild("Card", ImVec2(card_width, card_height), true, ImGuiWindowFlags_NoScrollbar);
             
-            ImGui::SetCursorPos(ImVec2(15.0f, 15.0f));
-            ImGui::PushFont(dover::shared::g_font_panel); // panel font has icons
+            // Icon
+            ImGui::PushFont(dover::shared::g_font_panel);
+            float icon_h = ImGui::GetTextLineHeight();
+            ImGui::SetCursorPos(ImVec2(12.0f, (card_height - icon_h) * 0.5f));
             ImGui::TextColored(is_open ? ImVec4(0.5f, 0.8f, 1.0f, 1.0f) : ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", icon);
             ImGui::PopFont();
             
-            ImGui::SetCursorPos(ImVec2(15.0f, 45.0f));
-            ImGui::PushFont(dover::shared::g_fonts_preview_bold[0]);
+            // Title
+            ImGui::PushFont(dover::shared::g_fonts_preview_bold[1]);
+            ImGui::SetCursorPos(ImVec2(48.0f, (card_height - ImGui::GetTextLineHeight()) * 0.5f));
             ImGui::Text("%s", title);
             ImGui::PopFont();
-            
-            ImGui::SetCursorPos(ImVec2(15.0f, 65.0f));
-            ImGui::TextColored(is_open ? ImVec4(0.4f, 0.9f, 0.4f, 1.0f) : ImVec4(0.5f, 0.5f, 0.5f, 1.0f), is_open ? "Configuring" : "Configure");
             
             // Invisible button to capture clicks over the whole card
             ImGui::SetCursorPos(ImVec2(0, 0));
@@ -941,9 +1090,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1,1,1,0.05f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1,1,1,0.1f));
             if (ImGui::Button("##card_btn", ImVec2(card_width, card_height))) {
-                if (is_open) {
-                    // Focus or close? Let's just do nothing.
-                } else {
+                if (!is_open) {
                     if (active_win == ActiveWindow::Notes) dover::shared::notes::ShutdownNotesManager();
                     dover::shared::GameStorage::Get().Initialize(game.name);
                     
@@ -978,14 +1125,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             ImGui::PopID();
         };
 
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 8.0f));
         draw_module_card("Notes", "Notes Editor", "\xef\x84\xa9", ActiveWindow::Notes);
-        ImGui::SameLine(0, 15.0f);
         draw_module_card("Crosshair", "Smart Reticle", "\xef\x84\xaa", ActiveWindow::Crosshair);
-        ImGui::SameLine(0, 15.0f);
         draw_module_card("Controller", "Input Map", "\xef\x84\xa8", ActiveWindow::Controller);
-        
-        ImGui::SetCursorPos(ImVec2(40.0f, 305.0f));
         draw_module_card("Settings", "App Config", "\xef\x84\xab", ActiveWindow::Settings);
+        ImGui::PopStyleVar();
         
         // Remove button
         ImGui::SetCursorPos(ImVec2(ImGui::GetWindowWidth() - 100.0f, ImGui::GetWindowHeight() - 40.0f));

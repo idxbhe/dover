@@ -59,12 +59,22 @@ $RECYCLE.BIN/
 *.log
 *.tmp
 
-# Local debugger helpers & backup files
+# local debugger helpers & backup files
 run_parser.ps1
 cdb_runner.ps1
 dump_parser.cs
 dump_parser.exe
 old_crosshair.cpp
+raw_icons/check_metrics.py
+full_build_output.txt
+full_rebuild_output.txt
+full_rebuild_x86_output.txt
+clean_build_output.txt
+debug_build_output.txt
+temp_build.ps1
+debug_build.ps1
+full_rebuild.ps1
+full_rebuild_x86.ps1
 
 # user specific
 BUGS & TODO.md

@@ -38,7 +38,7 @@ Compiled using modern MSVC on Windows.
 *   MSVC 2026 (C++23)
 
 ### Compiling
-Run the optimized parallel build script to compile, consolidate, and package both x64 and x86 targets simultaneously:
+Run the optimized build script to compile, consolidate, and package both x64 and x86 targets:
 
 ```powershell
 .\build.ps1

@@ -63,17 +63,19 @@ void SetupImGuiTheme() {
             static const ImWchar icon_ranges[] = { DI_ICON_MIN, DI_ICON_MAX, 0 };
             ImFontConfig icons_config;
             icons_config.FontDataOwnedByAtlas = false;
-            icons_config.MergeMode = true;
+            icons_config.MergeMode = true; // BUG FIX: Without this, icons render as '?' in the default font
             icons_config.PixelSnapH = true;
-            icons_config.OversampleH = 2;
-            icons_config.OversampleV = 1;
-            icons_config.GlyphOffset.y = 3.0f; // Vertically align slightly larger icons with Mona Sans CapHeight
+            icons_config.OversampleH = 3;
+            icons_config.OversampleV = 2;
+            icons_config.GlyphMinAdvanceX = 19.5f; // Horizontal centering guarantee
+            icons_config.GlyphOffset.x = 0.0f;
+            icons_config.GlyphOffset.y = 1.0f; // Calibrated with TARGET_CENTER_Y = 370.0
             io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 19.5f, &icons_config, icon_ranges);
           }
 
-          // 1b. GUI Font - Panel (Crisp, native larger sizes)
-          g_font_panel = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, 20.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
-          if (g_font_panel) {
+            // 1b. GUI Font - Panel (Crisp, native larger sizes)
+            g_font_panel = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, 20.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+            if (g_font_panel) {
             static const ImWchar icon_ranges[] = { DI_ICON_MIN, DI_ICON_MAX, 0 };
             ImFontConfig icons_config;
             icons_config.FontDataOwnedByAtlas = false;
@@ -81,10 +83,11 @@ void SetupImGuiTheme() {
             icons_config.PixelSnapH = true;
             icons_config.OversampleH = 3;
             icons_config.OversampleV = 2;
+            icons_config.GlyphMinAdvanceX = 28.0f; // Horizontal centering guarantee for panel size
             icons_config.GlyphOffset.x = 0.0f;
-            icons_config.GlyphOffset.y = 2.0f; // Vertically align for larger 20.0f font
+            icons_config.GlyphOffset.y = 2.0f; // Calibrated for 28px
             io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 28.0f, &icons_config, icon_ranges);
-          } else {
+            } else {
             g_font_panel = g_font_gui;
           }
           

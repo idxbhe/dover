@@ -6,6 +6,7 @@
 #include "overlay/input_hook.h"
 #include "shared/log.h"
 #include "shared/renderer.h"
+#include "shared/settings/app_config.h"
 #include "overlay_runtime.h"
 
 #include <d3d11.h>

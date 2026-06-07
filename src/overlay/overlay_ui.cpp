@@ -86,7 +86,7 @@ static void RenderNavButton(
       bool hovered = ImGui::IsMouseHoveringRect(pos, p_max);
       
       ImVec2 glyph_size = ImGui::CalcTextSize(icon);
-      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (icon_box_height - glyph_size.y) * 0.5f + 2.5f);
+      ImVec2 text_pos = ImVec2(pos.x + (icon_btn_width - glyph_size.x) * 0.5f, pos.y + (icon_box_height - glyph_size.y) * 0.5f);
       
       ImVec4 text_color, shadow_color, highlight_color, border_color;
       if (state.is_open) {

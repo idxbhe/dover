@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._c_m_a_p import cmap_format_4
-from fontTools.pens.ttGlyphPen import TTGlyphPen
+from fontTools.pens.ttGlyphPen import TTGlyphPen, GlyphCoordinates
 from fontTools.pens.transformPen import TransformPen
 from fontTools.svgLib.path import SVGPath
 import pathops
@@ -30,55 +30,66 @@ def format_cpp_hex(codepoint):
 def parse_svg_to_glyph(svg_filepath):
     tree = ET.parse(svg_filepath)
     root = tree.getroot()
-    
-    # Extract viewBox to determine scaling
+
+    # KASTA ELIT: Amankan koordinat origin (vb_x, vb_y) agar posisi tidak loncat!
     viewbox = root.attrib.get('viewBox')
     if viewbox:
-        _, _, vb_w, vb_h = map(float, viewbox.split())
+        vb_x, vb_y, vb_w, vb_h = map(float, viewbox.split())
     else:
-        # Fallbacks if viewBox is missing
+        vb_x, vb_y = 0.0, 0.0
         vb_w = float(root.attrib.get('width', 32).replace('px', ''))
         vb_h = float(root.attrib.get('height', 32).replace('px', ''))
-    
+
     path = pathops.Path()
     pen = path.getPen()
-    
-    # Use SVGPath directly on the file to parse all paths
     svg_path = SVGPath(svg_filepath)
     svg_path.draw(pen)
-            
-    # Simplify paths to handle intersections and correct winding directions
     path.simplify()
-    
-    # TrueType parameters based on template.ttf
+
+    # TrueType parameters (Extracted from template.ttf: Ascent 960, Descent -64)
     UPEM = 1024
-    ASCENT = 960
-    
-    scale_x = UPEM / vb_w
-    scale_y = UPEM / vb_h
-    
-    # SVG has Y going down. TTF has Y going up.
-    # Transform SVG coords to TTF coords (Flip Y and scale)
-    transform = (scale_x, 0, 0, -scale_y, 0, ASCENT)
-    
+    TARGET_SIZE = 870 # ~85% of UPEM
+
+    # Ambil skala pengunci aspek rasio kanvas
+    scale = TARGET_SIZE / max(vb_w, vb_h)
+
+    # Definisikan koordinat tengah target pada grid TTF font
+    TARGET_CENTER_X = UPEM / 2.0  # 512.0
+    # MANDOR: Set ke 370.0 (Final calibration between 350 and 380)
+    TARGET_CENTER_Y = 370.0       # Center geometris vertikal (Ascent 960, Descent -64)
+
+    # Hitung ukuran dimensi kanvas setelah di-scale
+    scaled_w = vb_w * scale
+    scaled_h = vb_h * scale
+
+    # =========================================================================
+    # MATRIKS AFFINE CARMACK STYLE (GABUNGAN TRANSLASI, SKALA, FLIP, DAN CENTERING)
+    # x' = A*x + C*y + E
+    # y' = B*x + D*y + F
+    # =========================================================================
+    A = scale
+    B = 0
+    C = 0
+    D = -scale  # Balik sumbu Y untuk koordinat font
+
+    # E dan F bertugas menormalisasi origin vb_x/y sekaligus mengunci ke tengah grid!
+    E = -scale * vb_x + (TARGET_CENTER_X - scaled_w / 2.0)
+    F = scale * vb_y + (TARGET_CENTER_Y + scaled_h / 2.0)
+
+    transform = (A, B, C, D, E, F)
+
+    # Eksekusi transformasi murni dalam satu pipa instruksi
     tt_pen = TTGlyphPen(None)
     t_pen = TransformPen(tt_pen, transform)
     path.draw(t_pen)
-    
+
     glyph = tt_pen.glyph()
     glyph.recalcBounds(None)
-    
-    # Horizontally center the glyph within the 1024 UPEM
-    if hasattr(glyph, "xMin") and hasattr(glyph, "xMax") and hasattr(glyph, "coordinates"):
-        visual_center = (glyph.xMin + glyph.xMax) / 2.0
-        shift_x = (UPEM / 2.0) - visual_center
-        
-        # Only shift if necessary
-        if abs(shift_x) > 1.0:
-            for i, (x, y) in enumerate(glyph.coordinates):
-                glyph.coordinates[i] = (int(x + shift_x), int(y))
-            glyph.recalcBounds(None)
-            
+
+    # Debug log untuk mandor memantau kestabilan grid
+    icon_name = os.path.basename(svg_filepath)
+    print(f"[GRID-LOCK] {icon_name:<30} | Origin: ({vb_x}, {vb_y}) | Size: {vb_w}x{vb_h} | Matrix applied successfully.")
+
     return glyph
 
 def build_font_and_headers():

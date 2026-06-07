@@ -1,10 +1,13 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.20...3.31)
 
 # Supresi total warning dari dependency luar (seperti FreeType)
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 
 if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW) # Fix timestamp warning untuk FetchContent
+endif()
+if(POLICY CMP0169)
+  cmake_policy(SET CMP0169 OLD) # Allow FetchContent_Populate for manual library definition
 endif()
 
 project(dover LANGUAGES C CXX)

@@ -39,32 +39,29 @@ if ($PGOOptimize) { $CMakeArgs += " -DDOVER_PGO_OPTIMIZE=ON" }
 
 $BuildTask = {
     param($arch, $vcvars, $cmake_args, $force, $config, $root)
-    $ErrorActionPreference = "Continue"
     Set-Location $root
     
     $buildDir = "out/intermediate/$arch"
     $configureCmd = if ($force -or !(Test-Path "$buildDir\CMakeCache.txt")) { "cmake -B $buildDir -S . -G Ninja $cmake_args" } else { "echo Skip Configure" }
     $buildCmd = "cmake --build $buildDir --config $config --parallel"
     
-    $fullCmd = "`"$vcvars`" $arch > NUL && $configureCmd && $buildCmd 2>&1"
+    # Run in CMD to preserve environment from vcvarsall
+    $fullCmd = "`"$vcvars`" $arch > NUL && $configureCmd && $buildCmd"
     cmd.exe /c $fullCmd
     return $LASTEXITCODE
 }
 
 # 3. Execution Phase
-Write-Host "Launching Parallel Build (x64 + x86)..." -ForegroundColor Yellow
-$job64 = Start-Job -ScriptBlock $BuildTask -ArgumentList "x64", $vcvarsall, $CMakeArgs, $ForceConfigure, $Config, $PSScriptRoot
-$job86 = Start-Job -ScriptBlock $BuildTask -ArgumentList "x86", $vcvarsall, $CMakeArgs, $ForceConfigure, $Config, $PSScriptRoot
-
 Write-Host "Generating Assets Pipeline..." -ForegroundColor Yellow
 python assets/build_assets.py
 
-Write-Host "Waiting for compilation to complete..." -ForegroundColor Gray
-$null = Wait-Job $job64, $job86
+Write-Host "Building x64 Target..." -ForegroundColor Yellow
+& $BuildTask "x64" $vcvarsall $CMakeArgs $ForceConfigure $Config $PSScriptRoot
+if ($LASTEXITCODE -ne 0) { Write-Host "[ERROR] x64 Build failed." -ForegroundColor Red; Exit 1 }
 
-# 4. Result Processing
-$out64 = Receive-Job $job64 -ErrorAction SilentlyContinue | Out-String
-$out86 = Receive-Job $job86 -ErrorAction SilentlyContinue | Out-String
+Write-Host "Building x86 Target..." -ForegroundColor Yellow
+& $BuildTask "x86" $vcvarsall $CMakeArgs $ForceConfigure $Config $PSScriptRoot
+if ($LASTEXITCODE -ne 0) { Write-Host "[ERROR] x86 Build failed." -ForegroundColor Red; Exit 1 }
 
 # 5. Consolidation & Verification
 Write-Host "`n[3/3] Consolidating and packaging binaries..." -ForegroundColor Yellow
@@ -72,8 +69,8 @@ $dest_dir = "out/bin/$Config"
 if (!(Test-Path $dest_dir)) { New-Item -ItemType Directory -Path $dest_dir -Force | Out-Null }
 
 # Run install via MSVC context to ensure 'cmake' is found
-Invoke-MSVC "x64" "cmake --install out/intermediate/x64 --config $Config --prefix $dest_dir 2>NUL"
-Invoke-MSVC "x86" "cmake --install out/intermediate/x86 --config $Config --prefix $dest_dir 2>NUL"
+Invoke-MSVC "x64" "cmake --install out/intermediate/x64 --config $Config --prefix $dest_dir"
+Invoke-MSVC "x86" "cmake --install out/intermediate/x86 --config $Config --prefix $dest_dir"
 
 $all_binaries_built = (Test-Path "$dest_dir/launcher.exe") -and (Test-Path "$dest_dir/overlay64.dll") -and (Test-Path "$dest_dir/overlay32.dll")
 
@@ -84,7 +81,5 @@ if ($all_binaries_built) {
     Write-Host "=========================================" -ForegroundColor Green
 } else {
     Write-Host "`n[ERROR] Build failed. Some binaries are missing." -ForegroundColor Red
-    Write-Host "--- x64 Output ---`n$out64" -ForegroundColor DarkGray
-    Write-Host "--- x86 Output ---`n$out86" -ForegroundColor DarkGray
     Exit 1
 }
