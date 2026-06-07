@@ -709,22 +709,25 @@ void InputWindow::RenderGamepadOverlay() {
     static DWORD s_active_index = 0;
     static int s_poll_timer = 0;
     
+    // Throttle polling for disconnected controllers to avoid kernel-mode frame spikes
     bool connected = (XInputGetState(s_active_index, &state) == ERROR_SUCCESS);
     if (!connected) {
-        // Throttle disconnected port polling to prevent massive 2-5ms frame-drops per port
-        if (++s_poll_timer > 60) {
+        if (++s_poll_timer > 60) { // Scan all ports once per second if no controller is active
             s_poll_timer = 0;
             for (DWORD i = 0; i < 4; ++i) {
                 if (i != s_active_index && XInputGetState(i, &state) == ERROR_SUCCESS) {
                     s_active_index = i;
+                    connected = true;
                     break;
                 }
             }
         }
     } else {
-        s_poll_timer = 0;
+        s_poll_timer = 0; // Reset timer when controller is active
     }
     shared::g_visualizer_xinput = false;
+    
+    if (!connected) return; // Exit if no controller is connected to save rendering cycles
     
     WORD b = state.Gamepad.wButtons;
     for (int i = 0; i < m_visualizer_button_count; ++i) {

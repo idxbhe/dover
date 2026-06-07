@@ -75,21 +75,29 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
   }
 
   if (g_imgui_initialized.load()) {
-    GetOverlayState().in_overlay_frame = true;
-    ImGui_ImplDX9_NewFrame();
-    
-    shared::g_allow_xinput = true;
-    ImGui_ImplWin32_NewFrame();
-    shared::g_allow_xinput = false;
-    
-    ImGui::NewFrame();
+    // Early-out: only run ImGui lifecycle if overlay is visible or OSD features are enabled
+    bool should_render = GetOverlayState().show_overlay || 
+                        shared::GetAppConfig().show_fps || 
+                        shared::GetAppConfig().show_clock || 
+                        shared::GetAppConfig().show_api;
 
-    // Render shared UI
-    RenderImGuiUI();
+    if (should_render) {
+      GetOverlayState().in_overlay_frame = true;
+      ImGui_ImplDX9_NewFrame();
+      
+      shared::g_allow_xinput = true;
+      ImGui_ImplWin32_NewFrame();
+      shared::g_allow_xinput = false;
+      
+      ImGui::NewFrame();
 
-    ImGui::Render();
-    ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
-    GetOverlayState().in_overlay_frame = false;
+      // Render shared UI
+      RenderImGuiUI();
+
+      ImGui::Render();
+      ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
+      GetOverlayState().in_overlay_frame = false;
+    }
   }
 
   if (g_original_end_scene) {

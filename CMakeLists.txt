@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Supresi total warning dari dependency luar (seperti FreeType)
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+
 if(POLICY CMP0135)
-  cmake_policy(SET CMP0135 NEW) # Fix timestamp warning for FetchContent
-endif()
-if(POLICY CMP0169)
-  cmake_policy(SET CMP0169 OLD) # Allow FetchContent_Populate for manual targets
+  cmake_policy(SET CMP0135 NEW) # Fix timestamp warning untuk FetchContent
 endif()
 
 project(dover LANGUAGES C CXX)
@@ -13,6 +13,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Enable MSVC Whole Program Optimization / Link-Time Code Generation (LTCG)
 if(POLICY CMP0069)
@@ -26,10 +27,15 @@ endif()
 
 if(MSVC)
   # Modern MSVC 2026 Flags:
-  # /Zc:preprocessor & /Zc:__cplusplus for strict standard compliance
-  # /Zi for PDB generation (useful for SPGO and post-mortem)
-  # /Ob2 aggressive inline
-  add_compile_options(/W4 /permissive- /EHsc /MP /Zc:preprocessor /Zc:__cplusplus /Zi /Ob2)
+  # /MP                 - Multiprocessor compilation (fast)
+  # /W4                 - High warning level
+  # /permissive-        - Standards conformance mode
+  # /EHsc               - C++ exception handling
+  # /Zc:preprocessor    - Strict compliant preprocessor
+  # /Zc:__cplusplus     - Standard compliant __cplusplus macro
+  # /Zi                 - Generate debug symbols (PDB)
+  # /Ob2                - Aggressive inline optimization
+  add_compile_options(/MP /W4 /permissive- /EHsc /Zc:preprocessor /Zc:__cplusplus /Zi /Ob2)
   add_link_options(/DEBUG /OPT:REF /OPT:ICF)
 
   option(DOVER_ENABLE_ASAN "Enable AddressSanitizer" OFF)
@@ -39,8 +45,7 @@ if(MSVC)
 
   option(DOVER_ENABLE_ANALYZE "Enable MSVC Static Code Analysis" OFF)
   if(DOVER_ENABLE_ANALYZE)
-    # Perform strict static analysis, treating analysis warnings as errors
-    add_compile_options(/analyze /analyze:WX-) # Not all analysis warnings should break the build immediately, keep WX- initially or map it to DOVER_STRICT_BUILD.
+    add_compile_options(/analyze /analyze:WX-)
   endif()
 
   option(DOVER_PGO_INSTRUMENT "Enable PGO Instrumentation" OFF)
@@ -51,7 +56,6 @@ if(MSVC)
   elseif(DOVER_PGO_OPTIMIZE)
     add_link_options(/USEPROFILE)
   endif()
-
 else()
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -245,14 +249,16 @@ endif()
 option(DOVER_STRICT_BUILD "Treat warnings as errors for Dover targets" OFF)
 if(DOVER_STRICT_BUILD)
   if(MSVC)
-    set(DOVER_STRICT_FLAGS /WX)
+    set(DOVER_STRICT_FLAGS /WX /W4) 
   else()
-    set(DOVER_STRICT_FLAGS -Werror)
+    set(DOVER_STRICT_FLAGS -Werror -Wall)
   endif()
-  target_compile_options(dover_shared PRIVATE ${DOVER_STRICT_FLAGS})
-  target_compile_options(dover_launcher PRIVATE ${DOVER_STRICT_FLAGS})
-  target_compile_options(dover_injector PRIVATE ${DOVER_STRICT_FLAGS})
-  target_compile_options(dover_overlay PRIVATE ${DOVER_STRICT_FLAGS})
+  
+  foreach(target dover_shared dover_launcher dover_injector dover_overlay)
+    if(TARGET ${target})
+      target_compile_options(${target} PRIVATE ${DOVER_STRICT_FLAGS})
+    endif()
+  endforeach()
 endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -269,4 +275,3 @@ install(TARGETS dover_launcher dover_injector dover_overlay
         RUNTIME DESTINATION .
         LIBRARY DESTINATION .
         ARCHIVE DESTINATION lib)
-

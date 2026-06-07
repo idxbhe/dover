@@ -99,36 +99,44 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
   }
 
   if (g_imgui_initialized.load() && g_render_target_view) {
-    GetOverlayState().in_overlay_frame = true;
-    ImGui_ImplDX11_NewFrame();
-    
-    shared::g_allow_xinput = true;
-    shared::g_allow_input_queries = true;
-    g_in_imgui_new_frame = true;
-    ImGui_ImplWin32_NewFrame();
-    g_in_imgui_new_frame = false;
-    shared::g_allow_input_queries = false;
-    shared::g_allow_xinput = false;
-    
-    // Fix for blurry UI & cursor mismatch when game does not resize swapchain
-    ImGuiIO& io = ImGui::GetIO();
-    uint32_t swap_w = GetOverlayState().swapchain_width;
-    uint32_t swap_h = GetOverlayState().swapchain_height;
-    if (swap_w > 0 && swap_h > 0) {
-        io.DisplaySize = ImVec2(static_cast<float>(swap_w), static_cast<float>(swap_h));
+    // Early-out: only run ImGui lifecycle if overlay is visible or OSD features are enabled
+    bool should_render = GetOverlayState().show_overlay || 
+                        shared::GetAppConfig().show_fps || 
+                        shared::GetAppConfig().show_clock || 
+                        shared::GetAppConfig().show_api;
+
+    if (should_render) {
+      GetOverlayState().in_overlay_frame = true;
+      ImGui_ImplDX11_NewFrame();
+      
+      shared::g_allow_xinput = true;
+      shared::g_allow_input_queries = true;
+      g_in_imgui_new_frame = true;
+      ImGui_ImplWin32_NewFrame();
+      g_in_imgui_new_frame = false;
+      shared::g_allow_input_queries = false;
+      shared::g_allow_xinput = false;
+      
+      // Fix for blurry UI & cursor mismatch when game does not resize swapchain
+      ImGuiIO& io = ImGui::GetIO();
+      uint32_t swap_w = GetOverlayState().swapchain_width;
+      uint32_t swap_h = GetOverlayState().swapchain_height;
+      if (swap_w > 0 && swap_h > 0) {
+          io.DisplaySize = ImVec2(static_cast<float>(swap_w), static_cast<float>(swap_h));
+      }
+
+      ImGui::NewFrame();
+
+      // Render shared UI
+      RenderImGuiUI();
+
+      ImGui::Render();
+
+      // Bind RenderTargetView before rendering ImGui
+      g_d3d11_context->OMSetRenderTargets(1, &g_render_target_view, nullptr);
+      ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+      GetOverlayState().in_overlay_frame = false;
     }
-
-    ImGui::NewFrame();
-
-    // Render shared UI
-    RenderImGuiUI();
-
-    ImGui::Render();
-
-    // Bind RenderTargetView before rendering ImGui
-    g_d3d11_context->OMSetRenderTargets(1, &g_render_target_view, nullptr);
-    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    GetOverlayState().in_overlay_frame = false;
   }
 
   if (g_original_present) {

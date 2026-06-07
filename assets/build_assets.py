@@ -19,10 +19,8 @@ def build_pak():
     
     # Target all build folders to ensure assets are always present
     output_paths = [
-        os.path.join(project_root, "build_x64", "bin", "Release", "assets.pak"),
-        os.path.join(project_root, "build_x64", "bin", "Debug", "assets.pak"),
-        os.path.join(project_root, "build_x86", "bin", "Release", "assets.pak"),
-        os.path.join(project_root, "build_x86", "bin", "Debug", "assets.pak"),
+        os.path.join(project_root, "out", "bin", "Release", "assets.pak"),
+        os.path.join(project_root, "out", "bin", "Debug", "assets.pak")
     ]
     
     for p in output_paths:

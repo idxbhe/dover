@@ -238,71 +238,79 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
     if (g_imgui_initialized.load() && g_command_queue) {
         ProcessDeferredUploads();
         
-        IDXGISwapChain3* swapchain3 = nullptr;
-        if (SUCCEEDED(swapchain->QueryInterface(IID_PPV_ARGS(&swapchain3)))) {
-            UINT backbuffer_index = swapchain3->GetCurrentBackBufferIndex();
-            swapchain3->Release();
-            
-            FrameContext& frame = g_frame_contexts[backbuffer_index];
-            
-            // Wait for GPU if allocator is still in flight
-            if (g_fence && frame.fence_value != 0 && g_fence->GetCompletedValue() < frame.fence_value) {
-                g_fence->SetEventOnCompletion(frame.fence_value, g_fence_event);
-                WaitForSingleObject(g_fence_event, INFINITE);
-            }
-            
-            if (frame.command_allocator) {
-                frame.command_allocator->Reset();
-                g_command_list->Reset(frame.command_allocator, nullptr);
+        // Early-out: only run ImGui lifecycle if overlay is visible or OSD features are enabled
+        bool should_render = GetOverlayState().show_overlay || 
+                            shared::GetAppConfig().show_fps || 
+                            shared::GetAppConfig().show_clock || 
+                            shared::GetAppConfig().show_api;
 
-                D3D12_RESOURCE_BARRIER barrier = {};
-                barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-                barrier.Transition.pResource = frame.backbuffer;
-                barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-                barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
-                barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
-                g_command_list->ResourceBarrier(1, &barrier);
-
-                g_command_list->OMSetRenderTargets(1, &frame.rtv_handle, FALSE, nullptr);
-                g_command_list->SetDescriptorHeaps(1, &g_srv_heap);
-
-                GetOverlayState().in_overlay_frame = true;
-                ImGui_ImplDX12_NewFrame();
+        if (should_render) {
+            IDXGISwapChain3* swapchain3 = nullptr;
+            if (SUCCEEDED(swapchain->QueryInterface(IID_PPV_ARGS(&swapchain3)))) {
+                UINT backbuffer_index = swapchain3->GetCurrentBackBufferIndex();
+                swapchain3->Release();
                 
-                shared::g_allow_xinput = true;
-                shared::g_allow_input_queries = true;
-                g_in_imgui_new_frame = true;
-                ImGui_ImplWin32_NewFrame();
-                g_in_imgui_new_frame = false;
-                shared::g_allow_input_queries = false;
-                shared::g_allow_xinput = false;
+                FrameContext& frame = g_frame_contexts[backbuffer_index];
                 
-                // Fix for blurry UI & cursor mismatch when game does not resize swapchain
-                ImGuiIO& io = ImGui::GetIO();
-                uint32_t swap_w = GetOverlayState().swapchain_width;
-                uint32_t swap_h = GetOverlayState().swapchain_height;
-                if (swap_w > 0 && swap_h > 0) {
-                    io.DisplaySize = ImVec2(static_cast<float>(swap_w), static_cast<float>(swap_h));
+                // Wait for GPU if allocator is still in flight
+                if (g_fence && frame.fence_value != 0 && g_fence->GetCompletedValue() < frame.fence_value) {
+                    g_fence->SetEventOnCompletion(frame.fence_value, g_fence_event);
+                    WaitForSingleObject(g_fence_event, INFINITE);
                 }
-
-                ImGui::NewFrame();
-                RenderImGuiUI();
-                ImGui::Render();
                 
-                ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_command_list);
-                GetOverlayState().in_overlay_frame = false;
+                if (frame.command_allocator) {
+                    frame.command_allocator->Reset();
+                    g_command_list->Reset(frame.command_allocator, nullptr);
 
-                barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-                barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-                g_command_list->ResourceBarrier(1, &barrier);
+                    D3D12_RESOURCE_BARRIER barrier = {};
+                    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+                    barrier.Transition.pResource = frame.backbuffer;
+                    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+                    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
+                    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+                    g_command_list->ResourceBarrier(1, &barrier);
 
-                g_command_list->Close();
-                ID3D12CommandList* ppCommandLists[] = { g_command_list };
-                g_command_queue->ExecuteCommandLists(1, ppCommandLists);
-                
-                g_fence_value++;
-                g_command_queue->Signal(g_fence, g_fence_value);
-                frame.fence_value = g_fence_value;
+                    g_command_list->OMSetRenderTargets(1, &frame.rtv_handle, FALSE, nullptr);
+                    g_command_list->SetDescriptorHeaps(1, &g_srv_heap);
+
+                    GetOverlayState().in_overlay_frame = true;
+                    ImGui_ImplDX12_NewFrame();
+                    
+                    shared::g_allow_xinput = true;
+                    shared::g_allow_input_queries = true;
+                    g_in_imgui_new_frame = true;
+                    ImGui_ImplWin32_NewFrame();
+                    g_in_imgui_new_frame = false;
+                    shared::g_allow_input_queries = false;
+                    shared::g_allow_xinput = false;
+                    
+                    // Fix for blurry UI & cursor mismatch when game does not resize swapchain
+                    ImGuiIO& io = ImGui::GetIO();
+                    uint32_t swap_w = GetOverlayState().swapchain_width;
+                    uint32_t swap_h = GetOverlayState().swapchain_height;
+                    if (swap_w > 0 && swap_h > 0) {
+                        io.DisplaySize = ImVec2(static_cast<float>(swap_w), static_cast<float>(swap_h));
+                    }
+
+                    ImGui::NewFrame();
+                    RenderImGuiUI();
+                    ImGui::Render();
+                    
+                    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_command_list);
+                    GetOverlayState().in_overlay_frame = false;
+
+                    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+                    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+                    g_command_list->ResourceBarrier(1, &barrier);
+
+                    g_command_list->Close();
+                    ID3D12CommandList* ppCommandLists[] = { g_command_list };
+                    g_command_queue->ExecuteCommandLists(1, ppCommandLists);
+                    
+                    g_fence_value++;
+                    g_command_queue->Signal(g_fence, g_fence_value);
+                    frame.fence_value = g_fence_value;
+                }
             }
         }
     }

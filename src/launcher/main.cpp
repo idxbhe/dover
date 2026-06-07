@@ -221,6 +221,9 @@ HWND g_hwnd = nullptr;
 NOTIFYICONDATAW g_nid = {};
 bool g_has_tray_icon = false;
 
+// Elite Frame Quota: Initial 5 frames to ensure UI renders correctly on startup
+int g_FramesToRender = 5;
+
 void CreateRenderTarget() {
   ID3D11Texture2D* pBackBuffer = nullptr;
   if (SUCCEEDED(g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer))) && pBackBuffer) {
@@ -353,10 +356,38 @@ void SaveLauncherState(HWND hwnd) {
 }
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-  if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
-    return true;
+  // Let ImGui handle input first
+  if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
+    // We do NOT blindly reset g_FramesToRender here, because ImGui returns true
+    // for many internal/noise messages that we don't care about when idle.
+  }
 
   switch (msg) {
+  case WM_LBUTTONDOWN:
+  case WM_RBUTTONDOWN:
+  case WM_MBUTTONDOWN:
+  case WM_LBUTTONUP:
+  case WM_RBUTTONUP:
+  case WM_MBUTTONUP:
+  case WM_MOUSEMOVE:
+  case WM_MOUSEWHEEL:
+  case WM_KEYDOWN:
+  case WM_KEYUP:
+  case WM_SYSKEYDOWN:
+  case WM_SYSKEYUP:
+  case WM_CHAR:
+  case WM_SETFOCUS:
+  case WM_KILLFOCUS:
+  case WM_DISPLAYCHANGE:
+  case WM_MOVE:
+    g_FramesToRender = 5;
+    break;
+
+  case WM_PAINT:
+    g_FramesToRender = 5;
+    ::ValidateRect(hWnd, NULL); // Crucial: Stop OS from re-posting WM_PAINT
+    break;
+
   case WM_NCCALCSIZE:
     return 0;
 
@@ -412,6 +443,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (wParam == SIZE_MINIMIZED) return 0;
     g_ResizeWidth = (UINT)LOWORD(lParam); // Queue resize
     g_ResizeHeight = (UINT)HIWORD(lParam);
+    g_FramesToRender = 5; // Force re-render on resize
     return 0;
   case WM_SYSCOMMAND:
     if ((wParam & 0xfff0) == SC_KEYMENU) return 0; // Disable ALT application menu
@@ -422,6 +454,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
       ShowWindow(hWnd, SW_RESTORE);
       SetForegroundWindow(hWnd);
       RemoveTrayIcon();
+      g_FramesToRender = 5;
     }
     return 0;
   case WM_GAME_EXITED:
@@ -429,6 +462,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     ShowWindow(hWnd, SW_RESTORE);
     SetForegroundWindow(hWnd);
     RemoveTrayIcon();
+    g_FramesToRender = 5;
     return 0;
   case WM_DESTROY:
     SaveLauncherState(hWnd);
@@ -561,12 +595,57 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
   while (!done) {
     MSG msg;
-    while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
+    // 1. Block and wait for ANY message (including viewport spam)
+    if (::GetMessageW(&msg, nullptr, 0U, 0U)) {
       ::TranslateMessage(&msg);
-      ::DispatchMessage(&msg);
-      if (msg.message == WM_QUIT) done = true;
+      ::DispatchMessageW(&msg);
+      
+      // Drain remaining messages in queue
+      while (::PeekMessageW(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
+        if (msg.message == WM_QUIT) {
+            done = true;
+            break;
+        }
+        ::TranslateMessage(&msg);
+        ::DispatchMessageW(&msg);
+      }
+    } else {
+      done = true;
     }
+
     if (done) break;
+
+    // =========================================================================
+    // THE ULTIMATE IDLE GATE: 0.00% CPU
+    // If no quota left, we do ABSOLUTELY NOTHING.
+    // =========================================================================
+    if (g_FramesToRender <= 0) {
+      continue;
+    }
+
+    // Skip entire render if window is hidden (only happens during Tray cleanup frames)
+    if (!::IsWindowVisible(hwnd)) {
+        // Still decrement quota to eventually hit the gate above
+        g_FramesToRender--;
+        
+        // Handle ImGui lifecycle even if hidden for cleanup (e.g. viewports)
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+        ImGui::EndFrame(); // No actual UI drawing
+        ImGui::Render();
+        
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }
+        
+        ::Sleep(16); // Don't burn CPU during background cleanup
+        continue;
+    }
+
+    // Consume 1 quota for this frame
+    g_FramesToRender--;
 
     if (g_ResizeWidth != 0 && g_ResizeHeight != 0) {
       CleanupRenderTarget();
@@ -597,7 +676,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     ImGui::PopFont();
     ImGui::SetCursorPos(ImVec2(20.0f, 40.0f));
     ImGui::PushFont(dover::shared::g_font_panel);
-    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "ENGINE LAUNCHER");
+    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "LAUNCHER");
     ImGui::PopFont();
     ImGui::SetCursorPosY(80.0f);
 
@@ -615,11 +694,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
         
         ImGui::SetCursorPosX(10.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.0f, 0.5f)); // Left align text
-        if (ImGui::Button(games[i].name_u8_sidebar.c_str(), ImVec2(200.0f, 40.0f))) {
+        
+        ImVec2 button_pos = ImGui::GetCursorScreenPos();
+        bool clicked = ImGui::Button("##game_btn", ImVec2(200.0f, 40.0f));
+        
+        // Render Icon and Text over the button
+        ImGui::SetCursorScreenPos(ImVec2(button_pos.x + 12.0f, button_pos.y + 8.0f));
+        void* icon_srv = dover::shared::assets::AssetStorage::Get().GetIconForGame(games[i].path);
+        if (icon_srv) {
+            ImGui::Image((ImTextureID)icon_srv, ImVec2(24.0f, 24.0f));
+            ImGui::SameLine(48.0f);
+        } else {
+            // Fallback padding if icon extraction fails
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 36.0f);
+        }
+        
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4.0f);
+        ImGui::Text("%s", games[i].name_u8.c_str());
+
+        if (clicked) {
             selected_game_idx = static_cast<int>(i);
         }
-        ImGui::PopStyleVar();
         
         ImGui::PopStyleColor(2);
         ImGui::PopID();
@@ -757,18 +852,49 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         ImGui::PopFont();
         
         ImGui::SetCursorPos(ImVec2(40.0f, 85.0f));
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.5f, 0.9f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.4f, 0.8f, 1.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        ImGui::PushFont(dover::shared::g_fonts_preview_bold[1]);
+        ImVec2 launch_p = ImGui::GetCursorScreenPos();
+        ImVec2 launch_size = ImVec2(200.0f, 50.0f);
         
         bool is_active_game = (active_game_idx == selected_game_idx);
-        if (ImGui::Button(is_active_game ? "RUNNING" : "LAUNCH GAME", ImVec2(200.0f, 50.0f)) && !is_active_game) {
+        
+        // Custom Styled Button with Gradient
+        ImGui::PushID("launch_btn_grad");
+        bool launch_clicked = ImGui::Button("##launch", launch_size);
+        bool launch_hovered = ImGui::IsItemHovered();
+        bool launch_active = ImGui::IsItemActive();
+        
+        ImVec4 col_grad_top = launch_active ? ImVec4(0.12f, 0.55f, 0.32f, 1.0f) : (launch_hovered ? ImVec4(0.20f, 0.75f, 0.45f, 1.0f) : ImVec4(0.18f, 0.68f, 0.38f, 1.0f));
+        ImVec4 col_grad_bot = launch_active ? ImVec4(0.08f, 0.45f, 0.25f, 1.0f) : (launch_hovered ? ImVec4(0.15f, 0.65f, 0.38f, 1.0f) : ImVec4(0.12f, 0.58f, 0.32f, 1.0f));
+        
+        ImU32 c_top = ImGui::ColorConvertFloat4ToU32(col_grad_top);
+        ImU32 c_bot = ImGui::ColorConvertFloat4ToU32(col_grad_bot);
+        
+        auto* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilledMultiColor(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y), c_top, c_top, c_bot, c_bot);
+        dl->AddRect(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y), ImGui::ColorConvertFloat4ToU32(ImVec4(1,1,1,0.05f)), 0.0f);
+        
+        // Glossy highlight
+        dl->AddRectFilled(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y * 0.5f), ImGui::ColorConvertFloat4ToU32(ImVec4(1,1,1,0.03f)));
+
+        ImGui::PushFont(dover::shared::g_fonts_preview_bold[1]);
+        const char* launch_label = is_active_game ? "RUNNING" : "LAUNCH GAME";
+        ImVec2 l_text_size = ImGui::CalcTextSize(launch_label);
+        dl->AddText(ImVec2(launch_p.x + (launch_size.x - l_text_size.x) * 0.5f, launch_p.y + (launch_size.y - l_text_size.y) * 0.5f), IM_COL32_WHITE, launch_label);
+        ImGui::PopFont();
+        ImGui::PopID();
+
+        if (launch_clicked && !is_active_game) {
             HANDLE hProcess = LaunchAndInject(game.path, 0, nullptr);
             if (hProcess) {
+              // Graceful Viewport Destruction:
+              // Cleanly close active modules so ImGui drops their windows.
+              if (active_win == ActiveWindow::Notes) dover::shared::notes::ShutdownNotesManager();
+              active_win = ActiveWindow::None;
+              active_game_idx = -1;
+              
               ShowWindow(hwnd, SW_HIDE);
               AddTrayIcon(hwnd);
+              g_FramesToRender = 5; // Final frames to naturally destroy all viewports
 
               std::thread([hwnd, hProcess]() {
                 WaitForSingleObject(hProcess, INFINITE);
@@ -777,13 +903,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
               }).detach();
             }
         }
-        ImGui::PopFont();
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor(3);
 
         ImGui::SetCursorPos(ImVec2(40.0f, 160.0f));
         ImGui::PushFont(dover::shared::g_fonts_preview_bold[0]);
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "DOVER MODULES");
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "OVERLAY MODULES");
         ImGui::PopFont();
         
         ImGui::SetCursorPos(ImVec2(40.0f, 190.0f));
@@ -954,7 +1077,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         ImGui::RenderPlatformWindowsDefault();
     }
 
-    g_pSwapChain->Present(1, 0); // Present with vsync
+    // Only present if the main window is visible to avoid DXGI overhead
+    if (::IsWindowVisible(hwnd) && !::IsIconic(hwnd)) {
+        g_pSwapChain->Present(1, 0); // Present with vsync
+    } else {
+        ::Sleep(16); // Throttle fast-forward frames when hidden
+    }
   }
 
   ImGui_ImplDX11_Shutdown();

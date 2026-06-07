@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace dover::shared::assets {
 
@@ -45,6 +46,8 @@ public:
         return nullptr;
     }
 
+    void* GetIconForGame(const std::wstring& executable_path);
+
 private:
     AssetStorage() = default;
     ~AssetStorage();
@@ -56,6 +59,7 @@ private:
 
     std::vector<TextureData> m_assets;
     std::vector<TextureData*> m_crosshair_cache;
+    std::unordered_map<std::wstring, void*> m_game_icons;
 };
 
 } // namespace dover::shared::assets

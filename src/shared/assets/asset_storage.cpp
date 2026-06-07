@@ -1,8 +1,13 @@
 #include "shared/assets/asset_storage.h"
 #include "shared/log.h"
+#include "shared/renderer.h"
 
 #include <windows.h>
+#include <shellapi.h>
+#include <d3d11.h>
 #include <filesystem>
+
+#pragma comment(lib, "shell32.lib")
 
 // Internal structures mirroring the Python struct format
 #pragma pack(push, 1)
@@ -175,6 +180,13 @@ bool AssetStorage::Initialize() {
 }
 
 void AssetStorage::Shutdown() {
+    for (auto& pair : m_game_icons) {
+        if (pair.second) {
+            static_cast<ID3D11ShaderResourceView*>(pair.second)->Release();
+        }
+    }
+    m_game_icons.clear();
+
     m_crosshair_cache.clear();
     m_assets.clear();
     m_initialized = false;
@@ -191,6 +203,93 @@ void AssetStorage::Shutdown() {
         CloseHandle(m_file_handle);
         m_file_handle = nullptr;
     }
+}
+
+void* AssetStorage::GetIconForGame(const std::wstring& path) {
+    if (path.empty()) return nullptr;
+    
+    auto it = m_game_icons.find(path);
+    if (it != m_game_icons.end()) return it->second;
+
+    // Default to nullptr (failed state) in the cache to prevent repeated I/O on failure
+    m_game_icons[path] = nullptr;
+
+    ID3D11Device* device = shared::GetDx11Device();
+    if (!device) return nullptr;
+
+    SHFILEINFOW sfi = {};
+    if (!SHGetFileInfoW(path.c_str(), 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_LARGEICON) || !sfi.hIcon) {
+        return nullptr;
+    }
+
+    ICONINFO iconInfo;
+    if (!GetIconInfo(sfi.hIcon, &iconInfo)) {
+        DestroyIcon(sfi.hIcon);
+        return nullptr;
+    }
+
+    BITMAP bmp;
+    if (!GetObject(iconInfo.hbmColor, sizeof(BITMAP), &bmp)) {
+        DeleteObject(iconInfo.hbmColor);
+        DeleteObject(iconInfo.hbmMask);
+        DestroyIcon(sfi.hIcon);
+        return nullptr;
+    }
+
+    int width = bmp.bmWidth;
+    int height = bmp.bmHeight;
+
+    BITMAPINFO bmi = {};
+    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bmi.bmiHeader.biWidth = width;
+    bmi.bmiHeader.biHeight = -height; 
+    bmi.bmiHeader.biPlanes = 1;
+    bmi.bmiHeader.biBitCount = 32;
+    bmi.bmiHeader.biCompression = BI_RGB;
+
+    std::vector<uint32_t> pixels(width * height);
+    HDC hdc = GetDC(NULL);
+    bool dib_success = false;
+    if (hdc) {
+        if (GetDIBits(hdc, iconInfo.hbmColor, 0, height, pixels.data(), &bmi, DIB_RGB_COLORS)) {
+            dib_success = true;
+        }
+        ReleaseDC(NULL, hdc);
+    }
+
+    DeleteObject(iconInfo.hbmColor);
+    DeleteObject(iconInfo.hbmMask);
+    DestroyIcon(sfi.hIcon);
+
+    if (!dib_success) return nullptr;
+
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = width;
+    desc.Height = height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM; 
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+    D3D11_SUBRESOURCE_DATA subData = {};
+    subData.pSysMem = pixels.data();
+    subData.SysMemPitch = width * 4;
+
+    ID3D11Texture2D* pTexture = nullptr;
+    if (FAILED(device->CreateTexture2D(&desc, &subData, &pTexture))) {
+        return nullptr;
+    }
+
+    ID3D11ShaderResourceView* pSRV = nullptr;
+    HRESULT hr = device->CreateShaderResourceView(pTexture, nullptr, &pSRV);
+    pTexture->Release();
+
+    if (FAILED(hr)) return nullptr;
+
+    m_game_icons[path] = pSRV;
+    return pSRV;
 }
 
 } // namespace dover::shared::assets

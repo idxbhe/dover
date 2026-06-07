@@ -18,15 +18,11 @@ tools/
 .vscode/
 .idea/
 cmake-build-*/
-out/
 x64/
 x86/
 ARM/
 
 # CMake Build & Cache Directories
-build/
-build_x64/
-build_x86/
 out/
 CMakeCache.txt
 CMakeFiles/

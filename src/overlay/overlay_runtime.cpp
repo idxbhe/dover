@@ -89,7 +89,8 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
 
     dover::shared::LogInfo("Overlay runtime entering wait loop.");
     while (!g_shutdown_requested.load(std::memory_order_acquire)) {
-      Sleep(100);
+      PollGamepadToggle();
+      Sleep(16); // 16ms poll for responsive Guide button toggle
       if (dover::shared::GameStorage::Get().IsConfigFlushReady()) {
         dover::shared::GameStorage::Get().FlushConfig();
         dover::shared::GameStorage::Get().ClearConfigFlushReady();

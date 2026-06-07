@@ -138,8 +138,6 @@ static void RenderNavButton(
 }
 
 void RenderImGuiUI() {
-  PollGamepadToggle();
-
   if (!dover::shared::GameStorage::Get().IsConfigFlushReady()) {
       if (dover::shared::GameStorage::Get().TestAndClearConfigCaptureRequested()) {
           dover::shared::GameStorage::Get().ExecuteConfigCapture();
