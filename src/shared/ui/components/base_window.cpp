@@ -219,13 +219,13 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
         if (is_close) {
             if (active) {
                 bg_color = ImVec4(0.650f, 0.100f, 0.100f, 1.00f);
-                border_color = ImVec4(0.500f, 0.050f, 0.050f, 1.00f);
+                border_color = ImVec4(0.210f, 0.280f, 0.380f, 1.00f);
             } else if (hovered) {
                 bg_color = ImVec4(0.850f, 0.150f, 0.150f, 1.00f);
-                border_color = ImVec4(0.700f, 0.100f, 0.100f, 1.00f);
+                border_color = ImVec4(0.170f, 0.220f, 0.300f, 1.00f);
             } else {
                 bg_color = ImVec4(0.750f, 0.150f, 0.150f, 0.40f);
-                border_color = ImVec4(0.600f, 0.100f, 0.100f, 0.50f);
+                border_color = ImVec4(0.120f, 0.141f, 0.174f, 1.00f);
             }
         } else {
             if (active) {
