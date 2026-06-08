@@ -66,19 +66,29 @@ std::atomic<bool> g_io_thread_running{false};
 std::mutex g_io_mutex;
 std::condition_variable g_io_cv;
 
+} // namespace
+
+std::function<void()> g_wakeup_callback;
+
+void SetWakeupCallback(std::function<void()> cb) {
+    g_wakeup_callback = std::move(cb);
+}
+
+namespace {
+
 void IoWorkerRoutine() {
     size_t count = 0;
     if (fs::exists(g_notes_dir)) {
         for (const auto& entry : fs::directory_iterator(g_notes_dir)) {
             if (!entry.is_regular_file() || entry.path().extension() != ".md") continue;
             if (count >= MAX_NOTES) break;
-            
+
             PendingNoteData& tn = g_pending_load_notes[count];
             std::string fname = entry.path().filename().string();
             std::string stem = entry.path().stem().string();
             strncpy_s(tn.filename, sizeof(tn.filename), fname.c_str(), _TRUNCATE);
             strncpy_s(tn.title, sizeof(tn.title), stem.c_str(), _TRUNCATE);
-            
+
             std::ifstream f(entry.path(), std::ios::in | std::ios::binary);
             if (f) {
                f.seekg(0, std::ios::end);
@@ -87,7 +97,7 @@ void IoWorkerRoutine() {
                if (size > MAX_NOTE_SIZE - 1) size = MAX_NOTE_SIZE - 1;
                f.read(tn.content.get(), size);
                tn.content[size] = '\0';
-               
+
                char* p = tn.content.get();
                char* q = tn.content.get();
                while (*p) {
@@ -96,7 +106,7 @@ void IoWorkerRoutine() {
                }
                *q = '\0';
             }
-            
+
             WIN32_FILE_ATTRIBUTE_DATA file_info;
             if (GetFileAttributesExA(entry.path().string().c_str(), GetFileExInfoStandard, &file_info)) {
                 tn.date_created = (static_cast<uint64_t>(file_info.ftCreationTime.dwHighDateTime) << 32) | file_info.ftCreationTime.dwLowDateTime;
@@ -105,18 +115,18 @@ void IoWorkerRoutine() {
             count++;
         }
     }
-    
+
     if (count == 0) {
         PendingNoteData& tn = g_pending_load_notes[0];
         strncpy_s(tn.title, sizeof(tn.title), "general", _TRUNCATE);
         strncpy_s(tn.filename, sizeof(tn.filename), "general.md", _TRUNCATE);
         const char* default_content = "# general\n\nStart writing your notes here...\n";
         strncpy_s(tn.content.get(), MAX_NOTE_SIZE, default_content, _TRUNCATE);
-        
+
         fs::create_directories(g_notes_dir);
         std::ofstream f(g_notes_dir / tn.filename, std::ios::out | std::ios::binary | std::ios::trunc);
         if (f) f.write(tn.content.get(), strlen(tn.content.get()));
-        
+
         WIN32_FILE_ATTRIBUTE_DATA file_info;
         if (GetFileAttributesExA((g_notes_dir / tn.filename).string().c_str(), GetFileExInfoStandard, &file_info)) {
             tn.date_created = (static_cast<uint64_t>(file_info.ftCreationTime.dwHighDateTime) << 32) | file_info.ftCreationTime.dwLowDateTime;
@@ -124,9 +134,14 @@ void IoWorkerRoutine() {
         }
         count++;
     }
-    
+
     g_pending_load_count.store(count, std::memory_order_release);
     g_pending_load_ready.store(true, std::memory_order_release);
+
+    // Wake up UI thread to handle the new notes
+    if (g_wakeup_callback) {
+        g_wakeup_callback();
+    }
 
     while (g_io_thread_running.load(std::memory_order_relaxed)) {
         size_t tail = g_io_tail.load(std::memory_order_acquire);
@@ -240,7 +255,8 @@ void ShutdownNotesManager() {
         g_io_thread_running.store(false, std::memory_order_relaxed);
         g_io_cv.notify_one();
         if (g_io_thread.joinable()) {
-            g_io_thread.join();
+            // Non-blocking teardown: Transfer ownership to a background thread to wait for join
+            std::thread(std::move(g_io_thread)).detach();
         }
     }
 }
@@ -377,7 +393,8 @@ void AutoSaveAll() {
   g_has_pending_save = false;
 }
 
-void TickAutosave() {
+bool TickAutosave() {
+  bool updated = false;
   if (g_pending_load_ready.load(std::memory_order_acquire)) {
       g_active_notes_count = 0;
       size_t count = g_pending_load_count.load(std::memory_order_acquire);
@@ -387,7 +404,12 @@ void TickAutosave() {
           NoteFile& note = g_notes[g_active_notes_count];
           strncpy_s(note.filename, sizeof(note.filename), tn.filename, _TRUNCATE);
           strncpy_s(note.title, sizeof(note.title), tn.title, _TRUNCATE);
-          strncpy_s(note.content.get(), MAX_NOTE_SIZE, tn.content.get(), _TRUNCATE);
+          
+          // Zero-copy transfer: Swap content buffers instead of copying 64KB strings
+          if (tn.content && note.content) {
+              std::swap(note.content, tn.content);
+          }
+          
           note.date_created = tn.date_created;
           note.date_modified = tn.date_modified;
           note.is_dirty = false;
@@ -395,6 +417,7 @@ void TickAutosave() {
       }
       g_pending_load_ready.store(false, std::memory_order_release);
       SortNotesArray();
+      updated = true;
   }
 
   if (g_has_pending_save) {
@@ -405,6 +428,7 @@ void TickAutosave() {
       AutoSaveAll();
     }
   }
+  return updated;
 }
 
 void MarkNoteChanged() {

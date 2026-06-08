@@ -60,6 +60,9 @@ $RECYCLE.BIN/
 *.tmp
 
 # local debugger helpers & backup files
+build_warnings.txt
+full_build_log.txt
+final_build_log.txt
 run_parser.ps1
 cdb_runner.ps1
 dump_parser.cs

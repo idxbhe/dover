@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <memory>
 #include <span>
+#include <functional>
 
 namespace dover::shared::notes {
 
@@ -40,6 +41,9 @@ bool InitializeNotesManager(const std::filesystem::path& notes_dir);
 // cleanly shuts down background threads
 void ShutdownNotesManager();
 
+// Registers a callback to wake up the UI thread when background tasks finish.
+void SetWakeupCallback(std::function<void()> cb);
+
 // Returns a span of the active in-memory notes (no copy, array backed)
 std::span<NoteFile> GetNotes();
 
@@ -63,7 +67,8 @@ bool SaveNote(size_t index);
 void AutoSaveAll();
 
 // Triggers a debounced autosave check (call every frame when overlay is open)
-void TickAutosave();
+// Returns true if background data was flushed to memory.
+bool TickAutosave();
 
 // Marks that a note was actively changed by the user (resets debounce timer)
 void MarkNoteChanged();

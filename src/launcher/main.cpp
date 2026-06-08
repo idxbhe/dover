@@ -593,6 +593,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
   dover::shared::SetupImGuiTheme();
 
+  // Fix Notes module UI wake-up gap
+  dover::shared::notes::SetWakeupCallback([hwnd]() {
+      PostMessageW(hwnd, WM_PAINT, 0, 0);
+  });
+
   int active_game_idx = -1;
   enum class ActiveWindow {
     None,
@@ -613,7 +618,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     if (::GetMessageW(&msg, nullptr, 0U, 0U)) {
       ::TranslateMessage(&msg);
       ::DispatchMessageW(&msg);
-      
+
+      // Fix "Viewport Starvation": If a module is active, secondary windows (viewports) 
+      // are likely being interacted with. Since their messages don't hit the main 
+      // WndProc, we must manually wake up the renderer here.
+      if (active_win != ActiveWindow::None) {
+          g_FramesToRender = 2;
+      }
+
       // Drain remaining messages in queue
       while (::PeekMessageW(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
         if (msg.message == WM_QUIT) {
@@ -1115,6 +1127,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     
                     active_game_idx = selected_game_idx;
                     active_win = win_type;
+                    g_FramesToRender = 5; // Wake up renderer to show the new module window
                 }
             }
             ImGui::PopStyleColor(3);

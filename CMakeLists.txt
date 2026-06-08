@@ -31,14 +31,13 @@ endif()
 if(MSVC)
   # Modern MSVC 2026 Flags:
   # /MP                 - Multiprocessor compilation (fast)
-  # /W4                 - High warning level
   # /permissive-        - Standards conformance mode
   # /EHsc               - C++ exception handling
   # /Zc:preprocessor    - Strict compliant preprocessor
   # /Zc:__cplusplus     - Standard compliant __cplusplus macro
   # /Zi                 - Generate debug symbols (PDB)
   # /Ob2                - Aggressive inline optimization
-  add_compile_options(/MP /W4 /permissive- /EHsc /Zc:preprocessor /Zc:__cplusplus /Zi /Ob2)
+  add_compile_options(/MP /permissive- /EHsc /Zc:preprocessor /Zc:__cplusplus /Zi /Ob2)
   add_link_options(/DEBUG /OPT:REF /OPT:ICF)
 
   option(DOVER_ENABLE_ASAN "Enable AddressSanitizer" OFF)
@@ -89,7 +88,7 @@ FetchContent_Populate(md4c)
 
 FetchContent_Declare(
   imgui_md
-  URL https://github.com/mekhontsev/imgui_md/archive/refs/heads/main.zip
+  URL https://github.com/mekhontsev/imgui_md/archive/b9f86beda0cd657b4d07bd9ce88dd05c9088384f.zip
 )
 FetchContent_Populate(imgui_md)
 
@@ -109,6 +108,10 @@ FetchContent_Declare(
   URL https://github.com/freetype/freetype/archive/refs/tags/VER-2-13-2.zip
 )
 FetchContent_MakeAvailable(freetype)
+
+if(MSVC AND TARGET freetype)
+  target_compile_options(freetype PRIVATE /W0)
+endif()
 
 add_library(minhook STATIC
   ${minhook_SOURCE_DIR}/src/buffer.c
