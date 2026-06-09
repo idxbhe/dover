@@ -310,14 +310,15 @@ void InputWindow::RenderRemapper(bool interactive) {
 
 void InputWindow::LoadGamepadTextures() {
     if (m_textures_loaded) return;
-    m_textures_loaded = true;
 
     if (!assets::AssetStorage::Get().IsInitialized()) return;
-    auto& assets = assets::AssetStorage::Get().GetAssets();
     
     ID3D11Device* dx11 = shared::GetDx11Device();
     IDirect3DDevice9* dx9 = shared::GetDx9Device();
     if (!dx11 && !dx9 && !shared::GetDx12Device()) return;
+
+    m_textures_loaded = true;
+    auto& assets = assets::AssetStorage::Get().GetAssets();
 
     for (auto& asset : assets) {
         if (std::strncmp(asset.name, "gamepad/", 8) != 0) continue; // Only load gamepad textures
@@ -668,47 +669,12 @@ void InputWindow::RenderVisualizer() {
 void InputWindow::RenderGamepadOverlay() {
     auto& cfg = shared::GetAppConfig();
     if (!cfg.show_gamepad_hud) return;
-    
-    float scale = cfg.gamepad_hud_scale;
-    if (scale > 1.0f) scale = 1.0f;
-    if (scale < 0.2f) scale = 0.2f;
-    
-    LoadGamepadTextures();
-    auto* chassis = assets::AssetStorage::Get().GetAsset("gamepad/chassis");
-    if (!chassis || !chassis->texture_id) return;
-    
-    // Default base width for HUD is 500px, scaled by config
-    float max_w = (float)chassis->width * 0.75f;
-    float render_w = 400.0f * scale;
-    if (render_w > max_w) render_w = max_w;
-    
-    float aspect = (float)chassis->width / (float)chassis->height;
-    float render_h = render_w / aspect;
-    
-    ImVec2 display = ImGui::GetIO().DisplaySize;
-    ImVec2 pos(20.0f, 20.0f); // Default padding
-    
-    switch (cfg.gamepad_hud_position) {
-        case 0: pos.x = 20.0f; pos.y = 20.0f; break; // Top Left
-        case 1: pos.x = (display.x - render_w) * 0.5f; pos.y = 20.0f; break; // Top Center
-        case 2: pos.x = display.x - render_w - 20.0f; pos.y = 20.0f; break; // Top Right
-        case 3: pos.x = 20.0f; pos.y = display.y - render_h - 20.0f; break; // Bottom Left
-        case 4: pos.x = (display.x - render_w) * 0.5f; pos.y = display.y - render_h - 20.0f; break; // Bottom Center
-        case 5: pos.x = display.x - render_w - 20.0f; pos.y = display.y - render_h - 20.0f; break; // Bottom Right
-    }
-    
-    auto* dl = ImGui::GetBackgroundDrawList();
-    constexpr ImU32 COLOR_CHASSIS = IM_COL32(30, 32, 38, 230);
-    constexpr ImU32 COLOR_IDLE    = IM_COL32(180, 185, 195, 200); // Slightly more transparent for HUD
-    constexpr ImU32 COLOR_PRESSED = IM_COL32(50, 150, 255, 255);
-    
-    dl->AddImage(chassis->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
-    
+
     shared::g_visualizer_xinput = true;
     XINPUT_STATE state = {};
     static DWORD s_active_index = 0;
     static int s_poll_timer = 0;
-    
+
     // Throttle polling for disconnected controllers to avoid kernel-mode frame spikes
     bool connected = (XInputGetState(s_active_index, &state) == ERROR_SUCCESS);
     if (!connected) {
@@ -726,9 +692,44 @@ void InputWindow::RenderGamepadOverlay() {
         s_poll_timer = 0; // Reset timer when controller is active
     }
     shared::g_visualizer_xinput = false;
-    
-    if (!connected) return; // Exit if no controller is connected to save rendering cycles
-    
+
+    if (!connected) return; // Early out BEFORE any drawing to save cycles and prevent partial render
+
+    float scale = cfg.gamepad_hud_scale;
+    if (scale > 1.0f) scale = 1.0f;
+    if (scale < 0.2f) scale = 0.2f;
+
+    LoadGamepadTextures();
+    auto* chassis = assets::AssetStorage::Get().GetAsset("gamepad/chassis");
+    if (!chassis || !chassis->texture_id) return;
+
+    // Default base width for HUD is 500px, scaled by config
+    float max_w = (float)chassis->width * 0.75f;
+    float render_w = 400.0f * scale;
+    if (render_w > max_w) render_w = max_w;
+
+    float aspect = (float)chassis->width / (float)chassis->height;
+    float render_h = render_w / aspect;
+
+    ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImVec2 pos(20.0f, 20.0f); // Default padding
+
+    switch (cfg.gamepad_hud_position) {
+        case 0: pos.x = 20.0f; pos.y = 20.0f; break; // Top Left
+        case 1: pos.x = (display.x - render_w) * 0.5f; pos.y = 20.0f; break; // Top Center
+        case 2: pos.x = display.x - render_w - 20.0f; pos.y = 20.0f; break; // Top Right
+        case 3: pos.x = 20.0f; pos.y = display.y - render_h - 20.0f; break; // Bottom Left
+        case 4: pos.x = (display.x - render_w) * 0.5f; pos.y = display.y - render_h - 20.0f; break; // Bottom Center
+        case 5: pos.x = display.x - render_w - 20.0f; pos.y = display.y - render_h - 20.0f; break; // Bottom Right
+    }
+
+    auto* dl = ImGui::GetBackgroundDrawList();
+    constexpr ImU32 COLOR_CHASSIS = IM_COL32(30, 32, 38, 230);
+    constexpr ImU32 COLOR_IDLE    = IM_COL32(180, 185, 195, 200); // Slightly more transparent for HUD
+    constexpr ImU32 COLOR_PRESSED = IM_COL32(50, 150, 255, 255);
+
+    dl->AddImage(chassis->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
+
     WORD b = state.Gamepad.wButtons;
     for (int i = 0; i < m_visualizer_button_count; ++i) {
         const auto& btn = m_visualizer_buttons[i];
