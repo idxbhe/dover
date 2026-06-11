@@ -739,7 +739,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
         
         // Render Icon manually centered. Since font is now normalized, no manual offset needed.
-        ImGui::PushFont(dover::shared::g_font_panel, 20.0f);
+        ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
         ImVec2 icon_size = ImGui::CalcTextSize(icon);
         ImVec2 icon_pos = ImVec2(
             min_p.x + (size.x - icon_size.x) * 0.5f,
@@ -762,12 +762,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     };
 
     if (!g_LauncherState.sidebar_folded) {
-        ImGui::PushFont(dover::shared::g_font_preview_bold, 20.25f);
+        ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kPreviewSizes[3]);
         ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "DOVER");
         ImGui::PopFont();
         
         ImGui::SetCursorPos(ImVec2(20.0f, 40.0f));
-        ImGui::PushFont(dover::shared::g_font_panel, 20.0f);
+        ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "LAUNCHER");
         ImGui::PopFont();
 
@@ -878,7 +878,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
     } else {
-        ImGui::PushFont(dover::shared::g_font_panel, 20.0f); // Folded sidebar uses icon font
+        ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize); // Folded sidebar uses icon font
         if (ImGui::Button(ICON_ADD_NEW, ImVec2(add_btn_w, 40.0f))) {
             std::wstring selected_path = BrowseForExecutable(hwnd);
             if (!selected_path.empty()) {
@@ -982,7 +982,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
       
       ImGui::GetWindowDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 1.0f, 0);
       
-      if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
+      if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kPreviewSizes[2]);
       ImVec2 text_size = ImGui::CalcTextSize(icon);
       ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
       ImGui::GetWindowDrawList()->AddText(text_pos, text_col32, icon);
@@ -1022,7 +1022,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         auto& game = games[selected_game_idx];
         
         ImGui::SetCursorPos(ImVec2(40.0f, 40.0f));
-        ImGui::PushFont(dover::shared::g_font_preview_bold, 24.75f);
+        ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kPreviewSizes[4]);
         ImGui::Text("%s", game.name_u8.c_str());
         ImGui::PopFont();
         
@@ -1053,7 +1053,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         // Glossy highlight
         dl->AddRectFilled(launch_p, ImVec2(launch_p.x + launch_size.x, launch_p.y + launch_size.y * 0.25f), ImGui::ColorConvertFloat4ToU32(ImVec4(1,1,1,0.03f)), rounding, ImDrawFlags_RoundCornersTop);
 
-        ImGui::PushFont(dover::shared::g_font_preview_bold, 15.0f);
+        ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kPreviewSizes[1]);
         const char* launch_label = is_active_game ? "RUNNING" : "LAUNCH GAME";
         ImVec2 l_text_size = ImGui::CalcTextSize(launch_label);
         dl->AddText(ImVec2(launch_p.x + (launch_size.x - l_text_size.x) * 0.5f, launch_p.y + (launch_size.y - l_text_size.y) * 0.5f), IM_COL32_WHITE, launch_label);
@@ -1082,7 +1082,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
 
         ImGui::SetCursorPos(ImVec2(40.0f, 160.0f));
-        ImGui::PushFont(dover::shared::g_font_preview_bold, 13.0f);
+        ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kPreviewSizes[0]);
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "OVERLAY MODULES");
         ImGui::PopFont();
         
@@ -1102,14 +1102,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             ImGui::BeginChild("Card", ImVec2(card_width, card_height), true, ImGuiWindowFlags_NoScrollbar);
             
             // Icon
-            ImGui::PushFont(dover::shared::g_font_panel, 20.0f);
+            ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
             float icon_h = ImGui::GetTextLineHeight();
             ImGui::SetCursorPos(ImVec2(12.0f, (card_height - icon_h) * 0.5f));
             ImGui::TextColored(is_open ? ImVec4(0.5f, 0.8f, 1.0f, 1.0f) : ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", icon);
             ImGui::PopFont();
             
             // Title
-            ImGui::PushFont(dover::shared::g_font_preview_bold, 15.0f);
+            ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kPreviewSizes[1]);
             ImGui::SetCursorPos(ImVec2(48.0f, (card_height - ImGui::GetTextLineHeight()) * 0.5f));
             ImGui::Text("%s", title);
             ImGui::PopFont();

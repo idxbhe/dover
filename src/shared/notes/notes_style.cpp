@@ -103,10 +103,8 @@ struct DoverMarkdownRenderer : public imgui_md {
   }
 
   float get_font_size() const {
-    static constexpr float preview_sizes[5] = { 13.0f, 15.0f, 18.0f, 22.0f, 26.0f };
-    static constexpr float editor_sizes[5] = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
-    float base_size = preview_sizes[std::clamp(m_zoom_idx, 0, 4)];
-    if (m_is_code) return editor_sizes[std::clamp(m_zoom_idx, 0, 4)];
+    float base_size = dover::shared::kPreviewSizes[std::clamp(m_zoom_idx, 0, 4)];
+    if (m_is_code) return dover::shared::kEditorSizes[std::clamp(m_zoom_idx, 0, 4)];
     if (m_hlevel == 1) return base_size * 2.00f;
     if (m_hlevel == 2) return base_size * 1.65f;
     if (m_hlevel == 3) return base_size * 1.35f;
@@ -220,6 +218,229 @@ struct DoverMarkdownRenderer : public imgui_md {
       else ImGui::PopFont();
   }
 
+  // ---- Lists (geometric indent, custom bullets) ----
+  void BLOCK_UL(const MD_BLOCK_UL_DETAIL* d, bool e) override {
+    if (e) {
+      m_list_level++;
+      if (m_list_level == 1) {
+        m_first_list_item = true;
+      }
+      ImGui::Indent(15.0f);
+      if (m_custom_list_depth < 32) {
+        m_custom_list_stack[m_custom_list_depth++] = {false, 0};
+      }
+    } else {
+      m_list_level--;
+      ImGui::Unindent(15.0f);
+      if (m_custom_list_depth > 0) m_custom_list_depth--;
+    }
+    imgui_md::BLOCK_UL(d, e);
+  }
+
+  void BLOCK_OL(const MD_BLOCK_OL_DETAIL* d, bool e) override {
+    if (e) {
+      m_list_level++;
+      if (m_list_level == 1) {
+        m_first_list_item = true;
+      }
+      ImGui::Indent(15.0f);
+      if (m_custom_list_depth < 32) {
+        m_custom_list_stack[m_custom_list_depth++] = {true, d->start};
+      }
+    } else {
+      m_list_level--;
+      ImGui::Unindent(15.0f);
+      if (m_custom_list_depth > 0) m_custom_list_depth--;
+    }
+    imgui_md::BLOCK_OL(d, e);
+  }
+
+  void BLOCK_LI(const MD_BLOCK_LI_DETAIL* d, bool e) override {
+    if (e) {
+      if (!m_first_list_item) {
+        ImGui::NewLine();
+      }
+      m_first_list_item = false;
+
+      if (d->is_task) {
+        bool is_checked = (d->task_mark == 'x' || d->task_mark == 'X');
+        
+        ImGui::PushID((int)d->task_mark_offset);
+        
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        float line_height = ImGui::GetTextLineHeight();
+        
+        // Compact premium size (14.0f pixels)
+        float size = 14.0f;
+        float cy = pos.y + (line_height - size) * 0.5f + 1.0f; // Vertically center with absolute precision
+        float cx = pos.x - 4.0f; // Shift to the left to avoid text crowding
+        
+        ImVec2 box_min(cx, cy);
+        ImVec2 box_max(cx + size, cy + size);
+        
+        // Bounding space in ImGui's layout matching the visual size
+        ImGui::Dummy(ImVec2(size, size));
+        
+        bool hovered = ImGui::IsItemHovered();
+        bool clicked = hovered && ImGui::IsMouseClicked(0);
+        
+        if (clicked) {
+            // Instant memory mutation in Read Mode!
+            if (m_markdown_source) {
+                m_markdown_source[d->task_mark_offset] = is_checked ? ' ' : 'x';
+                is_checked = !is_checked; // Update state for current frame render
+
+                // Locate and mark the note as dirty for auto-saving
+                auto notes = GetNotes();
+                for (size_t i = 0; i < notes.size(); ++i) {
+                    if (notes[i].content.get() == m_markdown_source) {
+                        notes[i].is_dirty = true;
+                        GetNotesWindow().SyncEditBufferFromNote(static_cast<int>(i));
+                        break;
+                    }
+                }
+                MarkNoteChanged();
+            }
+        }
+        
+        // Render crisp high-performance custom checkbox geometry
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        if (is_checked) {
+            // Solid premium green with subtle hover highlight
+            ImU32 bg_col = hovered 
+                           ? ImGui::ColorConvertFloat4ToU32(ImVec4(0.25f, 0.85f, 0.25f, 1.00f))
+                           : ImGui::ColorConvertFloat4ToU32(ImVec4(0.20f, 0.80f, 0.20f, 1.00f));
+            dl->AddRectFilled(box_min, box_max, bg_col, 2.5f);
+
+            // Ultra-precise checked tick mark lines
+            ImU32 check_col = IM_COL32(255, 255, 255, 255);
+            dl->AddLine(ImVec2(cx + 3.0f, cy + size * 0.5f), ImVec2(cx + 6.0f, cy + size - 3.0f), check_col, 2.0f);
+            dl->AddLine(ImVec2(cx + 6.0f, cy + size - 3.0f), ImVec2(cx + size - 3.0f, cy + 3.0f), check_col, 2.0f);
+        } else {
+            // Premium Obsidian dark hollow square
+            ImU32 border_col = hovered
+                               ? ImGui::ColorConvertFloat4ToU32(ImVec4(0.60f, 0.65f, 0.75f, 0.95f))
+                               : ImGui::ColorConvertFloat4ToU32(ImVec4(0.40f, 0.45f, 0.55f, 0.75f));
+            dl->AddRect(box_min, box_max, border_col, 2.5f, 1.2f, 0);
+        }
+        
+        ImGui::PopID();
+        
+        // Push subsequent list text to a clean distance
+        ImGui::SameLine(0.0f, 12.0f);
+      } else if (m_custom_list_depth > 0 && m_custom_list_stack[m_custom_list_depth - 1].is_ol) {
+        // Ordered list: render number
+        auto& info = m_custom_list_stack[m_custom_list_depth - 1];
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%u.", info.cur_number++);
+        ImGui::PushStyleColor(ImGuiCol_Text, palette::kBullet);
+        ImGui::Text("%s", buf);
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+      } else {
+        // Unordered list: custom bullet based on nesting depth
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        float font_size = ImGui::GetFontSize();
+        ImU32 col = ImGui::GetColorU32(palette::kBullet);
+
+        float cx = pos.x + 5.0f;
+        float cy = pos.y + font_size * 0.5f;
+
+        if (m_list_level <= 1) {
+          // Level 1: Filled circle
+          dl->AddCircleFilled(ImVec2(cx, cy), 2.8f, col, 12);
+        } else if (m_list_level == 2) {
+          // Level 2: Hollow circle (ring)
+          dl->AddCircle(ImVec2(cx, cy), 2.5f, col, 12, 1.3f);
+        } else {
+          // Level 3+: Dash
+          dl->AddRectFilled(
+            ImVec2(cx - 3.0f, cy - 0.7f),
+            ImVec2(cx + 3.0f, cy + 0.7f), col);
+        }
+
+        // Reserve horizontal space for bullet, keep on same line
+        ImGui::Dummy(ImVec2(12.0f, 0.01f));
+        ImGui::SameLine(0, 0);
+      }
+
+      ImGui::Indent(kListIndent);
+    } else {
+      ImGui::Unindent(kListIndent);
+    }
+  }
+
+  // ---- Blockquote (left border + indent + dimmed text) ----
+  void BLOCK_QUOTE(bool e) override {
+    if (e) {
+      m_quote_depth++;
+      ImGui::Dummy(ImVec2(0.0f, 4.0f));
+      if (m_quote_depth <= 32) {
+        m_quote_x_stack[m_quote_depth - 1] = ImGui::GetCursorScreenPos().x;
+        m_quote_y_stack[m_quote_depth - 1] = ImGui::GetCursorScreenPos().y;
+      }
+      ImGui::Indent(16.0f);
+      ImGui::PushStyleColor(ImGuiCol_Text, palette::kQuoteText);
+    } else {
+      ImGui::PopStyleColor();
+      ImGui::Unindent(16.0f);
+      if (m_quote_depth > 0 && m_quote_depth <= 32) {
+        float start_x = m_quote_x_stack[m_quote_depth - 1];
+        float start_y = m_quote_y_stack[m_quote_depth - 1];
+        float end_y = ImGui::GetCursorScreenPos().y;
+
+        // Draw an Obsidian-like solid left vertical bar in the indented gap area
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilled(
+          ImVec2(start_x + 4.0f, start_y), 
+          ImVec2(start_x + 7.0f, end_y), 
+          ImGui::GetColorU32(palette::kQuoteBorder), 
+          1.5f
+        );
+      }
+      m_quote_depth--;
+      ImGui::Dummy(ImVec2(0.0f, 4.0f));
+    }
+  }
+
+  // ---- Paragraph Spacing ----
+  void BLOCK_P(bool e) override {
+    if (m_list_level > 0) {
+      m_last_block_was_heading = false;
+      return;
+    }
+    if (e) {
+      if (!m_last_block_was_heading) {
+        ImGui::Dummy(ImVec2(0.0f, 8.0f));
+      }
+      m_last_block_was_heading = false;
+    } else {
+      ImGui::NewLine();
+    }
+  }
+
+  // ---- Horizontal Rule (custom rendered) ----
+  void BLOCK_HR(bool e) override {
+    if (!e) {
+      ImGui::Dummy(ImVec2(0.0f, 4.0f));
+
+      ImVec2 pos = ImGui::GetCursorScreenPos();
+      float width = ImGui::GetContentRegionAvail().x;
+
+      ImDrawList* dl = ImGui::GetWindowDrawList();
+      ImU32 col = ImGui::GetColorU32(palette::kHR);
+      dl->AddLine(pos, ImVec2(pos.x + width, pos.y), col, 1.0f);
+
+      ImGui::Dummy(ImVec2(0.0f, 4.0f));
+    }
+  }
+
+  // ---- Soft Break (newline without double-space) ----
+  void soft_break() override {
+    ImGui::NewLine();
+  }
+
   void BLOCK_TH(const MD_BLOCK_TD_DETAIL* d, bool e) override {
       imgui_md::BLOCK_TH(d, e);
       if (e) {
@@ -309,10 +530,22 @@ void RenderMarkdown(const char* content, int zoom_idx) {
   renderer.m_last_block_was_heading = false;
   renderer.m_first_list_item = false;
 
-  static constexpr float preview_sizes[5] = { 13.0f, 15.0f, 18.0f, 22.0f, 26.0f };
-  ImGui::PushFont(dover::shared::g_font_preview, preview_sizes[std::clamp(zoom_idx, 0, 4)]);
+  // Reset table accumulation for the current frame
+  for (size_t i = 0; i < renderer.kMaxTableCols; ++i) {
+    renderer.m_table_col_current_width[i] = 0.0f;
+  }
+
+  ImGui::PushFont(dover::shared::g_font_preview, dover::shared::kPreviewSizes[std::clamp(zoom_idx, 0, 4)]);
   renderer.print(content, content + strlen(content));
   ImGui::PopFont();
+
+  // After rendering, commit the accumulated widths to the max_width cache for the next frame
+  for (size_t i = 0; i < renderer.kMaxTableCols; ++i) {
+    // Apply a simple 1-frame delayed auto-width expansion
+    if (renderer.m_table_col_current_width[i] > 0.0f) {
+      renderer.m_table_col_max_width[i] = renderer.m_table_col_current_width[i];
+    }
+  }
 }
 
 } // namespace dover::shared::notes

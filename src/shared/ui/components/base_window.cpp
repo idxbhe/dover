@@ -258,7 +258,7 @@ void BaseWindow::RenderWindowDecorations(bool interactive, float right_boundary,
         
         ImGui::GetWindowDrawList()->AddRect(min_p, max_p, border_col32, 2.0f, 1.0f, 0);
         
-        if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
+        if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kGuiSize);
         ImVec2 text_size = ImGui::CalcTextSize(icon);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
         ImGui::GetWindowDrawList()->AddText(text_pos, text_col32, icon);

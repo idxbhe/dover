@@ -267,7 +267,7 @@ void RenderImGuiUI() {
       ImGui::GetWindowDrawList()->PathStroke(border_dark, 1.0f, 0);
     }
 
-    ImGui::PushFont(dover::shared::g_font_panel, 20.0f);
+    ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
 
     const float icon_btn_width = 34.0f;
     const float button_group_width = (icon_btn_width * 4.0f) + (button_spacing * 3.0f); // Group of 4 icon buttons

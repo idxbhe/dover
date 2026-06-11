@@ -198,7 +198,7 @@ static bool ToggleCheckbox(const char* label, bool* value_ptr) {
 
 
 static void RenderSettingsHeader(const char* title) {
-    ImGui::PushFont(dover::shared::g_font_preview_bold, 22.0f);
+    ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kTitleSize);
     // Sleek and modern Steam Slate Blue / Obsidian light-blue accent (#8fafd6)
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
 
@@ -372,7 +372,7 @@ void SettingsWindow::RenderContent(bool interactive) {
 
         
 
-        if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
+        if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kGuiSize);
 
         ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), label_buf);
 

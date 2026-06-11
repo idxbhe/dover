@@ -94,7 +94,7 @@ void InputWindow::RenderContent(bool interactive) {
 
         // Draw the icon in the panel font (which has icons merged)
         if (dover::shared::g_font_panel) {
-            ImGui::PushFont(dover::shared::g_font_panel, 20.0f);
+            ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
         }
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
         ImGui::Text("%s", ICON_PANEL_INPUTMAP);
@@ -106,7 +106,7 @@ void InputWindow::RenderContent(bool interactive) {
         ImGui::SameLine(0.0f, 6.0f);
 
         // Draw the title text in the preview bold font
-        ImGui::PushFont(dover::shared::g_font_preview_bold, 22.0f);
+        ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kTitleSize);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
         ImGui::Text("Controller");
         ImGui::PopStyleColor();

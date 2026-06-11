@@ -543,7 +543,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::Spacing();
     ImGui::Spacing();
 
-    ImGui::PushFont(dover::shared::g_font_preview_bold, 22.0f);
+    ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kTitleSize);
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
     ImGui::Text("CONFIGURATION");
     ImGui::PopStyleColor();

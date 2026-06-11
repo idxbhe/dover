@@ -522,9 +522,9 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
         }
       }
       
-      ImGui::PushFont(dover::shared::g_font_preview_bold, 18.0f);
+      ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kGuiSize);
       float text_y = pos.y + (32.0f - ImGui::GetFontSize()) * 0.5f;
-      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_preview_bold, 18.0f, ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), title_buf);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_preview_bold, dover::shared::kGuiSize, ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), title_buf);
       ImGui::PopFont();
 
       if (selected_now && !is_sel) {
@@ -575,7 +575,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
     draw_list->AddCircle(btn_center, btn_size * 0.5f, ImGui::ColorConvertFloat4ToU32(border_color), 32, 1.0f);
 
     // Draw Sort Icon with custom visual centering offset (+1.0f x, -1.0f y)
-    ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
+    ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kGuiSize);
     ImVec2 icon_size = ImGui::CalcTextSize(ICON_SORT);
     ImVec2 icon_pos = ImVec2(btn_center.x - icon_size.x * 0.5f + 1.0f, btn_center.y - icon_size.y * 0.5f - 1.0f);
     draw_list->AddText(icon_pos, ImGui::ColorConvertFloat4ToU32(ImVec4(0.90f, 0.92f, 0.96f, 1.00f)), ICON_SORT);
@@ -612,7 +612,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
                 ImVec2 item_max = ImGui::GetItemRectMax();
                 float item_h = item_max.y - item_min.y;
                 
-                ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
+                ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kGuiSize);
                 ImVec2 icon_size = ImGui::CalcTextSize(icon);
                 // Perfect far-right alignment with 12px padding
                 ImVec2 icon_pos = ImVec2(item_max.x - icon_size.x - 12.0f, item_min.y + (item_h - icon_size.y) * 0.5f);
@@ -716,7 +716,7 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
     ImGui::PopStyleVar();
     
     if (open_ctx) {
-        ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
+        ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kGuiSize);
         
         int sel_start = GetFormatterState().saved_selection_start;
         int sel_end = GetFormatterState().saved_selection_end;
@@ -852,7 +852,7 @@ FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
 
         const char* icon = (window->m_view_mode == 0) ? ICON_TOGGLE_READ : ICON_TOGGLE_EDIT;
 
-        ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
+        ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kGuiSize);
         ImVec2 text_size = ImGui::CalcTextSize(icon);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
         draw_list->AddText(text_pos, text_col32, icon);
@@ -900,7 +900,7 @@ FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
         draw_list->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
         draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 1.0f, 0);
 
-        ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
+        ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kGuiSize);
         ImVec2 text_size = ImGui::CalcTextSize(ICON_SAVE);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
         draw_list->AddText(text_pos, text_col32, ICON_SAVE);
@@ -948,7 +948,7 @@ FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
         draw_list->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
         draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 1.0f, 0);
 
-        ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
+        ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kGuiSize);
         ImVec2 text_size = ImGui::CalcTextSize(ICON_DELETE);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
         draw_list->AddText(text_pos, text_col32, ICON_DELETE);

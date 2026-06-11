@@ -51,8 +51,8 @@ void SetupImGuiTheme() {
           ImFontConfig cfg_bi = cfg;
           cfg_bi.FontLoaderFlags |= ImGuiFreeTypeLoaderFlags_Bold | ImGuiFreeTypeLoaderFlags_Oblique;
           
-          // 1. GUI Font - Default (18.0f)
-          g_font_gui = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, 18.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          // 1. GUI Font - Default
+          g_font_gui = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, kGuiSize, &cfg, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_gui) {
             g_font_gui = io.Fonts->AddFontDefault();
           } else {
@@ -69,8 +69,8 @@ void SetupImGuiTheme() {
             io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 19.5f, &icons_config, icon_ranges);
           }
 
-            // 1b. GUI Font - Panel (20.0f)
-            g_font_panel = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, 20.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+            // 1b. GUI Font - Panel
+            g_font_panel = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, kIconSize, &cfg, io.Fonts->GetGlyphRangesDefault());
             if (g_font_panel) {
             static const ImWchar icon_ranges[] = { DI_ICON_MIN, DI_ICON_MAX, 0 };
             ImFontConfig icons_config;
@@ -88,19 +88,19 @@ void SetupImGuiTheme() {
           }
           
           // Single Font Load (v1.92 Dynamic Fonts)
-          g_font_editor = io.Fonts->AddFontFromMemoryTTF((void*)g_font_mono_data, g_font_mono_data_size, 17.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          g_font_editor = io.Fonts->AddFontFromMemoryTTF((void*)g_font_mono_data, g_font_mono_data_size, kEditorSizes[2], &cfg, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_editor) g_font_editor = g_font_gui;
 
-          g_font_preview = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, 18.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          g_font_preview = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, kPreviewSizes[2], &cfg, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview) g_font_preview = g_font_gui;
 
-          g_font_preview_bold = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, 18.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+          g_font_preview_bold = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, kPreviewSizes[2], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview_bold) g_font_preview_bold = g_font_preview;
 
-          g_font_preview_italic = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, 18.0f, &cfg_italic, io.Fonts->GetGlyphRangesDefault());
+          g_font_preview_italic = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, kPreviewSizes[2], &cfg_italic, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview_italic) g_font_preview_italic = g_font_preview;
 
-          g_font_preview_bold_italic = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, 18.0f, &cfg_bi, io.Fonts->GetGlyphRangesDefault());
+          g_font_preview_bold_italic = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, kPreviewSizes[2], &cfg_bi, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_preview_bold_italic) g_font_preview_bold_italic = g_font_preview;
           
         } // if (last_slash != npos)
