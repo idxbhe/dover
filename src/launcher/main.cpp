@@ -19,6 +19,7 @@
 #pragma comment(lib, "d3d11.lib")
 
 #include <filesystem>
+#include <format>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -34,6 +35,8 @@
 namespace {
 constexpr DWORD kOverlayReadyTimeoutMs = 10000;
 
+int g_FramesToRender = 5;
+
 std::filesystem::path ResolveWorkingDirectory(const std::wstring& application_path) {
   return std::filesystem::path(application_path).parent_path();
 }
@@ -45,6 +48,13 @@ struct GameConfig {
   std::wstring name;
   std::string name_u8;
   std::string name_u8_sidebar;
+
+  static GameConfig FromPath(const std::wstring& path_str) {
+    std::filesystem::path p(path_str);
+    std::wstring wname = p.filename().wstring();
+    std::string n_u8 = WideToUTF8(wname);
+    return {path_str, wname, n_u8, "  " + n_u8};
+  }
 };
 
 std::vector<GameConfig> LoadSavedGames() {
@@ -56,39 +66,50 @@ std::vector<GameConfig> LoadSavedGames() {
 
   int count = GetPrivateProfileIntW(L"Games", L"Count", 0, config_path.c_str());
   for (int i = 0; i < count; ++i) {
-    wchar_t key[32] = {};
-    wsprintfW(key, L"Game%d", i);
+    std::wstring key = std::format(L"Game{}", i);
     wchar_t path_buf[MAX_PATH] = {};
-    GetPrivateProfileStringW(L"Games", key, L"", path_buf, MAX_PATH, config_path.c_str());
+    GetPrivateProfileStringW(L"Games", key.c_str(), L"", path_buf, MAX_PATH, config_path.c_str());
 
     if (path_buf[0] != L'\0') {
-      std::wstring path_str(path_buf);
-      std::filesystem::path p(path_str);
-      std::wstring wname = p.filename().wstring();
-      std::string name_u8 = WideToUTF8(wname);
-      std::string name_u8_sidebar = "  " + name_u8;
-      games.push_back({path_str, wname, name_u8, name_u8_sidebar});
+      games.push_back(GameConfig::FromPath(path_buf));
     }
   }
   return games;
 }
 
-void SaveGamePath(const std::wstring& path) {
+void SaveGamesToDisk(const std::vector<GameConfig>& games) {
   auto root = dover::shared::GetDoverRootDir();
   if (root.empty()) return;
   auto config_path = root / L"launcher" / L"games.ini";
   std::filesystem::create_directories(config_path.parent_path());
 
-  auto games = LoadSavedGames();
-  for (const auto& game : games) {
-    if (game.path == path) return; // Already saved
+  // 1. Clear the entire [Games] section to ensure a clean, contiguous list rewrite without orphans
+  WritePrivateProfileStringW(L"Games", nullptr, nullptr, config_path.c_str());
+
+  // 2. Write each game entry sequentially
+  for (size_t i = 0; i < games.size(); ++i) {
+    std::wstring key = std::format(L"Game{}", i);
+    WritePrivateProfileStringW(L"Games", key.c_str(), games[i].path.c_str(), config_path.c_str());
   }
 
-  int count = static_cast<int>(games.size());
-  wchar_t key[32] = {};
-  wsprintfW(key, L"Game%d", count);
-  WritePrivateProfileStringW(L"Games", key, path.c_str(), config_path.c_str());
-  WritePrivateProfileStringW(L"Games", L"Count", std::to_wstring(count + 1).c_str(), config_path.c_str());
+  // 3. Update the global count
+  WritePrivateProfileStringW(L"Games", L"Count", std::to_wstring(games.size()).c_str(), config_path.c_str());
+
+  // 4. Force Flush the Win32 INI cache to physical disk to prevent stale reads in next operations
+  WritePrivateProfileStringW(nullptr, nullptr, nullptr, config_path.c_str());
+}
+
+bool AddGame(std::vector<GameConfig>& games, const std::wstring& path) {
+  for (const auto& game : games) {
+    if (game.path == path) return false; // Already exists
+  }
+
+  games.push_back(GameConfig::FromPath(path));
+  SaveGamesToDisk(games);
+  
+  g_FramesToRender = 5;
+  
+  return true;
 }
 
 HANDLE LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv) {
@@ -220,9 +241,6 @@ ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
 HWND g_hwnd = nullptr;
 NOTIFYICONDATAW g_nid = {};
 bool g_has_tray_icon = false;
-
-// Elite Frame Quota: Initial 5 frames to ensure UI renders correctly on startup
-int g_FramesToRender = 5;
 
 void CreateRenderTarget() {
   ID3D11Texture2D* pBackBuffer = nullptr;
@@ -536,7 +554,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
   wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
   if (argc >= 2) {
     std::wstring target_path = argv[1];
-    SaveGamePath(target_path);
+    auto current_games = LoadSavedGames();
+    AddGame(current_games, target_path);
     HANDLE hProcess = LaunchAndInject(target_path, argc, argv);
     bool success = (hProcess != nullptr);
     if (hProcess) {
@@ -854,19 +873,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         if (ImGui::Button("+ ADD NEW GAME", ImVec2(add_btn_w, 40.0f))) {
             std::wstring selected_path = BrowseForExecutable(hwnd);
             if (!selected_path.empty()) {
-                SaveGamePath(selected_path);
-                games = LoadSavedGames(); 
-                selected_game_idx = static_cast<int>(games.size()) - 1;
+                if (AddGame(games, selected_path)) {
+                    selected_game_idx = static_cast<int>(games.size()) - 1;
+                }
             }
         }
     } else {
-        ImGui::PushFont(dover::shared::g_font_gui);
+        ImGui::PushFont(dover::shared::g_font_panel); // Folded sidebar uses icon font
         if (ImGui::Button(ICON_ADD_NEW, ImVec2(add_btn_w, 40.0f))) {
             std::wstring selected_path = BrowseForExecutable(hwnd);
             if (!selected_path.empty()) {
-                SaveGamePath(selected_path);
-                games = LoadSavedGames(); 
-                selected_game_idx = static_cast<int>(games.size()) - 1;
+                if (AddGame(games, selected_path)) {
+                    selected_game_idx = static_cast<int>(games.size()) - 1;
+                }
             }
         }
         ImGui::PopFont();
@@ -1151,35 +1170,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f, 0.2f, 0.2f, 0.4f));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.8f, 0.1f, 0.1f, 0.6f));
         if (ImGui::Button("Remove", ImVec2(80.0f, 25.0f))) {
-            // Remove from config by fully rebuilding the list
-            auto root = dover::shared::GetDoverRootDir();
-            if (!root.empty()) {
-                auto config_path = root / L"launcher" / L"games.ini";
+            // Remove from local list first (Memory-First approach)
+            games.erase(games.begin() + selected_game_idx);
+            
+            // Re-sync the entire list to disk atomically-like
+            SaveGamesToDisk(games);
 
-                // Clear the entire [Games] section in the ini file to remove holes
-                WritePrivateProfileStringW(L"Games", nullptr, nullptr, config_path.c_str());
-
-                // Remove game from local list
-                games.erase(games.begin() + selected_game_idx);
-
-                // Rewrite the contiguous list
-                for (size_t i = 0; i < games.size(); ++i) {
-                    wchar_t key[32] = {};
-                    wsprintfW(key, L"Game%zu", i);
-                    WritePrivateProfileStringW(L"Games", key, games[i].path.c_str(), config_path.c_str());
-                }
-                WritePrivateProfileStringW(L"Games", L"Count", std::to_wstring(games.size()).c_str(), config_path.c_str());
-
-                // Fix up active_game_idx so UI remains correct
-                if (active_game_idx == selected_game_idx) {
-                    active_game_idx = -1;
-                    active_win = ActiveWindow::None;
-                } else if (active_game_idx > selected_game_idx) {
-                    active_game_idx--;
-                }
-
-                selected_game_idx = 0;
+            // Fix up active_game_idx so UI remains correct
+            if (active_game_idx == selected_game_idx) {
+                active_game_idx = -1;
+                active_win = ActiveWindow::None;
+            } else if (active_game_idx > selected_game_idx) {
+                active_game_idx--;
             }
+
+            selected_game_idx = 0;
+            g_FramesToRender = 5;
         }
         ImGui::PopStyleColor(3);
     }
