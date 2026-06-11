@@ -167,7 +167,8 @@ ScreenToClientFn g_original_screen_to_client = nullptr;
 ShowCursorFn g_original_show_cursor = nullptr;
 SetCursorFn g_original_set_cursor = nullptr;
 
-static std::atomic<int> g_game_show_cursor_count{0};
+static std::atomic<int> g_logical_cursor_count{0};
+static std::atomic<int> g_overlay_cursor_forces{0};
 static std::atomic<bool> g_cursor_initialized{false};
 static std::atomic<bool> g_last_overlay_visible{false};
 static std::atomic<ULONGLONG> g_overlay_closed_time{0};
@@ -618,53 +619,66 @@ DWORD WINAPI HookedXInput13GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
 int WINAPI HookedShowCursor(BOOL bShow) {
     if (GetOverlayState().show_overlay.load(std::memory_order_relaxed)) {
         if (bShow) {
-            int n = ++g_game_show_cursor_count;
-            if (n > 0 && g_original_show_cursor) {
-                g_original_show_cursor(TRUE);
-            }
-            return n;
+            return ++g_logical_cursor_count;
         } else {
-            int n = --g_game_show_cursor_count;
-            if (n >= 0 && g_original_show_cursor) {
-                g_original_show_cursor(FALSE);
-            }
-            return n;
+            return --g_logical_cursor_count;
         }
     }
     
     if (g_original_show_cursor) {
         int ret = g_original_show_cursor(bShow);
-        g_game_show_cursor_count.store(ret, std::memory_order_relaxed);
+        g_logical_cursor_count.store(ret, std::memory_order_relaxed);
         return ret;
     }
     
-    return g_game_show_cursor_count.load(std::memory_order_relaxed);
+    return g_logical_cursor_count.load(std::memory_order_relaxed);
 }
 
 void UpdateOverlayVisibilityState() {
     bool vis = GetOverlayState().show_overlay.load(std::memory_order_relaxed);
     if (g_last_overlay_visible.exchange(vis, std::memory_order_relaxed) == vis) return;
     
+    if (!g_original_show_cursor) return;
+
     if (vis) {
         if (g_original_clip_cursor) g_original_clip_cursor(nullptr);
         if (g_original_set_cursor) g_original_set_cursor(LoadCursor(nullptr, IDC_ARROW));
         
-        int count = g_game_show_cursor_count.load(std::memory_order_relaxed);
-        if (count < 0 && g_original_show_cursor) {
-            for (int i = 0; i < -count; ++i) {
-                g_original_show_cursor(TRUE);
-            }
+        // Force OS cursor to be visible for overlay interaction
+        int forces = 0;
+        int current_physical = g_original_show_cursor(TRUE);
+        forces++;
+        while (current_physical < 0) {
+            current_physical = g_original_show_cursor(TRUE);
+            forces++;
         }
+        g_overlay_cursor_forces.store(forces, std::memory_order_relaxed);
     } else {
         if (g_game_has_clip_rect && g_original_clip_cursor) {
             g_original_clip_cursor(&g_game_clip_rect);
         }
         
-        int count = g_game_show_cursor_count.load(std::memory_order_relaxed);
-        if (count < 0 && g_original_show_cursor) {
-            for (int i = 0; i < -count; ++i) {
-                g_original_show_cursor(FALSE);
-            }
+        // 1. Revert Dover's explicit forces
+        int forces = g_overlay_cursor_forces.exchange(0, std::memory_order_relaxed);
+        for (int i = 0; i < forces; ++i) {
+            g_original_show_cursor(FALSE);
+        }
+
+        // 2. Reconciliation Phase: Sync physical OS state with logical engine state
+        // This ensures that even if the game called ShowCursor while the overlay was open,
+        // the final physical state matches exactly what the engine expects.
+        int logical = g_logical_cursor_count.load(std::memory_order_relaxed);
+        
+        // Peek current physical count (TRUE then FALSE to get state without permanent change)
+        int physical = g_original_show_cursor(TRUE);
+        g_original_show_cursor(FALSE);
+        physical -= 1;
+
+        while (physical < logical) {
+            physical = g_original_show_cursor(TRUE);
+        }
+        while (physical > logical) {
+            physical = g_original_show_cursor(FALSE);
         }
     }
 }
@@ -813,7 +827,7 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
         if (g_original_show_cursor) {
             int cur = g_original_show_cursor(TRUE);
             g_original_show_cursor(FALSE);
-            g_game_show_cursor_count.store(cur - 1, std::memory_order_relaxed);
+            g_logical_cursor_count.store(cur - 1, std::memory_order_relaxed);
             g_cursor_initialized.store(true, std::memory_order_relaxed);
         }
     }
