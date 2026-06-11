@@ -675,6 +675,14 @@ void UpdateOverlayVisibilityState() {
         while (current > logical) {
             current = g_original_show_cursor(FALSE);
         }
+
+        // 3. Force-clear the cursor icon and poke the engine to re-evaluate its state
+        // This is critical for games like Skyrim LE that use a mix of DirectInput and Win32 cursor management.
+        if (g_original_set_cursor) g_original_set_cursor(nullptr);
+        HWND hw = GetOverlayState().game_hwnd.load(std::memory_order_relaxed);
+        if (hw) {
+            ::PostMessageW(hw, WM_SETCURSOR, (WPARAM)hw, MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
+        }
     }
 }
 
