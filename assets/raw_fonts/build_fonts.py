@@ -4,7 +4,7 @@ import sys
 
 # Directory setup
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 INCLUDE_DIR = os.path.join(PROJECT_ROOT, "include", "overlay")
 OUTPUT_HEADER = os.path.join(INCLUDE_DIR, "fonts.h")
 

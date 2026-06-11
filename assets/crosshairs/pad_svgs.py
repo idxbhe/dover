@@ -10,7 +10,7 @@ def parse_dimension(d):
     return float(m.group(1)) if m else 0.0
 
 def process_svgs():
-    input_dir = "upadded_crosshairs"
+    input_dir = "unpadded_crosshairs"
     output_dir = "svg"
     os.makedirs(output_dir, exist_ok=True)
     

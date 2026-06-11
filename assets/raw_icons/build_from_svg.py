@@ -11,7 +11,7 @@ from fontTools.svgLib.path import SVGPath
 import pathops
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
 
 ICONS_DIR = os.path.join(SCRIPT_DIR, "icons")
 TEMPLATE_TTF = os.path.join(SCRIPT_DIR, "template.ttf")

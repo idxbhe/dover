@@ -1,37 +1,42 @@
-# User Specific Ignores
+# ==========================================
+#        DOVER PROJECT GITIGNORE SYSTEM
+# ==========================================
+
+# 1. AI & Agentic Coding Metadata
+GEMINI.md
+skills-lock.json
 AGENTS.md
 promts.md
-doverlay/
+prompts.md
 .gemini/
-docs/
-docs-by-agents/
-refactor-plan/
 .agents/
 plans/
 problems/
-raw_crosshairs/unified.svg
-raw_crosshairs/svg/
-raw_crosshairs/pad_svgs.py
-tools/
-TODOS.md
+docs-by-agents/
+refactor-plan/
+report-*.md
+doverlay/
 
-# IDE Workspace Settings & Metadata
+# 2. IDE Workspace Settings & Metadata
 .vscode/
 .idea/
-cmake-build-*/
+
+# 3. CMake & Compiler Output Directories
+out/
+build/
 x64/
 x86/
 ARM/
-
-# CMake Build & Cache Directories
-out/
-CMakeCache.txt
+Debug/
+Release/
+cmake-build-*/
 CMakeFiles/
+CMakeCache.txt
 CMakePresets.json.user
 CMakePresets.json.private
 *.cmake
 
-# Visual Studio / MSVC Local Workspace
+# 4. Visual Studio / MSVC Local Workspace
 .vs/
 *.user
 *.suo
@@ -39,9 +44,7 @@ CMakePresets.json.private
 *.VC.db
 *.opendb
 
-# Compilations & Executables Output
-Debug/
-Release/
+# 5. Compiled Binaries & Intermediates
 *.obj
 *.lib
 *.dll
@@ -50,26 +53,18 @@ Release/
 *.exp
 *.exe
 
-# System & OS Temporary Files
+# 6. Temporary Files & System Logs
+*.log
+*.tmp
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
-# Temporary Logs
-*.log
-*.tmp
-
-# local debugger helpers & backup files
+# 7. Local Debug Helpers & Build Outputs
 build_warnings.txt
 full_build_log.txt
 final_build_log.txt
-run_parser.ps1
-cdb_runner.ps1
-dump_parser.cs
-dump_parser.exe
-old_crosshair.cpp
-raw_icons/check_metrics.py
 full_build_output.txt
 full_rebuild_output.txt
 full_rebuild_x86_output.txt
@@ -80,5 +75,11 @@ debug_build.ps1
 full_rebuild.ps1
 full_rebuild_x86.ps1
 
-# user specific
+# 8. Project Specific Assets & Tools
+tools/
+assets/crosshairs/unified.svg
+assets/crosshairs/svg/
+assets/crosshairs/pad_svgs.py
+assets/raw_icons/check_metrics.py
+TODOS.md
 BUGS & TODO.md
