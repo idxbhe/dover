@@ -645,11 +645,10 @@ void UpdateOverlayVisibilityState() {
         if (g_original_set_cursor) g_original_set_cursor(LoadCursor(nullptr, IDC_ARROW));
         
         // Force OS cursor to be visible for overlay interaction
-        int forces = 0;
-        int current_physical = g_original_show_cursor(TRUE);
-        forces++;
-        while (current_physical < 0) {
-            current_physical = g_original_show_cursor(TRUE);
+        int current = g_original_show_cursor(TRUE);
+        int forces = 1;
+        while (current < 0) {
+            current = g_original_show_cursor(TRUE);
             forces++;
         }
         g_overlay_cursor_forces.store(forces, std::memory_order_relaxed);
@@ -664,21 +663,17 @@ void UpdateOverlayVisibilityState() {
             g_original_show_cursor(FALSE);
         }
 
-        // 2. Reconciliation Phase: Sync physical OS state with logical engine state
-        // This ensures that even if the game called ShowCursor while the overlay was open,
-        // the final physical state matches exactly what the engine expects.
+        // 2. Brutal Reconciliation: Sync physical OS state with logical engine state
         int logical = g_logical_cursor_count.load(std::memory_order_relaxed);
         
-        // Peek current physical count (TRUE then FALSE to get state without permanent change)
-        int physical = g_original_show_cursor(TRUE);
-        g_original_show_cursor(FALSE);
-        physical -= 1;
-
-        while (physical < logical) {
-            physical = g_original_show_cursor(TRUE);
+        // Use a temp increment/decrement to find the current physical state 
+        // and then drive it exactly to the logical state.
+        int current = g_original_show_cursor(TRUE);
+        while (current < logical) {
+            current = g_original_show_cursor(TRUE);
         }
-        while (physical > logical) {
-            physical = g_original_show_cursor(FALSE);
+        while (current > logical) {
+            current = g_original_show_cursor(FALSE);
         }
     }
 }
@@ -845,6 +840,28 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
         }
     }
     
+    if (msg == WM_SETCURSOR) {
+        if (show_overlay) {
+            if (LOWORD(lparam) == HTCLIENT) {
+                shared::g_allow_input_queries = true;
+                state.in_overlay_frame.store(true, std::memory_order_relaxed);
+                bool processed = ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam);
+                state.in_overlay_frame.store(false, std::memory_order_relaxed);
+                shared::g_allow_input_queries = false;
+                
+                if (processed) return TRUE;
+                if (g_original_set_cursor) g_original_set_cursor(LoadCursor(nullptr, IDC_ARROW));
+                return TRUE;
+            }
+        } else {
+            // Stealth Cursor: If engine thinks cursor is hidden, prevent OS from showing it
+            if (LOWORD(lparam) == HTCLIENT && g_logical_cursor_count.load(std::memory_order_relaxed) < 0) {
+                if (g_original_set_cursor) g_original_set_cursor(nullptr);
+                return TRUE;
+            }
+        }
+    }
+    
     if (IsInputBlocked()) {
         // Track keys and mouse buttons that might get stuck
         if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN || msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_XBUTTONDOWN) {
@@ -861,19 +878,7 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
         }
 
         if (show_overlay) {
-            if (msg == WM_SETCURSOR) {
-                if (LOWORD(lparam) == HTCLIENT) {
-                    shared::g_allow_input_queries = true;
-                    state.in_overlay_frame.store(true, std::memory_order_relaxed);
-                    bool processed = ImGui_ImplWin32_WndProcHandler(hwnd, msg, wparam, lparam);
-                    state.in_overlay_frame.store(false, std::memory_order_relaxed);
-                    shared::g_allow_input_queries = false;
-                    
-                    if (processed) return TRUE;
-                    if (g_original_set_cursor) g_original_set_cursor(LoadCursor(nullptr, IDC_ARROW));
-                    return TRUE;
-                }
-            }
+            // WM_SETCURSOR handled above
             
             // Handle coordinate scaling if swapchain and window size mismatch
             if ((msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) && msg != WM_MOUSEWHEEL && msg != WM_MOUSEHWHEEL) {
@@ -939,8 +944,6 @@ bool InitializeInputHooks() {
     success &= HookU32("GetMessageA", (void*)&HookedGetMessageA, (void**)&g_original_get_message_a);
     success &= HookU32("ScreenToClient", (void*)&HookedScreenToClient, (void**)&g_original_screen_to_client);
     success &= HookU32("ShowCursor", (void*)&HookedShowCursor, (void**)&g_original_show_cursor);
-    
-    // ... DirectInput and XInput ...
     
     // DirectInput8 hooking
     HMODULE di8 = GetModuleHandleW(L"dinput8.dll");
@@ -1097,7 +1100,7 @@ void ShutdownInputHooks() {
     if (g_orig_xinput13_getstate) DisableAndRemoveHook(reinterpret_cast<void*>(g_orig_xinput13_getstate));
     
     if (g_hXInputDll) {
-        FreeLibrary(g_hXInputDll);
+        if (g_xinput_initialized) FreeLibrary(g_hXInputDll);
         g_hXInputDll = nullptr;
         g_XInputGetStateEx = nullptr;
         g_xinput_initialized = false;
