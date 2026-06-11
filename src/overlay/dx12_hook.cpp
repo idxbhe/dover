@@ -45,8 +45,6 @@ std::atomic<bool> g_resize_hooked{false};
 std::atomic<bool> g_execute_hooked{false};
 std::atomic<bool> g_imgui_initialized{false};
 
-HWND g_game_hwnd = nullptr;
-
 // Raw pointers (Zero ComPtr overhead on global teardown). We explicitly manage lifetimes in ShutdownDx12Hook.
 ID3D12Device* g_device = nullptr;
 ID3D12CommandQueue* g_command_queue = nullptr;
@@ -179,10 +177,13 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
             
             DXGI_SWAP_CHAIN_DESC desc = {};
             swapchain->GetDesc(&desc);
-            g_game_hwnd = desc.OutputWindow;
+            HWND hwnd = desc.OutputWindow;
             g_buffer_count = desc.BufferCount;
-            GetOverlayState().swapchain_width = desc.BufferDesc.Width;
-            GetOverlayState().swapchain_height = desc.BufferDesc.Height;
+            
+            GetOverlayState().game_hwnd.store(hwnd, std::memory_order_release);
+            GetOverlayState().swapchain_width.store(desc.BufferDesc.Width, std::memory_order_relaxed);
+            GetOverlayState().swapchain_height.store(desc.BufferDesc.Height, std::memory_order_relaxed);
+            UpdateMouseScaling();
             if (g_buffer_count > kMaxFrameBuffers) g_buffer_count = kMaxFrameBuffers;
 
             // Create Fences
@@ -219,20 +220,21 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
             OverrideImGuiClipboardFunctions();
             InitializeOverlay();
 
-            ImGui_ImplWin32_Init(g_game_hwnd);
+            ImGui_ImplWin32_Init(hwnd);
             
             D3D12_CPU_DESCRIPTOR_HANDLE font_cpu = g_srv_heap->GetCPUDescriptorHandleForHeapStart();
             D3D12_GPU_DESCRIPTOR_HANDLE font_gpu = g_srv_heap->GetGPUDescriptorHandleForHeapStart();
             
             ImGui_ImplDX12_Init(g_device, g_buffer_count, DXGI_FORMAT_R8G8B8A8_UNORM, g_srv_heap, font_cpu, font_gpu);
 
-            GetOverlayState().original_wnd_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
-                g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
+            WNDPROC old_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+                hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
+            GetOverlayState().original_wnd_proc.store(old_proc, std::memory_order_release);
 
-            GetOverlayState().active_dx_version = "DirectX 12";
+            GetOverlayState().active_dx_version.store("DirectX 12", std::memory_order_release);
             g_imgui_initialized = true;
             dover::shared::LogInfo("Dear ImGui initialized inside D3D12 Present hook. Device: %p", g_device);
-            dover::shared::LogDebug("DX12 Initialization parameters -> HWND: %p, Buffers: %u", g_game_hwnd, g_buffer_count);
+            dover::shared::LogDebug("DX12 Initialization parameters -> HWND: %p, Buffers: %u", hwnd, g_buffer_count);
         }
     }
 
@@ -276,19 +278,18 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
 
                     GetOverlayState().in_overlay_frame = true;
                     ImGui_ImplDX12_NewFrame();
-                    
+
                     shared::g_allow_xinput = true;
                     shared::g_allow_input_queries = true;
                     g_in_imgui_new_frame = true;
                     ImGui_ImplWin32_NewFrame();
                     g_in_imgui_new_frame = false;
-                    shared::g_allow_input_queries = false;
-                    shared::g_allow_xinput = false;
+
                     
                     // Fix for blurry UI & cursor mismatch when game does not resize swapchain
                     ImGuiIO& io = ImGui::GetIO();
-                    uint32_t swap_w = GetOverlayState().swapchain_width;
-                    uint32_t swap_h = GetOverlayState().swapchain_height;
+                    uint32_t swap_w = GetOverlayState().swapchain_width.load(std::memory_order_relaxed);
+                    uint32_t swap_h = GetOverlayState().swapchain_height.load(std::memory_order_relaxed);
                     if (swap_w > 0 && swap_h > 0) {
                         io.DisplaySize = ImVec2(static_cast<float>(swap_w), static_cast<float>(swap_h));
                     }
@@ -298,7 +299,10 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
                     ImGui::Render();
                     
                     ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), g_command_list);
-                    GetOverlayState().in_overlay_frame = false;
+                    
+                    shared::g_allow_input_queries = false;
+                    shared::g_allow_xinput = false;
+                    GetOverlayState().in_overlay_frame.store(false, std::memory_order_relaxed);
 
                     barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
                     barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
@@ -347,8 +351,8 @@ HRESULT WINAPI HookedResizeBuffersInternal(IDXGISwapChain* swapchain, UINT buffe
         DXGI_SWAP_CHAIN_DESC desc = {};
         swapchain->GetDesc(&desc);
         g_buffer_count = desc.BufferCount;
-        GetOverlayState().swapchain_width = desc.BufferDesc.Width;
-        GetOverlayState().swapchain_height = desc.BufferDesc.Height;
+        GetOverlayState().swapchain_width.store(desc.BufferDesc.Width, std::memory_order_relaxed);
+        GetOverlayState().swapchain_height.store(desc.BufferDesc.Height, std::memory_order_relaxed);
         if (g_buffer_count > kMaxFrameBuffers) g_buffer_count = kMaxFrameBuffers;
         
         ImGui_ImplDX12_CreateDeviceObjects();
@@ -476,8 +480,10 @@ void ResetDx12State(bool device_lost) {
             WaitForGpu();
         }
         
-        if (g_game_hwnd && GetOverlayState().original_wnd_proc) {
-            SetWindowLongPtrW(g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(GetOverlayState().original_wnd_proc));
+        HWND hwnd = GetOverlayState().game_hwnd.load(std::memory_order_acquire);
+        WNDPROC orig = GetOverlayState().original_wnd_proc.load(std::memory_order_acquire);
+        if (hwnd && orig) {
+            SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(orig));
         }
         
         // When device is lost, releasing COM objects is safe, but we skip waiting for GPU and cleanup logic that assumes a live device.
@@ -527,6 +533,11 @@ void ResetDx12State(bool device_lost) {
 }
 
 void ShutdownDx12Hook() {
+    HWND hwnd = GetOverlayState().game_hwnd.load(std::memory_order_acquire);
+    WNDPROC orig = GetOverlayState().original_wnd_proc.load(std::memory_order_acquire);
+    if (hwnd && orig) {
+        SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(orig));
+    }
     ResetDx12State(false);
 
     DisableAndRemoveHook(reinterpret_cast<void*>(g_original_execute_command_lists));

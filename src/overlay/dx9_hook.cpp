@@ -7,6 +7,7 @@
 #include "shared/log.h"
 #include "shared/renderer.h"
 #include "shared/settings/app_config.h"
+#include "shared/engine_quirks.h"
 #include "overlay_runtime.h"
 
 #include <d3d9.h>
@@ -34,7 +35,6 @@ std::atomic<bool> g_end_scene_hooked{false};
 std::atomic<bool> g_reset_hooked{false};
 std::atomic<bool> g_imgui_initialized{false};
 
-HWND g_game_hwnd = nullptr;
 IDirect3DDevice9* g_d3d9_device = nullptr;
 
 HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
@@ -50,54 +50,96 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
   if (!g_imgui_initialized.load()) {
     D3DDEVICE_CREATION_PARAMETERS params = {};
     if (SUCCEEDED(device->GetCreationParameters(&params)) && params.hFocusWindow) {
-      g_game_hwnd = params.hFocusWindow;
+      HWND hwnd = params.hFocusWindow;
       g_d3d9_device = device;
       
-      IMGUI_CHECKVERSION();
-      ImGui::CreateContext();
-      OverrideImGuiClipboardFunctions();
-      InitializeOverlay();
+      D3DVIEWPORT9 viewport;
+      if (SUCCEEDED(device->GetViewport(&viewport))) {
+          GetOverlayState().game_hwnd.store(hwnd, std::memory_order_release);
+          GetOverlayState().swapchain_width.store(viewport.Width, std::memory_order_relaxed);
+          GetOverlayState().swapchain_height.store(viewport.Height, std::memory_order_relaxed);
+          UpdateMouseScaling();
 
-      ImGui_ImplWin32_Init(g_game_hwnd);
-      ImGui_ImplDX9_Init(device);
+          IMGUI_CHECKVERSION();
+          ImGui::CreateContext();
+          OverrideImGuiClipboardFunctions();
+          InitializeOverlay();
 
-      // Subclass WndProc using shared HookedWndProc
-      GetOverlayState().original_wnd_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
-          g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
+          ImGui_ImplWin32_Init(hwnd);
+          ImGui_ImplDX9_Init(device);
 
-      GetOverlayState().active_dx_version = "DirectX 9";
+          // Subclass WndProc using shared HookedWndProc
+          WNDPROC old_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+              hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
+          GetOverlayState().original_wnd_proc.store(old_proc, std::memory_order_release);
 
-      // Register device with shared renderer so asset texture creation works
-      shared::SetDx9Device(device);
+          GetOverlayState().active_dx_version.store("DirectX 9", std::memory_order_release);
 
-      g_imgui_initialized = true;
-      dover::shared::LogInfo("Dear ImGui initialized inside D3D9 EndScene hook.");
+          // Register device with shared renderer so asset texture creation works
+          shared::SetDx9Device(device);
+
+          g_imgui_initialized = true;
+          dover::shared::LogInfo("Dear ImGui initialized inside D3D9 EndScene hook.");
+      }
     }
   }
 
   if (g_imgui_initialized.load()) {
-    // Early-out: only run ImGui lifecycle if overlay is visible or OSD features are enabled
-    bool should_render = GetOverlayState().show_overlay || 
+    bool should_render = GetOverlayState().show_overlay.load(std::memory_order_relaxed) || 
                         shared::GetAppConfig().show_fps || 
                         shared::GetAppConfig().show_clock || 
                         shared::GetAppConfig().show_api;
 
     if (should_render) {
-      GetOverlayState().in_overlay_frame = true;
+      GetOverlayState().in_overlay_frame.store(true, std::memory_order_relaxed);
       ImGui_ImplDX9_NewFrame();
       
       shared::g_allow_xinput = true;
+      shared::g_allow_input_queries = true;
+      g_in_imgui_new_frame = true;
       ImGui_ImplWin32_NewFrame();
-      shared::g_allow_xinput = false;
-      
+      g_in_imgui_new_frame = false;
+
       ImGui::NewFrame();
-
-      // Render shared UI
       RenderImGuiUI();
-
       ImGui::Render();
-      ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
-      GetOverlayState().in_overlay_frame = false;
+
+      // Applying Engine Fingerprinting Quirks for DX9
+      const auto& quirks = shared::GetEngineQuirks();
+      if (quirks.dx9_force_backbuffer_render) {
+          IDirect3DSurface9* original_rt = nullptr;
+          D3DVIEWPORT9 original_viewport;
+          
+          device->GetRenderTarget(0, &original_rt);
+          device->GetViewport(&original_viewport);
+
+          IDirect3DSurface9* backbuffer = nullptr;
+          if (SUCCEEDED(device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &backbuffer))) {
+              device->SetRenderTarget(0, backbuffer);
+              
+              D3DVIEWPORT9 target_viewport = { 0, 0, 
+                  GetOverlayState().swapchain_width.load(std::memory_order_relaxed),
+                  GetOverlayState().swapchain_height.load(std::memory_order_relaxed),
+                  0.0f, 1.0f };
+              device->SetViewport(&target_viewport);
+
+              ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
+
+              backbuffer->Release();
+          }
+
+          if (original_rt) {
+              device->SetRenderTarget(0, original_rt);
+              original_rt->Release();
+          }
+          device->SetViewport(&original_viewport);
+      } else {
+          ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
+      }
+      
+      shared::g_allow_input_queries = false;
+      shared::g_allow_xinput = false;
+      GetOverlayState().in_overlay_frame.store(false, std::memory_order_relaxed);
     }
   }
 
@@ -204,8 +246,10 @@ bool InitializeDx9Hook() {
 
 void ShutdownDx9Hook() {
   if (g_imgui_initialized.load()) {
-    if (g_game_hwnd && GetOverlayState().original_wnd_proc) {
-      SetWindowLongPtrW(g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(GetOverlayState().original_wnd_proc));
+    HWND hwnd = GetOverlayState().game_hwnd.load(std::memory_order_acquire);
+    WNDPROC orig = GetOverlayState().original_wnd_proc.load(std::memory_order_acquire);
+    if (hwnd && orig) {
+      SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(orig));
     }
     ImGui_ImplDX9_Shutdown();
     ImGui_ImplWin32_Shutdown();

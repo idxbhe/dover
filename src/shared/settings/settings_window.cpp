@@ -1,6 +1,7 @@
 #include "shared/settings/settings_window.h"
 #include "shared/settings/app_config.h"
 #include "overlay/input_hook.h"
+#include "shared/input_utils.h"
 
 #include "shared/icons.h"
 #include "shared/theme.h"
@@ -541,6 +542,7 @@ void SettingsWindow::RenderContent(bool interactive) {
                     ImGui::Dummy(ImVec2(avail_w, height));
                     if (ImGui::IsItemClicked()) {
                         is_recording = !is_recording;
+                        shared::g_is_recording_keybind.store(is_recording, std::memory_order_relaxed);
                     }
                     
                     if (is_recording) {
@@ -551,13 +553,14 @@ void SettingsWindow::RenderContent(bool interactive) {
                                 i == VK_LMENU || i == VK_RMENU) {
                                 continue;
                             }
-                            if ((GetAsyncKeyState(i) & 0x8000) != 0) {
+                            if (shared::IsHardwareKeyPressed(i)) {
                                 main_key = i;
                                 modifier_key = 0;
-                                if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0) modifier_key = VK_SHIFT;
-                                if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) modifier_key = VK_CONTROL;
-                                if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0) modifier_key = VK_MENU;
+                                if (shared::IsHardwareKeyPressed(VK_SHIFT)) modifier_key = VK_SHIFT;
+                                if (shared::IsHardwareKeyPressed(VK_CONTROL)) modifier_key = VK_CONTROL;
+                                if (shared::IsHardwareKeyPressed(VK_MENU)) modifier_key = VK_MENU;
                                 is_recording = false;
+                                shared::g_is_recording_keybind.store(false, std::memory_order_relaxed);
                                 dover::shared::GameStorage::Get().SaveConfig();
                                 break;
                             }

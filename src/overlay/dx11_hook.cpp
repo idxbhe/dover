@@ -35,7 +35,6 @@ std::atomic<bool> g_present_hooked{false};
 std::atomic<bool> g_resize_hooked{false};
 std::atomic<bool> g_imgui_initialized{false};
 
-HWND g_game_hwnd = nullptr;
 ID3D11Device* g_d3d11_device = nullptr;
 ID3D11DeviceContext* g_d3d11_context = nullptr;
 ID3D11RenderTargetView* g_render_target_view = nullptr;
@@ -71,23 +70,27 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
 
       DXGI_SWAP_CHAIN_DESC desc = {};
       swapchain->GetDesc(&desc);
-      g_game_hwnd = desc.OutputWindow;
-      GetOverlayState().swapchain_width = desc.BufferDesc.Width;
-      GetOverlayState().swapchain_height = desc.BufferDesc.Height;
+      HWND hwnd = desc.OutputWindow;
+      
+      GetOverlayState().game_hwnd.store(hwnd, std::memory_order_release);
+      GetOverlayState().swapchain_width.store(desc.BufferDesc.Width, std::memory_order_relaxed);
+      GetOverlayState().swapchain_height.store(desc.BufferDesc.Height, std::memory_order_relaxed);
+      UpdateMouseScaling();
 
       IMGUI_CHECKVERSION();
       ImGui::CreateContext();
       OverrideImGuiClipboardFunctions();
       InitializeOverlay();
 
-      ImGui_ImplWin32_Init(g_game_hwnd);
+      ImGui_ImplWin32_Init(hwnd);
       ImGui_ImplDX11_Init(g_d3d11_device, g_d3d11_context);
 
       // Subclass WndProc using shared HookedWndProc
-      GetOverlayState().original_wnd_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
-          g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
+      WNDPROC old_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+          hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
+      GetOverlayState().original_wnd_proc.store(old_proc, std::memory_order_release);
 
-      GetOverlayState().active_dx_version = "DirectX 11";
+      GetOverlayState().active_dx_version.store("DirectX 11", std::memory_order_release);
       CreateRenderTargetView(swapchain);
 
       // Register device with shared renderer so asset texture creation works
@@ -115,13 +118,11 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
       g_in_imgui_new_frame = true;
       ImGui_ImplWin32_NewFrame();
       g_in_imgui_new_frame = false;
-      shared::g_allow_input_queries = false;
-      shared::g_allow_xinput = false;
       
       // Fix for blurry UI & cursor mismatch when game does not resize swapchain
       ImGuiIO& io = ImGui::GetIO();
-      uint32_t swap_w = GetOverlayState().swapchain_width;
-      uint32_t swap_h = GetOverlayState().swapchain_height;
+      uint32_t swap_w = GetOverlayState().swapchain_width.load(std::memory_order_relaxed);
+      uint32_t swap_h = GetOverlayState().swapchain_height.load(std::memory_order_relaxed);
       if (swap_w > 0 && swap_h > 0) {
           io.DisplaySize = ImVec2(static_cast<float>(swap_w), static_cast<float>(swap_h));
       }
@@ -136,6 +137,9 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
       // Bind RenderTargetView before rendering ImGui
       g_d3d11_context->OMSetRenderTargets(1, &g_render_target_view, nullptr);
       ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+      
+      shared::g_allow_input_queries = false;
+      shared::g_allow_xinput = false;
       GetOverlayState().in_overlay_frame = false;
     }
   }
@@ -157,11 +161,12 @@ HRESULT WINAPI HookedResizeBuffers(IDXGISwapChain* swapchain, UINT buffer_count,
     hr = g_original_resize_buffers(swapchain, buffer_count, width, height, format, flags);
   }
 
-  if (SUCCEEDED(hr) && g_imgui_initialized.load()) {
+    if (SUCCEEDED(hr) && g_imgui_initialized.load()) {
     DXGI_SWAP_CHAIN_DESC desc = {};
     if (SUCCEEDED(swapchain->GetDesc(&desc))) {
-        GetOverlayState().swapchain_width = desc.BufferDesc.Width;
-        GetOverlayState().swapchain_height = desc.BufferDesc.Height;
+        GetOverlayState().swapchain_width.store(desc.BufferDesc.Width, std::memory_order_relaxed);
+        GetOverlayState().swapchain_height.store(desc.BufferDesc.Height, std::memory_order_relaxed);
+        UpdateMouseScaling();
     }
     ImGui_ImplDX11_CreateDeviceObjects();
     CreateRenderTargetView(swapchain);
@@ -261,8 +266,10 @@ bool InitializeDx11Hook() {
 
 void ShutdownDx11Hook() {
   if (g_imgui_initialized.load()) {
-    if (g_game_hwnd && GetOverlayState().original_wnd_proc) {
-      SetWindowLongPtrW(g_game_hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(GetOverlayState().original_wnd_proc));
+    HWND hwnd = GetOverlayState().game_hwnd.load(std::memory_order_acquire);
+    WNDPROC orig = GetOverlayState().original_wnd_proc.load(std::memory_order_acquire);
+    if (hwnd && orig) {
+      SetWindowLongPtrW(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(orig));
     }
     CleanupRenderTargetView();
     ImGui_ImplDX11_Shutdown();

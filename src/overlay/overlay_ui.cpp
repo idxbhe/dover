@@ -13,6 +13,7 @@
 #include "overlay/input_hook.h"
 #include "shared/storage.h"
 #include "shared/config.h"
+#include "shared/input_utils.h"
 
 #include <windows.h>
 #include <psapi.h>
@@ -152,7 +153,7 @@ void RenderImGuiUI() {
   }
 
   static bool s_last_show_overlay = false;
-  bool curr_show_overlay = GetOverlayState().show_overlay;
+  bool curr_show_overlay = GetOverlayState().show_overlay.load(std::memory_order_acquire);
   if (curr_show_overlay != s_last_show_overlay) {
     ImGuiIO& io = ImGui::GetIO();
     if (curr_show_overlay) {
@@ -175,7 +176,7 @@ void RenderImGuiUI() {
   }
 
   // 1. Draw Pinned Info Window (transparent corner overlay) - Hidden when interactive overlay is active
-  if (!GetOverlayState().show_overlay && (shared::GetAppConfig().show_fps || shared::GetAppConfig().show_clock || shared::GetAppConfig().show_api)) {
+  if (!curr_show_overlay && (shared::GetAppConfig().show_fps || shared::GetAppConfig().show_clock || shared::GetAppConfig().show_api)) {
     ImGui::SetNextWindowPos(ImVec2(12.0f, 10.0f), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
     ImGui::Begin("Info Window", nullptr,
@@ -198,14 +199,14 @@ void RenderImGuiUI() {
     }
     
     if (shared::GetAppConfig().show_api) {
-      ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", GetOverlayState().active_dx_version);
+      ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", GetOverlayState().active_dx_version.load(std::memory_order_acquire));
     }
     
     ImGui::End();
   }
 
   // 2. Draw Steam-style Interactive Navigation and floating windows if visible
-  if (GetOverlayState().show_overlay) {
+  if (curr_show_overlay) {
     // Dim the underlying game frame for premium presentation
     ImVec2 display_size = ImGui::GetIO().DisplaySize;
     ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, (int)(shared::GetAppConfig().overlay_bg_alpha * 255.0f)));

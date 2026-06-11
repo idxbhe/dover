@@ -13,6 +13,7 @@
 #include "shared/input/input_window.h"
 #include "shared/ipc.h"
 #include "shared/log.h"
+#include "shared/engine_quirks.h"
 
 #include <atomic>
 #include <windows.h>
@@ -27,6 +28,7 @@ std::atomic<bool> g_shutdown_requested{false};
 
 DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   dover::shared::InitializeLogging();
+  dover::shared::InitializeEngineQuirks();
   const DWORD pid = GetCurrentProcessId();
   if (!dover::shared::SignalOverlayReadyEvent(pid)) {
     dover::shared::LogError("Failed to signal overlay ready event.");
@@ -90,6 +92,7 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
     dover::shared::LogInfo("Overlay runtime entering wait loop.");
     while (!g_shutdown_requested.load(std::memory_order_acquire)) {
       PollGamepadToggle();
+      PollKeyboardToggle();
       Sleep(16); // 16ms poll for responsive Guide button toggle
       if (dover::shared::GameStorage::Get().IsConfigFlushReady()) {
         dover::shared::GameStorage::Get().FlushConfig();

@@ -203,6 +203,7 @@ add_library(dover_shared STATIC
   src/shared/input/input_window.cpp
   src/shared/renderer.cpp
   src/shared/input_utils.cpp
+  src/shared/engine_quirks.cpp
 )
 
 target_include_directories(dover_shared PUBLIC

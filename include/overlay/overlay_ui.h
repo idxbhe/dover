@@ -11,10 +11,13 @@ namespace dover::overlay {
 struct OverlayState {
     std::atomic<bool> show_overlay{false};
     std::atomic<bool> in_overlay_frame{false};
-    WNDPROC original_wnd_proc = nullptr;
-    const char* active_dx_version = "Unknown API";
-    uint32_t swapchain_width = 0;
-    uint32_t swapchain_height = 0;
+    std::atomic<WNDPROC> original_wnd_proc{nullptr};
+    std::atomic<HWND> game_hwnd{nullptr};
+    std::atomic<const char*> active_dx_version{"Unknown API"};
+    std::atomic<uint32_t> swapchain_width{0};
+    std::atomic<uint32_t> swapchain_height{0};
+    std::atomic<uint32_t> client_width{0};
+    std::atomic<uint32_t> client_height{0};
 };
 
 OverlayState& GetOverlayState();
