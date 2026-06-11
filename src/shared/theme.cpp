@@ -13,20 +13,17 @@ namespace dover::shared {
 
 ImFont* g_font_gui = nullptr;
 ImFont* g_font_panel = nullptr;
-ImFont* g_fonts_editor[5] = {};
-ImFont* g_fonts_preview[5] = {};
-ImFont* g_fonts_preview_bold[5] = {};
-ImFont* g_fonts_preview_italic[5] = {};
-ImFont* g_fonts_preview_bold_italic[5] = {};
-ImFont* g_fonts_preview_h1[5] = {};
-ImFont* g_fonts_preview_h2[5] = {};
-ImFont* g_fonts_preview_h3[5] = {};
-ImFont* g_fonts_preview_h4[5] = {};
-
-
+ImFont* g_font_editor = nullptr;
+ImFont* g_font_preview = nullptr;
+ImFont* g_font_preview_bold = nullptr;
+ImFont* g_font_preview_italic = nullptr;
+ImFont* g_font_preview_bold_italic = nullptr;
 
 void SetupImGuiTheme() {
   ImGuiIO& io = ImGui::GetIO();
+  ImFontAtlas* atlas = io.Fonts;
+  atlas->TexMinWidth = 1024;
+  atlas->TexMinHeight = 1024;
 
   // ── Step 4: Load fonts from DLL directory ───────────────────────────────
   HMODULE hMod = nullptr;
@@ -37,25 +34,24 @@ void SetupImGuiTheme() {
         std::wstring path_str = dll_path;
         size_t last_slash = path_str.find_last_of(L"\\/");
         if (last_slash != std::wstring::npos) {
-          std::wstring base_dir = path_str.substr(0, last_slash);
           
           ImFontConfig cfg;
           cfg.FontDataOwnedByAtlas = false;
           cfg.OversampleH = 1;
           cfg.OversampleV = 1;
           cfg.PixelSnapH = true;
-          cfg.FontBuilderFlags = ImGuiFreeTypeBuilderFlags_LightHinting;
+          cfg.FontLoaderFlags = ImGuiFreeTypeLoaderFlags_LightHinting;
 
           ImFontConfig cfg_bold = cfg;
-          cfg_bold.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_Bold;
+          cfg_bold.FontLoaderFlags |= ImGuiFreeTypeLoaderFlags_Bold;
 
           ImFontConfig cfg_italic = cfg;
-          cfg_italic.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_Oblique;
+          cfg_italic.FontLoaderFlags |= ImGuiFreeTypeLoaderFlags_Oblique;
 
           ImFontConfig cfg_bi = cfg;
-          cfg_bi.FontBuilderFlags |= ImGuiFreeTypeBuilderFlags_Bold | ImGuiFreeTypeBuilderFlags_Oblique;
+          cfg_bi.FontLoaderFlags |= ImGuiFreeTypeLoaderFlags_Bold | ImGuiFreeTypeLoaderFlags_Oblique;
           
-          // 1. GUI Font - Default (Enlarged)
+          // 1. GUI Font - Default (18.0f)
           g_font_gui = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, 18.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
           if (!g_font_gui) {
             g_font_gui = io.Fonts->AddFontDefault();
@@ -63,17 +59,17 @@ void SetupImGuiTheme() {
             static const ImWchar icon_ranges[] = { DI_ICON_MIN, DI_ICON_MAX, 0 };
             ImFontConfig icons_config;
             icons_config.FontDataOwnedByAtlas = false;
-            icons_config.MergeMode = true; // BUG FIX: Without this, icons render as '?' in the default font
+            icons_config.MergeMode = true;
             icons_config.PixelSnapH = true;
             icons_config.OversampleH = 3;
             icons_config.OversampleV = 2;
-            icons_config.GlyphMinAdvanceX = 19.5f; // Horizontal centering guarantee
+            icons_config.GlyphMinAdvanceX = 19.5f;
             icons_config.GlyphOffset.x = 0.0f;
-            icons_config.GlyphOffset.y = 1.0f; // Calibrated with TARGET_CENTER_Y = 370.0
+            icons_config.GlyphOffset.y = 1.0f;
             io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 19.5f, &icons_config, icon_ranges);
           }
 
-            // 1b. GUI Font - Panel (Crisp, native larger sizes)
+            // 1b. GUI Font - Panel (20.0f)
             g_font_panel = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, 20.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
             if (g_font_panel) {
             static const ImWchar icon_ranges[] = { DI_ICON_MIN, DI_ICON_MAX, 0 };
@@ -83,79 +79,41 @@ void SetupImGuiTheme() {
             icons_config.PixelSnapH = true;
             icons_config.OversampleH = 3;
             icons_config.OversampleV = 2;
-            icons_config.GlyphMinAdvanceX = 28.0f; // Horizontal centering guarantee for panel size
+            icons_config.GlyphMinAdvanceX = 28.0f;
             icons_config.GlyphOffset.x = 0.0f;
-            icons_config.GlyphOffset.y = 2.0f; // Calibrated for 28px
+            icons_config.GlyphOffset.y = 2.0f;
             io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 28.0f, &icons_config, icon_ranges);
             } else {
             g_font_panel = g_font_gui;
           }
           
-          // Full font set for both launcher and overlay contexts.
-          // Launcher previously loaded a minimal subset which caused notes read/edit
-          // mode to use identical fonts (g_font_gui fallback for everything).
-          {
-            // Define 5 sizes for editor and preview styles
-            float editor_sizes[5]  = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
-            float preview_sizes[5] = { 13.0f, 15.0f, 18.0f, 22.0f, 26.0f };
-            float h1_sizes[5], h2_sizes[5], h3_sizes[5], h4_sizes[5];
+          // Single Font Load (v1.92 Dynamic Fonts)
+          g_font_editor = io.Fonts->AddFontFromMemoryTTF((void*)g_font_mono_data, g_font_mono_data_size, 17.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_editor) g_font_editor = g_font_gui;
 
-            for (int i = 0; i < 5; ++i) {
-              h1_sizes[i] = preview_sizes[i] * 2.00f;
-              h2_sizes[i] = preview_sizes[i] * 1.65f;
-              h3_sizes[i] = preview_sizes[i] * 1.35f;
-              h4_sizes[i] = preview_sizes[i] * 1.15f;
-              // Editor Font (JetBrainsMono - Monospace for code/typing)
-              g_fonts_editor[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_mono_data, g_font_mono_data_size, editor_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
-              if (!g_fonts_editor[i]) g_fonts_editor[i] = g_font_gui;
+          g_font_preview = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, 18.0f, &cfg, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview) g_font_preview = g_font_gui;
 
-              // Preview Font (Mona Sans Regular)
-              g_fonts_preview[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg, io.Fonts->GetGlyphRangesDefault());
-              if (!g_fonts_preview[i]) g_fonts_preview[i] = g_font_gui;
+          g_font_preview_bold = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, 18.0f, &cfg_bold, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview_bold) g_font_preview_bold = g_font_preview;
 
-              // Preview Bold
-              g_fonts_preview_bold[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-              if (!g_fonts_preview_bold[i]) g_fonts_preview_bold[i] = g_fonts_preview[i];
+          g_font_preview_italic = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, 18.0f, &cfg_italic, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview_italic) g_font_preview_italic = g_font_preview;
 
-              // Preview Italic
-              g_fonts_preview_italic[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_italic, io.Fonts->GetGlyphRangesDefault());
-              if (!g_fonts_preview_italic[i]) g_fonts_preview_italic[i] = g_fonts_preview[i];
-
-              // Preview Bold Italic
-              g_fonts_preview_bold_italic[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, preview_sizes[i], &cfg_bi, io.Fonts->GetGlyphRangesDefault());
-              if (!g_fonts_preview_bold_italic[i]) g_fonts_preview_bold_italic[i] = g_fonts_preview[i];
-
-              // Headings
-              g_fonts_preview_h1[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h1_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-              if (!g_fonts_preview_h1[i]) g_fonts_preview_h1[i] = g_fonts_preview[i];
-
-              g_fonts_preview_h2[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h2_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-              if (!g_fonts_preview_h2[i]) g_fonts_preview_h2[i] = g_fonts_preview[i];
-
-              g_fonts_preview_h3[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h3_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-              if (!g_fonts_preview_h3[i]) g_fonts_preview_h3[i] = g_fonts_preview[i];
-
-              g_fonts_preview_h4[i] = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, h4_sizes[i], &cfg_bold, io.Fonts->GetGlyphRangesDefault());
-              if (!g_fonts_preview_h4[i]) g_fonts_preview_h4[i] = g_fonts_preview[i];
-            }
-          } // anonymous font scope
+          g_font_preview_bold_italic = io.Fonts->AddFontFromMemoryTTF((void*)g_font_notes_read_data, g_font_notes_read_data_size, 18.0f, &cfg_bi, io.Fonts->GetGlyphRangesDefault());
+          if (!g_font_preview_bold_italic) g_font_preview_bold_italic = g_font_preview;
+          
         } // if (last_slash != npos)
       } // if (GetModuleFileNameW)
     } // if (GetModuleHandleExW)
 
     if (!g_font_gui) {
       g_font_gui = io.Fonts->AddFontDefault();
-      for (int i = 0; i < 5; ++i) {
-        g_fonts_editor[i] = g_font_gui;
-        g_fonts_preview[i] = g_font_gui;
-        g_fonts_preview_bold[i] = g_font_gui;
-        g_fonts_preview_italic[i] = g_font_gui;
-        g_fonts_preview_bold_italic[i] = g_font_gui;
-        g_fonts_preview_h1[i] = g_font_gui;
-        g_fonts_preview_h2[i] = g_font_gui;
-        g_fonts_preview_h3[i] = g_font_gui;
-        g_fonts_preview_h4[i] = g_font_gui;
-      }
+      g_font_editor = g_font_gui;
+      g_font_preview = g_font_gui;
+      g_font_preview_bold = g_font_gui;
+      g_font_preview_italic = g_font_gui;
+      g_font_preview_bold_italic = g_font_gui;
     }
 
   ImGuiStyle& style = ImGui::GetStyle();

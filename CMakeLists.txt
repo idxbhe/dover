@@ -76,7 +76,7 @@ FetchContent_Populate(minhook)
 
 FetchContent_Declare(
   imgui
-  URL https://github.com/ocornut/imgui/archive/refs/tags/v1.90.6-docking.zip
+  URL https://github.com/ocornut/imgui/archive/refs/tags/v1.92.8-docking.zip
 )
 FetchContent_Populate(imgui)
 
@@ -156,7 +156,7 @@ target_include_directories(imgui PUBLIC
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
 )
-target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_FREETYPE)
+target_compile_definitions(imgui PUBLIC IMGUI_ENABLE_FREETYPE IMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 target_link_libraries(imgui PUBLIC freetype)
 
 if(MSVC)
@@ -174,9 +174,9 @@ endif()
 
 # imgui_md: Markdown renderer for Dear ImGui (backed by md4c)
 add_library(imgui_md_lib STATIC
-  ${imgui_md_SOURCE_DIR}/imgui_md.cpp
+  src/shared/imgui_md/imgui_md.cpp
 )
-target_include_directories(imgui_md_lib PUBLIC ${imgui_md_SOURCE_DIR})
+target_include_directories(imgui_md_lib PUBLIC src/shared/imgui_md)
 target_link_libraries(imgui_md_lib PUBLIC md4c imgui)
 if(MSVC)
   target_compile_options(imgui_md_lib PRIVATE /W0)
@@ -210,7 +210,7 @@ target_include_directories(dover_shared PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
-  ${imgui_md_SOURCE_DIR}
+  src/shared/imgui_md
   ${md4c_SOURCE_DIR}/src
 )
 

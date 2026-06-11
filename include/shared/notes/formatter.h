@@ -25,7 +25,7 @@ struct FormatterState {
 FormatterState& GetFormatterState();
 
 // Helper to set the global editor state for wrapping inside the callback
-void SetFormatterContext(float wrap_width, ImFont* editor_font);
+void SetFormatterContext(float wrap_width, ImFont* editor_font, float font_size);
 
 // Removed ApplyToolbarFormat
 
@@ -33,6 +33,6 @@ void SetFormatterContext(float wrap_width, ImFont* editor_font);
 int FormatCallback(ImGuiInputTextCallbackData* data);
 
 // Directly wraps the global buffer when the editor is NOT focused
-void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, ImFont* font);
+void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, ImFont* font, float font_size);
 
 } // namespace dover::shared::notes

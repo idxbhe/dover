@@ -79,7 +79,7 @@ void InputWindow::RenderContent(bool interactive) {
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
 
-    bool content_ok = ImGui::BeginChild("InputContent", ImVec2(win_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
+    bool content_ok = ImGui::BeginChild("InputContent", ImVec2(win_w, win_h), ImGuiChildFlags_AlwaysUseWindowPadding, 0);
 
     if (content_ok) {
         ImGui::SetCursorPosY(10.0f);
@@ -94,7 +94,7 @@ void InputWindow::RenderContent(bool interactive) {
 
         // Draw the icon in the panel font (which has icons merged)
         if (dover::shared::g_font_panel) {
-            ImGui::PushFont(dover::shared::g_font_panel);
+            ImGui::PushFont(dover::shared::g_font_panel, 20.0f);
         }
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
         ImGui::Text("%s", ICON_PANEL_INPUTMAP);
@@ -106,24 +106,20 @@ void InputWindow::RenderContent(bool interactive) {
         ImGui::SameLine(0.0f, 6.0f);
 
         // Draw the title text in the preview bold font
-        if (dover::shared::g_fonts_preview_bold[3]) {
-            ImGui::PushFont(dover::shared::g_fonts_preview_bold[3]);
-        }
+        ImGui::PushFont(dover::shared::g_font_preview_bold, 22.0f);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
         ImGui::Text("Controller");
         ImGui::PopStyleColor();
-        if (dover::shared::g_fonts_preview_bold[3]) {
-            ImGui::PopFont();
-        }
+        ImGui::PopFont();
 
         ImGui::Dummy(ImVec2(0.0f, 4.0f));
 
         ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 2.0f);
         ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
         ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(0.290f, 0.380f, 0.520f, 0.15f));
-        ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(0.227f, 0.267f, 0.329f, 0.70f));
-        ImGui::PushStyleColor(ImGuiCol_TabUnfocused, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImVec4(0.227f, 0.267f, 0.329f, 0.70f));
+        ImGui::PushStyleColor(ImGuiCol_TabSelected, ImVec4(0.227f, 0.267f, 0.329f, 0.70f));
+        ImGui::PushStyleColor(ImGuiCol_TabDimmed, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+        ImGui::PushStyleColor(ImGuiCol_TabDimmedSelected, ImVec4(0.227f, 0.267f, 0.329f, 0.70f));
 
         if (ImGui::BeginTabBar("InputTabs")) {
             if (ImGui::BeginTabItem("Remapper")) {
@@ -301,7 +297,7 @@ void InputWindow::RenderRemapper(bool interactive) {
             
             ImGui::PopStyleColor(4);
             
-            ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2.0f);
+            ImGui::Dummy(ImVec2(0.0f, 2.0f));
             
             ImGui::PopID();
         }
@@ -445,7 +441,7 @@ void InputWindow::RenderVisualizer() {
     const char* toggle_icon = cfg.show_gamepad_hud ? ICON_TOGGLE_ON : ICON_TOGGLE_OFF;
     ImVec4 icon_color = cfg.show_gamepad_hud ? ImVec4(0.118f, 0.478f, 0.812f, 1.00f) : ImVec4(0.40f, 0.42f, 0.48f, 0.80f);
     
-    ImGui::PushFont(icon_font);
+    ImGui::PushFont(icon_font, icon_font->LegacySize);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0,0,0,0));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0,0,0,0));
@@ -455,7 +451,7 @@ void InputWindow::RenderVisualizer() {
     ImGui::SetCursorPos(toggle_cursor_pos);
     
     ImVec2 cursor_screen = ImGui::GetCursorScreenPos();
-    ImVec2 icon_size = icon_font->CalcTextSizeA(icon_font->FontSize, FLT_MAX, 0.0f, toggle_icon);
+    ImVec2 icon_size = icon_font->CalcTextSizeA(icon_font->LegacySize, FLT_MAX, 0.0f, toggle_icon);
     
     bool clicked = ImGui::Button("##hud_toggle", ImVec2(icon_size.x + 8.0f, icon_size.y));
     bool hovered = ImGui::IsItemHovered();
@@ -464,7 +460,7 @@ void InputWindow::RenderVisualizer() {
         icon_color = cfg.show_gamepad_hud ? ImVec4(0.200f, 0.569f, 0.902f, 1.00f) : ImVec4(0.60f, 0.62f, 0.68f, 1.00f);
     }
     
-    ImGui::GetWindowDrawList()->AddText(icon_font, icon_font->FontSize, 
+    ImGui::GetWindowDrawList()->AddText(icon_font, icon_font->LegacySize, 
         ImVec2(cursor_screen.x + 4.0f, cursor_screen.y + 2.0f), 
         ImGui::GetColorU32(icon_color), toggle_icon);
         
@@ -612,7 +608,7 @@ void InputWindow::RenderVisualizer() {
     constexpr ImU32 COLOR_IDLE    = IM_COL32(180, 185, 195, 255); // Silver/Gray idle buttons
     constexpr ImU32 COLOR_PRESSED = IM_COL32(50, 150, 255, 255); // Proven Neon Blue
     
-    ImGui::GetWindowDrawList()->AddImage(chassis_asset->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
+    ImGui::GetWindowDrawList()->AddImage((ImTextureID)chassis_asset->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
     
     shared::g_visualizer_xinput = true;
     XINPUT_STATE state = {};
@@ -659,7 +655,7 @@ void InputWindow::RenderVisualizer() {
             ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(btn_x + btn_w/2, btn_y + btn_h/2), btn_w * 0.6f, (tint & 0x00FFFFFF) | 0x40000000, 24);
         }
         
-        ImGui::GetWindowDrawList()->AddImage(btn.tex_id, ImVec2(btn_x, btn_y), ImVec2(btn_x + btn_w, btn_y + btn_h), ImVec2(0,0), ImVec2(1,1), tint);
+        ImGui::GetWindowDrawList()->AddImage((ImTextureID)btn.tex_id, ImVec2(btn_x, btn_y), ImVec2(btn_x + btn_w, btn_y + btn_h), ImVec2(0,0), ImVec2(1,1), tint);
     }
     
     // Reserve space for layout
@@ -728,7 +724,7 @@ void InputWindow::RenderGamepadOverlay() {
     constexpr ImU32 COLOR_IDLE    = IM_COL32(180, 185, 195, 200); // Slightly more transparent for HUD
     constexpr ImU32 COLOR_PRESSED = IM_COL32(50, 150, 255, 255);
 
-    dl->AddImage(chassis->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
+    dl->AddImage((ImTextureID)chassis->texture_id, pos, ImVec2(pos.x + render_w, pos.y + render_h), ImVec2(0,0), ImVec2(1,1), COLOR_CHASSIS);
 
     WORD b = state.Gamepad.wButtons;
     for (int i = 0; i < m_visualizer_button_count; ++i) {
@@ -750,7 +746,7 @@ void InputWindow::RenderGamepadOverlay() {
         
         ImU32 tint = pressed ? COLOR_PRESSED : COLOR_IDLE;
         if (pressed) dl->AddCircleFilled(ImVec2(btn_x + btn_w/2, btn_y + btn_h/2), btn_w * 0.6f, (tint & 0x00FFFFFF) | 0x40000000, 24);
-        dl->AddImage(btn.tex_id, ImVec2(btn_x, btn_y), ImVec2(btn_x + btn_w, btn_y + btn_h), ImVec2(0,0), ImVec2(1,1), tint);
+        dl->AddImage((ImTextureID)btn.tex_id, ImVec2(btn_x, btn_y), ImVec2(btn_x + btn_w, btn_y + btn_h), ImVec2(0,0), ImVec2(1,1), tint);
     }
 }
 

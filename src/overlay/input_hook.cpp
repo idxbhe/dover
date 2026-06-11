@@ -874,21 +874,32 @@ LRESULT CALLBACK HookedWndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam
         }
     }
     
-    if (IsInputBlocked()) {
-        // Track keys and mouse buttons that might get stuck
-        if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN || msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_XBUTTONDOWN) {
-            int vk = 0;
-            if (msg == WM_LBUTTONDOWN) vk = VK_LBUTTON;
-            else if (msg == WM_RBUTTONDOWN) vk = VK_RBUTTON;
-            else if (msg == WM_MBUTTONDOWN) vk = VK_MBUTTON;
-            else if (msg == WM_XBUTTONDOWN) vk = (GET_XBUTTON_WPARAM(wparam) == XBUTTON1) ? VK_XBUTTON1 : VK_XBUTTON2;
-            else vk = static_cast<int>(wparam);
+    // Track all keys and mouse buttons to prevent sticky states during overlay transitions
+    if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN || msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN || msg == WM_XBUTTONDOWN) {
+        int vk = 0;
+        if (msg == WM_LBUTTONDOWN) vk = VK_LBUTTON;
+        else if (msg == WM_RBUTTONDOWN) vk = VK_RBUTTON;
+        else if (msg == WM_MBUTTONDOWN) vk = VK_MBUTTON;
+        else if (msg == WM_XBUTTONDOWN) vk = (GET_XBUTTON_WPARAM(wparam) == XBUTTON1) ? VK_XBUTTON1 : VK_XBUTTON2;
+        else vk = static_cast<int>(wparam);
 
-            if (vk > 0 && vk < 256) {
-                g_active_keys_mask[vk >> 6].fetch_or(1ULL << (vk & 63), std::memory_order_relaxed);
-            }
+        if (vk > 0 && vk < 256) {
+            g_active_keys_mask[vk >> 6].fetch_or(1ULL << (vk & 63), std::memory_order_relaxed);
         }
+    } else if (msg == WM_KEYUP || msg == WM_SYSKEYUP || msg == WM_LBUTTONUP || msg == WM_RBUTTONUP || msg == WM_MBUTTONUP || msg == WM_XBUTTONUP) {
+        int vk = 0;
+        if (msg == WM_LBUTTONUP) vk = VK_LBUTTON;
+        else if (msg == WM_RBUTTONUP) vk = VK_RBUTTON;
+        else if (msg == WM_MBUTTONUP) vk = VK_MBUTTON;
+        else if (msg == WM_XBUTTONUP) vk = (GET_XBUTTON_WPARAM(wparam) == XBUTTON1) ? VK_XBUTTON1 : VK_XBUTTON2;
+        else vk = static_cast<int>(wparam);
 
+        if (vk > 0 && vk < 256) {
+            g_active_keys_mask[vk >> 6].fetch_and(~(1ULL << (vk & 63)), std::memory_order_relaxed);
+        }
+    }
+
+    if (IsInputBlocked()) {
         if (show_overlay) {
             // WM_SETCURSOR handled above
             
@@ -1122,7 +1133,7 @@ void ShutdownInputHooks() {
 constexpr size_t kMaxClipboardSize = 256 * 1024;
 static char g_clipboard_buffer[kMaxClipboardSize];
 
-static const char* HookedGetClipboardText(void*) {
+static const char* HookedGetClipboardText(ImGuiContext*) {
     g_clipboard_buffer[0] = '\0';
     if (!OpenClipboard(nullptr)) return nullptr;
     
@@ -1143,7 +1154,7 @@ static const char* HookedGetClipboardText(void*) {
     return g_clipboard_buffer[0] == '\0' ? nullptr : g_clipboard_buffer;
 }
 
-static void HookedSetClipboardText(void*, const char* text) {
+static void HookedSetClipboardText(ImGuiContext*, const char* text) {
     if (!text || text[0] == '\0') return;
     if (!OpenClipboard(nullptr)) return;
     
@@ -1166,9 +1177,9 @@ static void HookedSetClipboardText(void*, const char* text) {
 }
 
 void OverrideImGuiClipboardFunctions() {
-    ImGuiIO& io = ImGui::GetIO();
-    io.SetClipboardTextFn = HookedSetClipboardText;
-    io.GetClipboardTextFn = HookedGetClipboardText;
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    platform_io.Platform_SetClipboardTextFn = HookedSetClipboardText;
+    platform_io.Platform_GetClipboardTextFn = HookedGetClipboardText;
 }
 
 } // namespace dover::overlay

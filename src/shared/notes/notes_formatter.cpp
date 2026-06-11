@@ -9,15 +9,17 @@ namespace {
   FormatterState g_formatter_state;
   float g_wrap_width = 400.0f;
   ImFont* g_editor_font = nullptr;
+  float g_font_size = 17.0f;
 }
 
 FormatterState& GetFormatterState() {
   return g_formatter_state;
 }
 
-void SetFormatterContext(float wrap_width, ImFont* editor_font) {
+void SetFormatterContext(float wrap_width, ImFont* editor_font, float font_size) {
   g_wrap_width = wrap_width;
   g_editor_font = editor_font;
+  g_font_size = font_size;
 }
 
 static void WrapSelection(ImGuiInputTextCallbackData* data,
@@ -202,7 +204,7 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
       last_space_c_idx = i;
     }
 
-    float char_width = g_editor_font->CalcTextSizeA(g_editor_font->FontSize, FLT_MAX, 0.0f,
+    float char_width = g_editor_font->CalcTextSizeA(g_font_size, FLT_MAX, 0.0f,
                                                &s_clean_str[i],
                                                &s_clean_str[i] + 1).x;
     current_line_width += char_width;
@@ -553,7 +555,7 @@ int FormatCallback(ImGuiInputTextCallbackData* data) {
 
 // Removed ApplyToolbarFormat
 
-void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, ImFont* font) {
+void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, ImFont* font, float font_size) {
   if (strlen(edit_buffer) == 0 || !font) return;
 
   constexpr int MAX_LEN = 131072;
@@ -601,7 +603,7 @@ void WrapGlobalBuffer(char* edit_buffer, size_t buffer_size, float wrap_width, I
       last_space_c_idx = i;
     }
 
-    float char_width = font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f,
+    float char_width = font->CalcTextSizeA(font_size, FLT_MAX, 0.0f,
                                       &s_clean_str[i],
                                       &s_clean_str[i] + 1).x;
     current_line_width += char_width;

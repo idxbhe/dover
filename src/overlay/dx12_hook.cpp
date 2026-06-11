@@ -222,10 +222,24 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
 
             ImGui_ImplWin32_Init(hwnd);
             
-            D3D12_CPU_DESCRIPTOR_HANDLE font_cpu = g_srv_heap->GetCPUDescriptorHandleForHeapStart();
-            D3D12_GPU_DESCRIPTOR_HANDLE font_gpu = g_srv_heap->GetGPUDescriptorHandleForHeapStart();
-            
-            ImGui_ImplDX12_Init(g_device, g_buffer_count, DXGI_FORMAT_R8G8B8A8_UNORM, g_srv_heap, font_cpu, font_gpu);
+            ImGui_ImplDX12_InitInfo init_info = {};
+            init_info.Device = g_device;
+            init_info.CommandQueue = g_command_queue;
+            init_info.NumFramesInFlight = g_buffer_count;
+            init_info.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+            init_info.SrvDescriptorHeap = g_srv_heap;
+            init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu_handle) {
+                int index = 0; // Index 0 is reserved for ImGui Font in Dover
+                D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle = g_srv_heap->GetCPUDescriptorHandleForHeapStart();
+                D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle = g_srv_heap->GetGPUDescriptorHandleForHeapStart();
+                cpu_handle.ptr += (SIZE_T)index * g_srv_descriptor_size;
+                gpu_handle.ptr += (UINT64)index * g_srv_descriptor_size;
+                *out_cpu_handle = cpu_handle;
+                *out_gpu_handle = gpu_handle;
+            };
+            init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE) {};
+
+            ImGui_ImplDX12_Init(&init_info);
 
             WNDPROC old_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
                 hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));

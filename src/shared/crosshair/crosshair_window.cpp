@@ -70,7 +70,7 @@ namespace {
         }
 
         ImFont* icon_font = dover::shared::g_font_panel ? dover::shared::g_font_panel : dover::shared::g_font_gui;
-        float icon_font_size = icon_font ? icon_font->FontSize : 18.0f; 
+        float icon_font_size = icon_font ? icon_font->LegacySize : 18.0f; 
         
         if (icon_font) {
             ImVec2 icon_size = icon_font->CalcTextSizeA(icon_font_size, FLT_MAX, 0.0f, icon);
@@ -229,19 +229,19 @@ void CrosshairWindow::RenderCrosshairOverlay() {
         final_outline.w *= m_opacity;
         ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(final_outline);
         // Shadow Stamping (The Carmack Way): 4 directional draw calls
-        draw_list->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y), ImVec2(p_max.x - 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-        draw_list->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y), ImVec2(p_max.x + 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-        draw_list->AddImage(tex_id, ImVec2(p_min.x, p_min.y - 1), ImVec2(p_max.x, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-        draw_list->AddImage(tex_id, ImVec2(p_min.x, p_min.y + 1), ImVec2(p_max.x, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+        draw_list->AddImage((ImTextureID)tex_id, ImVec2(p_min.x - 1, p_min.y), ImVec2(p_max.x - 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+        draw_list->AddImage((ImTextureID)tex_id, ImVec2(p_min.x + 1, p_min.y), ImVec2(p_max.x + 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+        draw_list->AddImage((ImTextureID)tex_id, ImVec2(p_min.x, p_min.y - 1), ImVec2(p_max.x, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+        draw_list->AddImage((ImTextureID)tex_id, ImVec2(p_min.x, p_min.y + 1), ImVec2(p_max.x, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
         // Diagonal stamps for thicker look
-        draw_list->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y - 1), ImVec2(p_max.x - 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-        draw_list->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y + 1), ImVec2(p_max.x + 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-        draw_list->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y + 1), ImVec2(p_max.x - 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-        draw_list->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y - 1), ImVec2(p_max.x + 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-    }
+        draw_list->AddImage((ImTextureID)tex_id, ImVec2(p_min.x - 1, p_min.y - 1), ImVec2(p_max.x - 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+        draw_list->AddImage((ImTextureID)tex_id, ImVec2(p_min.x + 1, p_min.y + 1), ImVec2(p_max.x + 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+        draw_list->AddImage((ImTextureID)tex_id, ImVec2(p_min.x - 1, p_min.y + 1), ImVec2(p_max.x - 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+        draw_list->AddImage((ImTextureID)tex_id, ImVec2(p_min.x + 1, p_min.y - 1), ImVec2(p_max.x + 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+        }
 
-    // Main Draw Call
-    draw_list->AddImage(tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), final_color_u32);
+        // Main Draw Call
+        draw_list->AddImage((ImTextureID)tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), final_color_u32);
 }
 
 void CrosshairWindow::RenderContent(bool interactive) {
@@ -314,17 +314,17 @@ void CrosshairWindow::RenderContent(bool interactive) {
                 ImVec4 final_outline = m_outline_color;
                 final_outline.w *= m_opacity;
                 ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(final_outline);
-                box_dl->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y), ImVec2(p_max.x - 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                box_dl->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y), ImVec2(p_max.x + 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                box_dl->AddImage(tex_id, ImVec2(p_min.x, p_min.y - 1), ImVec2(p_max.x, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                box_dl->AddImage(tex_id, ImVec2(p_min.x, p_min.y + 1), ImVec2(p_max.x, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                box_dl->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y - 1), ImVec2(p_max.x - 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                box_dl->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y + 1), ImVec2(p_max.x + 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                box_dl->AddImage(tex_id, ImVec2(p_min.x - 1, p_min.y + 1), ImVec2(p_max.x - 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
-                box_dl->AddImage(tex_id, ImVec2(p_min.x + 1, p_min.y - 1), ImVec2(p_max.x + 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage((ImTextureID)tex_id, ImVec2(p_min.x - 1, p_min.y), ImVec2(p_max.x - 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage((ImTextureID)tex_id, ImVec2(p_min.x + 1, p_min.y), ImVec2(p_max.x + 1, p_max.y), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage((ImTextureID)tex_id, ImVec2(p_min.x, p_min.y - 1), ImVec2(p_max.x, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage((ImTextureID)tex_id, ImVec2(p_min.x, p_min.y + 1), ImVec2(p_max.x, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage((ImTextureID)tex_id, ImVec2(p_min.x - 1, p_min.y - 1), ImVec2(p_max.x - 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage((ImTextureID)tex_id, ImVec2(p_min.x + 1, p_min.y + 1), ImVec2(p_max.x + 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage((ImTextureID)tex_id, ImVec2(p_min.x - 1, p_min.y + 1), ImVec2(p_max.x - 1, p_max.y + 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
+                box_dl->AddImage((ImTextureID)tex_id, ImVec2(p_min.x + 1, p_min.y - 1), ImVec2(p_max.x + 1, p_max.y - 1), ImVec2(0, 0), ImVec2(1, 1), outline_col);
             }
                 
-            box_dl->AddImage(tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), final_color_u32);
+            box_dl->AddImage((ImTextureID)tex_id, p_min, p_max, ImVec2(0, 0), ImVec2(1, 1), final_color_u32);
         }
     }
     ImGui::EndChild();
@@ -385,7 +385,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
         
         void* tex_id = asset->texture_id;
         if (tex_id) {
-            if (ImGui::ImageButton("##ch", tex_id, ImVec2(48, 48), ImVec2(0, 0), ImVec2(1, 1), ImVec4(0,0,0,0), m_color)) {
+            if (ImGui::ImageButton("##ch", (ImTextureID)tex_id, ImVec2(48, 48), ImVec2(0, 0), ImVec2(1, 1), ImVec4(0,0,0,0), m_color)) {
                 m_selected_index = i;
             }
             if (ImGui::IsItemHovered()) {
@@ -438,7 +438,7 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImU32 monitor_bg = is_preview_hovered ? IM_COL32(14, 16, 22, 255) : IM_COL32(10, 12, 16, 255);
     ImU32 monitor_border = is_preview_hovered ? IM_COL32(56, 120, 220, 200) : IM_COL32(45, 55, 75, 120);
     dl->AddRectFilled(min_p, max_p, monitor_bg, 2.0f);
-    dl->AddRect(min_p, max_p, monitor_border, 2.0f, 0, 1.0f);
+    dl->AddRect(min_p, max_p, monitor_border, 2.0f, 1.0f, 0);
     
     // Tactical Screen and Coordinates Specs
     char monitor_label[64];
@@ -482,12 +482,12 @@ void CrosshairWindow::RenderContent(bool interactive) {
                 ImVec4 final_outline = m_outline_color;
                 final_outline.w *= m_opacity;
                 ImU32 outline_col = ImGui::ColorConvertFloat4ToU32(final_outline);
-                dl->AddImage(tex_id, ImVec2(ch_min.x-1, ch_min.y), ImVec2(ch_max.x-1, ch_max.y), ImVec2(0,0), ImVec2(1,1), outline_col);
-                dl->AddImage(tex_id, ImVec2(ch_min.x+1, ch_min.y), ImVec2(ch_max.x+1, ch_max.y), ImVec2(0,0), ImVec2(1,1), outline_col);
-                dl->AddImage(tex_id, ImVec2(ch_min.x, ch_min.y-1), ImVec2(ch_max.x, ch_max.y-1), ImVec2(0,0), ImVec2(1,1), outline_col);
-                dl->AddImage(tex_id, ImVec2(ch_min.x, ch_min.y+1), ImVec2(ch_max.x, ch_max.y+1), ImVec2(0,0), ImVec2(1,1), outline_col);
+                dl->AddImage((ImTextureID)tex_id, ImVec2(ch_min.x-1, ch_min.y), ImVec2(ch_max.x-1, ch_max.y), ImVec2(0,0), ImVec2(1,1), outline_col);
+                dl->AddImage((ImTextureID)tex_id, ImVec2(ch_min.x+1, ch_min.y), ImVec2(ch_max.x+1, ch_max.y), ImVec2(0,0), ImVec2(1,1), outline_col);
+                dl->AddImage((ImTextureID)tex_id, ImVec2(ch_min.x, ch_min.y-1), ImVec2(ch_max.x, ch_max.y-1), ImVec2(0,0), ImVec2(1,1), outline_col);
+                dl->AddImage((ImTextureID)tex_id, ImVec2(ch_min.x, ch_min.y+1), ImVec2(ch_max.x, ch_max.y+1), ImVec2(0,0), ImVec2(1,1), outline_col);
             }
-            dl->AddImage(tex_id, ch_min, ch_max, ImVec2(0,0), ImVec2(1,1), final_color_u32);
+            dl->AddImage((ImTextureID)tex_id, ch_min, ch_max, ImVec2(0,0), ImVec2(1,1), final_color_u32);
         }
     }
     ImGui::Spacing();
@@ -543,15 +543,11 @@ void CrosshairWindow::RenderContent(bool interactive) {
     ImGui::Spacing();
     ImGui::Spacing();
 
-    if (dover::shared::g_fonts_preview_bold[3]) {
-        ImGui::PushFont(dover::shared::g_fonts_preview_bold[3]);
-    }
+    ImGui::PushFont(dover::shared::g_font_preview_bold, 22.0f);
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
     ImGui::Text("CONFIGURATION");
     ImGui::PopStyleColor();
-    if (dover::shared::g_fonts_preview_bold[3]) {
-        ImGui::PopFont();
-    }
+    ImGui::PopFont();
     ImGui::Separator();
     ImGui::Spacing();
 
@@ -670,7 +666,8 @@ void CrosshairWindow::RenderContent(bool interactive) {
         float val_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
         ImGui::GetWindowDrawList()->AddText(ImVec2(val_x, val_y), ImGui::GetColorU32(ImGuiCol_TextDisabled), val_buf);
         
-        ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height + ImGui::GetStyle().ItemSpacing.y));
+        ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height));
+        ImGui::Dummy(ImVec2(0.0f, 0.0f));
         
         if (changed) {
             dover::shared::GameStorage::Get().SaveState();
@@ -751,7 +748,8 @@ void CrosshairWindow::RenderContent(bool interactive) {
         float val_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
         ImGui::GetWindowDrawList()->AddText(ImVec2(val_x, val_y), ImGui::GetColorU32(ImGuiCol_TextDisabled), val_buf);
         
-        ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height + ImGui::GetStyle().ItemSpacing.y));
+        ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height));
+        ImGui::Dummy(ImVec2(0.0f, 0.0f));
         
         if (changed) {
             dover::shared::GameStorage::Get().SaveState();

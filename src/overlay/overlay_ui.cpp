@@ -115,14 +115,14 @@ static void RenderNavButton(
       ImGui::GetWindowDrawList()->AddRectFilledMultiColor(pos, p_max, col_tl, col_tr, col_br, col_bl);
 
       // Draw premium rounded border over the box to round off the sharp corners
-      ImGui::GetWindowDrawList()->AddRect(pos, p_max, ImGui::ColorConvertFloat4ToU32(border_color), 4.0f, ImDrawFlags_None, 1.0f);
+      ImGui::GetWindowDrawList()->AddRect(pos, p_max, ImGui::ColorConvertFloat4ToU32(border_color), 4.0f, 1.0f, ImDrawFlags_None);
 
       // Draw 3D double shadow behind the text glyph
-      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->FontSize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), icon);
-      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->FontSize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), icon);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->LegacySize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), icon);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->LegacySize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), icon);
 
       // Draw the crisp main icon text inside the gradient box
-      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->FontSize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), icon);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->LegacySize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), icon);
 
       // Draw active indicator (Long line if focused, small dot if open but not focused)
       if (state.is_open) {
@@ -264,10 +264,10 @@ void RenderImGuiUI() {
       ImGui::GetWindowDrawList()->PathLineTo(ImVec2(min_p.x, min_p.y + bar_height));
       ImGui::GetWindowDrawList()->PathLineTo(ImVec2(min_p.x + rect_w, min_p.y + bar_height));
       ImGui::GetWindowDrawList()->PathLineTo(ImVec2(min_p.x + rect_w + slant_w, min_p.y));
-      ImGui::GetWindowDrawList()->PathStroke(border_dark, false, 1.0f);
+      ImGui::GetWindowDrawList()->PathStroke(border_dark, 1.0f, 0);
     }
 
-    ImGui::PushFont(dover::shared::g_font_panel);
+    ImGui::PushFont(dover::shared::g_font_panel, 20.0f);
 
     const float icon_btn_width = 34.0f;
     const float button_group_width = (icon_btn_width * 4.0f) + (button_spacing * 3.0f); // Group of 4 icon buttons
@@ -413,7 +413,7 @@ void RenderImGuiUI() {
       ImU32 border_color = ImGui::ColorConvertFloat4ToU32(
           hovered ? ImVec4(0.55f, 0.20f, 0.20f, 0.70f) : ImVec4(0.18f, 0.20f, 0.25f, 0.40f)
       );
-      ImGui::GetWindowDrawList()->AddRect(p_min, p_max, border_color, 4.0f, ImDrawFlags_None, 1.0f);
+      ImGui::GetWindowDrawList()->AddRect(p_min, p_max, border_color, 4.0f, 1.0f, ImDrawFlags_None);
 
       // Pixel-perfect manual rendering of the close icon
       ImVec2 glyph_size = ImGui::CalcTextSize(ICON_WINDOW_CLOSE);

@@ -167,10 +167,7 @@ static bool ToggleCheckbox(const char* label, bool* value_ptr) {
     // Passing its native 20.0f size ensures 1:1 pixel mapping, rendering the icon exactly at its crisp 28.0f rasterized resolution.
 
     ImFont* icon_font = dover::shared::g_font_panel ? dover::shared::g_font_panel : dover::shared::g_font_gui;
-
-    float icon_font_size = icon_font->FontSize; 
-
-    
+    float icon_font_size = icon_font->LegacySize; 
 
     ImVec2 icon_size = icon_font->CalcTextSizeA(icon_font_size, FLT_MAX, 0.0f, icon);
 
@@ -201,31 +198,14 @@ static bool ToggleCheckbox(const char* label, bool* value_ptr) {
 
 
 static void RenderSettingsHeader(const char* title) {
-
-    if (dover::shared::g_fonts_preview_bold[3]) {
-
-        ImGui::PushFont(dover::shared::g_fonts_preview_bold[3]);
-
-    }
-
+    ImGui::PushFont(dover::shared::g_font_preview_bold, 22.0f);
     // Sleek and modern Steam Slate Blue / Obsidian light-blue accent (#8fafd6)
-
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
-
-    
 
     ImGui::Text("%s", title);
 
-    
-
     ImGui::PopStyleColor();
-
-    if (dover::shared::g_fonts_preview_bold[3]) {
-
-        ImGui::PopFont();
-
-    }
-
+    ImGui::PopFont();
 }
 
 } // namespace
@@ -392,7 +372,7 @@ void SettingsWindow::RenderContent(bool interactive) {
 
         
 
-        if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui);
+        if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
 
         ImGui::GetWindowDrawList()->AddText(ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), label_buf);
 
@@ -471,7 +451,7 @@ void SettingsWindow::RenderContent(bool interactive) {
 
     
 
-    bool content_ok = ImGui::BeginChild("SettingsContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
+    bool content_ok = ImGui::BeginChild("SettingsContent", ImVec2(cont_w, win_h), ImGuiChildFlags_AlwaysUseWindowPadding, 0);
 
     
 
@@ -696,7 +676,10 @@ void SettingsWindow::RenderContent(bool interactive) {
                     float pct_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
                     ImGui::GetWindowDrawList()->AddText(ImVec2(pct_x, pct_y), ImGui::GetColorU32(ImGuiCol_TextDisabled), pct_buf);
                     
-                    ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height + ImGui::GetStyle().ItemSpacing.y));
+                    // Return cursor to the bottom of the reserved area.
+                    // We don't add spacing manually here; ImGui will add it after the Dummy(0,0) or naturally.
+                    ImGui::SetCursorScreenPos(ImVec2(pos.x, pos.y + height));
+                    ImGui::Dummy(ImVec2(0.0f, 0.0f));
                     
                     if (changed) {
                         onChangeCallback();

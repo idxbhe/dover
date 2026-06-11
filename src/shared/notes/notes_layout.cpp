@@ -522,9 +522,9 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
         }
       }
       
-      ImGui::PushFont(dover::shared::g_fonts_preview_bold[2]);
+      ImGui::PushFont(dover::shared::g_font_preview_bold, 18.0f);
       float text_y = pos.y + (32.0f - ImGui::GetFontSize()) * 0.5f;
-      ImGui::GetWindowDrawList()->AddText(dover::shared::g_fonts_preview_bold[2], dover::shared::g_fonts_preview_bold[2]->FontSize, ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), title_buf);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_preview_bold, 18.0f, ImVec2(pos.x + 16.0f, text_y), ImGui::GetColorU32(ImGuiCol_Text), title_buf);
       ImGui::PopFont();
 
       if (selected_now && !is_sel) {
@@ -575,7 +575,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
     draw_list->AddCircle(btn_center, btn_size * 0.5f, ImGui::ColorConvertFloat4ToU32(border_color), 32, 1.0f);
 
     // Draw Sort Icon with custom visual centering offset (+1.0f x, -1.0f y)
-    ImGui::PushFont(dover::shared::g_font_gui);
+    ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
     ImVec2 icon_size = ImGui::CalcTextSize(ICON_SORT);
     ImVec2 icon_pos = ImVec2(btn_center.x - icon_size.x * 0.5f + 1.0f, btn_center.y - icon_size.y * 0.5f - 1.0f);
     draw_list->AddText(icon_pos, ImGui::ColorConvertFloat4ToU32(ImVec4(0.90f, 0.92f, 0.96f, 1.00f)), ICON_SORT);
@@ -612,7 +612,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
                 ImVec2 item_max = ImGui::GetItemRectMax();
                 float item_h = item_max.y - item_min.y;
                 
-                ImGui::PushFont(dover::shared::g_font_gui);
+                ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
                 ImVec2 icon_size = ImGui::CalcTextSize(icon);
                 // Perfect far-right alignment with 12px padding
                 ImVec2 icon_pos = ImVec2(item_max.x - icon_size.x - 12.0f, item_min.y + (item_h - icon_size.y) * 0.5f);
@@ -654,13 +654,16 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
     window->m_editor_wrap_width = avail_w - 48.0f;
     if (window->m_editor_wrap_width < 100.0f) window->m_editor_wrap_width = 100.0f;
 
+    static constexpr float editor_sizes[5] = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
+    float font_size = editor_sizes[std::clamp(window->m_zoom_idx.load(), 0, 4)];
+
     static float s_last_wrap_width = 0.0f;
     if (window->m_editor_wrap_width != s_last_wrap_width) {
-        WrapGlobalBuffer(window->m_edit_buffer, sizeof(window->m_edit_buffer), window->m_editor_wrap_width, dover::shared::g_fonts_editor[window->m_zoom_idx]);
+        WrapGlobalBuffer(window->m_edit_buffer, sizeof(window->m_edit_buffer), window->m_editor_wrap_width, dover::shared::g_font_editor, font_size);
         s_last_wrap_width = window->m_editor_wrap_width;
     }
 
-    ImGui::PushFont(dover::shared::g_fonts_editor[window->m_zoom_idx]);
+    ImGui::PushFont(dover::shared::g_font_editor, font_size);
 
     ImGuiID editor_id = ImGui::GetID("##ed");
     if (window->m_force_focus_frames > 0) {
@@ -696,7 +699,7 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
         }
     }
 
-    SetFormatterContext(window->m_editor_wrap_width, dover::shared::g_fonts_editor[window->m_zoom_idx]);
+    SetFormatterContext(window->m_editor_wrap_width, dover::shared::g_font_editor, font_size);
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
     ImGui::Indent(24.0f);
@@ -713,7 +716,7 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
     ImGui::PopStyleVar();
     
     if (open_ctx) {
-        ImGui::PushFont(dover::shared::g_font_gui);
+        ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
         
         int sel_start = GetFormatterState().saved_selection_start;
         int sel_end = GetFormatterState().saved_selection_end;
@@ -845,11 +848,11 @@ FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
         ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
         ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
         draw_list->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
-        draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+        draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 1.0f, 0);
 
         const char* icon = (window->m_view_mode == 0) ? ICON_TOGGLE_READ : ICON_TOGGLE_EDIT;
 
-        ImGui::PushFont(dover::shared::g_font_gui);
+        ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
         ImVec2 text_size = ImGui::CalcTextSize(icon);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
         draw_list->AddText(text_pos, text_col32, icon);
@@ -895,9 +898,9 @@ FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
         ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
         ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
         draw_list->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
-        draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+        draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 1.0f, 0);
 
-        ImGui::PushFont(dover::shared::g_font_gui);
+        ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
         ImVec2 text_size = ImGui::CalcTextSize(ICON_SAVE);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
         draw_list->AddText(text_pos, text_col32, ICON_SAVE);
@@ -943,9 +946,9 @@ FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
         ImVec2 mid_p = ImVec2(max_p.x, min_p.y + 15.0f);
         ImU32 half_hl_col = ImGui::ColorConvertFloat4ToU32(ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
         draw_list->AddRectFilled(min_p, mid_p, half_hl_col, 2.0f, ImDrawFlags_RoundCornersTop);
-        draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 0, 1.0f);
+        draw_list->AddRect(min_p, max_p, border_col32, 2.0f, 1.0f, 0);
 
-        ImGui::PushFont(dover::shared::g_font_gui);
+        ImGui::PushFont(dover::shared::g_font_gui, 18.0f);
         ImVec2 text_size = ImGui::CalcTextSize(ICON_DELETE);
         ImVec2 text_pos = ImVec2(center.x - text_size.x * 0.5f, center.y - text_size.y * 0.5f);
         draw_list->AddText(text_pos, text_col32, ICON_DELETE);
@@ -1067,7 +1070,7 @@ void NotesWindow::RenderContent(bool interactive) {
   ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
   ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
   
-  bool content_ok = ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), false, ImGuiWindowFlags_AlwaysUseWindowPadding);
+  bool content_ok = ImGui::BeginChild("NoteContent", ImVec2(cont_w, win_h), ImGuiChildFlags_AlwaysUseWindowPadding, 0);
 
   if (content_ok) {
     ImVec2 min_p = ImGui::GetWindowPos();
