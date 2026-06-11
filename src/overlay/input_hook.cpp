@@ -342,8 +342,10 @@ BOOL WINAPI HookedPeekMessageW(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT 
     if (!g_original_peek_message_w) return FALSE;
     BOOL result = g_original_peek_message_w(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
     if (result && ProcessInputMessage(lpMsg)) {
-        TranslateMessage(lpMsg);
-        DispatchMessageW(lpMsg);
+        if (wRemoveMsg & PM_REMOVE) {
+            TranslateMessage(lpMsg);
+            DispatchMessageW(lpMsg);
+        }
         lpMsg->message = WM_NULL;
     }
     return result;
@@ -353,8 +355,10 @@ BOOL WINAPI HookedPeekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT 
     if (!g_original_peek_message_a) return FALSE;
     BOOL result = g_original_peek_message_a(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
     if (result && ProcessInputMessage(lpMsg)) {
-        TranslateMessage(lpMsg);
-        DispatchMessageA(lpMsg);
+        if (wRemoveMsg & PM_REMOVE) {
+            TranslateMessage(lpMsg);
+            DispatchMessageA(lpMsg);
+        }
         lpMsg->message = WM_NULL;
     }
     return result;
