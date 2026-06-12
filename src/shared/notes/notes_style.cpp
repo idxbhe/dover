@@ -4,9 +4,7 @@
 #include "shared/icons.h"
 #include "shared/theme.h"
 #include <imgui.h>
-#define private public
 #include <imgui_md.h>
-#undef private
 #include <cstdio>
 #include <cstring>
 #include <iterator>
@@ -55,6 +53,7 @@ struct DoverMarkdownRenderer : public imgui_md {
   int (*m_original_text_callback)(MD_TEXTTYPE, const MD_CHAR*, MD_SIZE, void*) = nullptr;
 
   DoverMarkdownRenderer() {
+    m_md.flags |= MD_FLAG_TASKLISTS;
     m_original_text_callback = m_md.text;
     m_md.text = [](MD_TEXTTYPE t, const MD_CHAR* text, MD_SIZE size, void* u) {
       auto* r = static_cast<DoverMarkdownRenderer*>(u);
@@ -62,7 +61,7 @@ struct DoverMarkdownRenderer : public imgui_md {
     };
   }
 
-  int m_zoom_idx = 2;
+  int m_font_size = 18;
   int m_list_level = 0;
   char* m_markdown_source = nullptr;
 
@@ -103,8 +102,8 @@ struct DoverMarkdownRenderer : public imgui_md {
   }
 
   float get_font_size() const {
-    float base_size = dover::shared::kPreviewSizes[std::clamp(m_zoom_idx, 0, 4)];
-    if (m_is_code) return dover::shared::kEditorSizes[std::clamp(m_zoom_idx, 0, 4)];
+    float base_size = static_cast<float>(m_font_size);
+    if (m_is_code) return base_size * 0.9f; // Slightly smaller for code
     if (m_hlevel == 1) return base_size * 2.00f;
     if (m_hlevel == 2) return base_size * 1.65f;
     if (m_hlevel == 3) return base_size * 1.35f;
@@ -509,17 +508,11 @@ struct DoverMarkdownRenderer : public imgui_md {
   bool get_image(image_info&) const override { return false; }
 };
 
-void RenderMarkdown(const char* content, int zoom_idx) {
+void RenderMarkdown(const char* content, int font_size) {
   if (!content || content[0] == '\0') return;
   static DoverMarkdownRenderer renderer;
   
-  // Enable task list flags in base class's public m_md parser
-  static bool flags_set = false;
-  if (!flags_set) {
-    renderer.m_md.flags |= MD_FLAG_TASKLISTS;
-    flags_set = true;
-  }
-  renderer.m_zoom_idx = zoom_idx;
+  renderer.m_font_size = font_size;
   renderer.m_markdown_source = const_cast<char*>(content);
 
   // Reset transient state per frame
@@ -535,7 +528,7 @@ void RenderMarkdown(const char* content, int zoom_idx) {
     renderer.m_table_col_current_width[i] = 0.0f;
   }
 
-  ImGui::PushFont(dover::shared::g_font_preview, dover::shared::kPreviewSizes[std::clamp(zoom_idx, 0, 4)]);
+  ImGui::PushFont(dover::shared::g_font_preview, static_cast<float>(font_size));
   renderer.print(content, content + strlen(content));
   ImGui::PopFont();
 

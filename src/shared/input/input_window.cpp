@@ -93,15 +93,11 @@ void InputWindow::RenderContent(bool interactive) {
         }
 
         // Draw the icon in the panel font (which has icons merged)
-        if (dover::shared::g_font_panel) {
-            ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
-        }
+        ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kIconSize);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
         ImGui::Text("%s", ICON_PANEL_INPUTMAP);
         ImGui::PopStyleColor();
-        if (dover::shared::g_font_panel) {
-            ImGui::PopFont();
-        }
+        ImGui::PopFont();
 
         ImGui::SameLine(0.0f, 6.0f);
 
@@ -214,17 +210,16 @@ void InputWindow::RenderRemapper(bool interactive) {
                         continue;
                     }
                     if (dover::shared::IsHardwareKeyPressed(k)) {
-                        auto& map = shared::GetAppConfig().gamepad_to_vk_map[i];
+                        auto& map_atomic = shared::GetAppConfig().gamepad_to_vk_map[i];
                         if (k == VK_ESCAPE) {
-                            map.vk_code = 0; // Clear mapping
-                            map.modifier_ctrl = false;
-                            map.modifier_shift = false;
-                            map.modifier_alt = false;
+                            map_atomic.store({0, false, false, false}, std::memory_order_relaxed);
                         } else {
+                            GamepadMapping map = {};
                             map.vk_code = static_cast<uint8_t>(k);
                             map.modifier_ctrl = dover::shared::IsHardwareKeyPressed(VK_CONTROL);
                             map.modifier_shift = dover::shared::IsHardwareKeyPressed(VK_SHIFT);
                             map.modifier_alt = dover::shared::IsHardwareKeyPressed(VK_MENU);
+                            map_atomic.store(map, std::memory_order_relaxed);
                         }
                         m_recording_index = -1;
                         dover::shared::GameStorage::Get().SaveConfig();
@@ -232,7 +227,7 @@ void InputWindow::RenderRemapper(bool interactive) {
                     }
                 }
             } else {
-                auto& map = shared::GetAppConfig().gamepad_to_vk_map[i];
+                GamepadMapping map = shared::GetAppConfig().gamepad_to_vk_map[i].load(std::memory_order_relaxed);
                 uint8_t vk = map.vk_code;
                 if (vk == 0) {
                     snprintf(btn_label, sizeof(btn_label), "Unbound");
@@ -285,7 +280,7 @@ void InputWindow::RenderRemapper(bool interactive) {
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
             if (m_recording_index == i) {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
-            } else if (shared::GetAppConfig().gamepad_to_vk_map[i].vk_code == 0) {
+            } else if (shared::GetAppConfig().gamepad_to_vk_map[i].load(std::memory_order_relaxed).vk_code == 0) {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -437,7 +432,7 @@ void InputWindow::RenderVisualizer() {
     ImGui::Text("Show In-Game");
     ImGui::SameLine(0.0f, 8.0f);
     
-    ImFont* icon_font = dover::shared::g_font_panel ? dover::shared::g_font_panel : dover::shared::g_font_gui;
+    ImFont* icon_font = dover::shared::g_font_gui;
     const char* toggle_icon = cfg.show_gamepad_hud ? ICON_TOGGLE_ON : ICON_TOGGLE_OFF;
     ImVec4 icon_color = cfg.show_gamepad_hud ? ImVec4(0.118f, 0.478f, 0.812f, 1.00f) : ImVec4(0.40f, 0.42f, 0.48f, 0.80f);
     

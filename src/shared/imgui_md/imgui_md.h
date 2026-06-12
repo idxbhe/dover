@@ -124,20 +124,6 @@ protected:
 	bool m_is_image = false;
 	bool m_is_code = false;
 	unsigned m_hlevel=0;//0 - no heading
-	
-private:
-
-	int text(MD_TEXTTYPE type, const char* str, const char* str_end);
-	int block(MD_BLOCKTYPE type, void* d, bool e);
-	int span(MD_SPANTYPE type, void* d, bool e);
-
-	void render_text(const char* str, const char* str_end);
-	
-	void set_font(bool e);
-	void set_color(bool e);
-	void set_href(bool e, const MD_ATTRIBUTE& src);
-
-	static void line(ImColor c, bool under);
 
 	//table state
 	int m_table_next_column = 0;
@@ -157,6 +143,20 @@ private:
 	std::vector<std::string> m_div_stack;
 
 	MD_PARSER m_md;
+	
+private:
+
+	int text(MD_TEXTTYPE type, const char* str, const char* str_end);
+	int block(MD_BLOCKTYPE type, void* d, bool e);
+	int span(MD_SPANTYPE type, void* d, bool e);
+
+	void render_text(const char* str, const char* str_end);
+	
+	void set_font(bool e);
+	void set_color(bool e);
+	void set_href(bool e, const MD_ATTRIBUTE& src);
+
+	static void line(ImColor c, bool under);
 };
 
 #endif  /* IMGUI_MD_H */

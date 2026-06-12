@@ -333,7 +333,8 @@ BOOL WINAPI HookedSetCursorPos(int x, int y) {
 
 HCURSOR WINAPI HookedSetCursor(HCURSOR hCursor) {
     if (GetOverlayState().show_overlay.load(std::memory_order_relaxed) && hCursor == nullptr) {
-        return LoadCursor(nullptr, IDC_ARROW);
+        static HCURSOR s_arrow_cursor = LoadCursor(nullptr, IDC_ARROW);
+        return s_arrow_cursor;
     }
     return g_original_set_cursor ? g_original_set_cursor(hCursor) : hCursor;
 }

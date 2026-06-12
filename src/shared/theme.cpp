@@ -12,7 +12,6 @@
 namespace dover::shared {
 
 ImFont* g_font_gui = nullptr;
-ImFont* g_font_panel = nullptr;
 ImFont* g_font_editor = nullptr;
 ImFont* g_font_preview = nullptr;
 ImFont* g_font_preview_bold = nullptr;
@@ -67,24 +66,6 @@ void SetupImGuiTheme() {
             icons_config.GlyphOffset.x = 0.0f;
             icons_config.GlyphOffset.y = 1.0f;
             io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 19.5f, &icons_config, icon_ranges);
-          }
-
-            // 1b. GUI Font - Panel
-            g_font_panel = io.Fonts->AddFontFromMemoryTTF((void*)g_font_main_ui_data, g_font_main_ui_data_size, kIconSize, &cfg, io.Fonts->GetGlyphRangesDefault());
-            if (g_font_panel) {
-            static const ImWchar icon_ranges[] = { DI_ICON_MIN, DI_ICON_MAX, 0 };
-            ImFontConfig icons_config;
-            icons_config.FontDataOwnedByAtlas = false;
-            icons_config.MergeMode = true;
-            icons_config.PixelSnapH = true;
-            icons_config.OversampleH = 3;
-            icons_config.OversampleV = 2;
-            icons_config.GlyphMinAdvanceX = 28.0f;
-            icons_config.GlyphOffset.x = 0.0f;
-            icons_config.GlyphOffset.y = 2.0f;
-            io.Fonts->AddFontFromMemoryTTF((void*)g_icons_data, sizeof(g_icons_data), 28.0f, &icons_config, icon_ranges);
-            } else {
-            g_font_panel = g_font_gui;
           }
           
           // Single Font Load (v1.92 Dynamic Fonts)

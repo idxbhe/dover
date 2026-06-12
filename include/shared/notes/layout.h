@@ -3,6 +3,7 @@
 #include "shared/ui/components/base_window.h"
 #include "shared/notes/formatter.h"
 #include <mutex>
+#include <atomic>
 
 namespace dover::shared::notes {
 class NotesWindow;
@@ -12,6 +13,7 @@ namespace detail {
     int RenderSidebarInternal(NotesWindow*, float, float);
     void RenderEditorInternal(NotesWindow*, float, float);
     void RenderPreviewInternal(NotesWindow*, float);
+    void SanitizeEditBufferToNote(const char* src, char* dest, size_t dest_size, bool& is_different);
     FloatBtnAction RenderFloatingButtonsInternal(NotesWindow*);
 }
 
@@ -30,12 +32,12 @@ public:
     // Public for GameStorage state persistence
     void SelectNote(int idx, bool save_state = true);
     void SelectNoteByFilename(const char* filename);
-    std::string GetSelectedNoteFilename() const;
+    void GetSelectedNoteFilename(char* out_buffer, size_t out_size) const;
     void SetViewMode(int mode) { m_view_mode = mode; }
     int  GetSelectedNoteIndex() const { return m_selected_note_idx; }
     int  GetViewMode() const { return m_view_mode; }
-    void SetZoomIndex(int idx) { m_zoom_idx = idx; }
-    int  GetZoomIndex() const { return m_zoom_idx; }
+    void SetFontSize(int size) { m_font_size = size; }
+    int  GetFontSize() const { return m_font_size; }
 
 
     // Sync helper for interactive Read-Mode mutations
@@ -54,7 +56,7 @@ private:
     float m_sidebar_width = 240.0f;
     bool m_sidebar_visible = true;
     std::atomic<int> m_view_mode{1}; // 0=editor, 1=preview
-    std::atomic<int> m_zoom_idx{2};
+    std::atomic<int> m_font_size{18};
     int m_force_focus_frames = 0;
     
     std::atomic<int> m_selected_note_idx{0};
@@ -74,6 +76,7 @@ private:
     friend int detail::RenderSidebarInternal(NotesWindow*, float, float);
     friend void detail::RenderEditorInternal(NotesWindow*, float, float);
     friend void detail::RenderPreviewInternal(NotesWindow*, float);
+    friend void detail::SanitizeEditBufferToNote(const char* src, char* dest, size_t dest_size, bool& is_different);
     friend detail::FloatBtnAction detail::RenderFloatingButtonsInternal(NotesWindow*);
 };
 

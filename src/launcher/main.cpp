@@ -739,7 +739,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
         
         // Render Icon manually centered. Since font is now normalized, no manual offset needed.
-        ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
+        ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kIconSize);
         ImVec2 icon_size = ImGui::CalcTextSize(icon);
         ImVec2 icon_pos = ImVec2(
             min_p.x + (size.x - icon_size.x) * 0.5f,
@@ -767,7 +767,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         ImGui::PopFont();
         
         ImGui::SetCursorPos(ImVec2(20.0f, 40.0f));
-        ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
+        ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kIconSize);
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "LAUNCHER");
         ImGui::PopFont();
 
@@ -878,7 +878,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
     } else {
-        ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize); // Folded sidebar uses icon font
+        ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kIconSize); // Folded sidebar uses icon font
         if (ImGui::Button(ICON_ADD_NEW, ImVec2(add_btn_w, 40.0f))) {
             std::wstring selected_path = BrowseForExecutable(hwnd);
             if (!selected_path.empty()) {
@@ -1102,7 +1102,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             ImGui::BeginChild("Card", ImVec2(card_width, card_height), true, ImGuiWindowFlags_NoScrollbar);
             
             // Icon
-            ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
+            ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kIconSize);
             float icon_h = ImGui::GetTextLineHeight();
             ImGui::SetCursorPos(ImVec2(12.0f, (card_height - icon_h) * 0.5f));
             ImGui::TextColored(is_open ? ImVec4(0.5f, 0.8f, 1.0f, 1.0f) : ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", icon);

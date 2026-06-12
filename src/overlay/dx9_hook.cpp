@@ -28,6 +28,9 @@ constexpr int kEndSceneIndex = 42;
 using EndSceneFn = HRESULT(WINAPI*)(IDirect3DDevice9*);
 using ResetFn = HRESULT(WINAPI*)(IDirect3DDevice9*, D3DPRESENT_PARAMETERS*);
 
+HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device);
+HRESULT WINAPI HookedReset(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS* params);
+
 EndSceneFn g_original_end_scene = nullptr;
 ResetFn g_original_reset = nullptr;
 
@@ -37,12 +40,30 @@ std::atomic<bool> g_imgui_initialized{false};
 
 IDirect3DDevice9* g_d3d9_device = nullptr;
 
+shared::InjectionMethod g_active_injection_method = shared::InjectionMethod::PureVTable;
+IDirect3DDevice9* g_live_d3d9_device = nullptr;
+void** g_dx9_device_vtable = nullptr;
+
 HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
   if (!device || IsOverlayShutdownRequested()) {
     if (g_original_end_scene) {
       return g_original_end_scene(device);
     }
     return D3D_OK;
+  }
+
+  if (g_active_injection_method == shared::InjectionMethod::PureVTable) {
+    if (!g_live_d3d9_device) {
+      g_live_d3d9_device = device;
+    }
+    if (!g_reset_hooked.load()) {
+      if (CreateVTableHook(device, kResetIndex,
+                           reinterpret_cast<void*>(&HookedReset),
+                           reinterpret_cast<void**>(&g_original_reset))) {
+        g_reset_hooked = true;
+        dover::shared::LogInfo("DX9: Lazy VTable hook for Reset installed.");
+      }
+    }
   }
 
   TickInputCooldown();
@@ -73,7 +94,7 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
               hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
           GetOverlayState().original_wnd_proc.store(old_proc, std::memory_order_release);
 
-          GetOverlayState().active_dx_version.store("DirectX 9", std::memory_order_release);
+          GetOverlayState().active_dx_version.store(GraphicsAPI::DX9, std::memory_order_release);
 
           // Register device with shared renderer so asset texture creation works
           shared::SetDx9Device(device);
@@ -169,9 +190,13 @@ HRESULT WINAPI HookedReset(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS* para
 } // namespace
 
 bool InitializeDx9Hook() {
-  if (!InitializeHookSystem()) {
-    dover::shared::LogError("MinHook initialization failed.");
-    return false;
+  g_active_injection_method = shared::GetAppConfig().injection_method.load(std::memory_order_relaxed);
+
+  if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+    if (!InitializeHookSystem()) {
+      dover::shared::LogError("MinHook initialization failed.");
+      return false;
+    }
   }
 
   HMODULE d3d9 = GetModuleHandleW(L"d3d9.dll");
@@ -216,18 +241,29 @@ bool InitializeDx9Hook() {
   }
 
   void** vtable = *reinterpret_cast<void***>(dummy_device);
+  g_dx9_device_vtable = vtable;
   
-  if (!g_end_scene_hooked.load()) {
-    if (CreateAndEnableHook(vtable[kEndSceneIndex], reinterpret_cast<void*>(&HookedEndScene),
-                            reinterpret_cast<void**>(&g_original_end_scene))) {
-      g_end_scene_hooked = true;
+  if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+    if (!g_end_scene_hooked.load()) {
+      if (CreateAndEnableHook(vtable[kEndSceneIndex], reinterpret_cast<void*>(&HookedEndScene),
+                              reinterpret_cast<void**>(&g_original_end_scene))) {
+        g_end_scene_hooked = true;
+      }
     }
-  }
 
-  if (!g_reset_hooked.load()) {
-    if (CreateAndEnableHook(vtable[kResetIndex], reinterpret_cast<void*>(&HookedReset),
-                            reinterpret_cast<void**>(&g_original_reset))) {
-      g_reset_hooked = true;
+    if (!g_reset_hooked.load()) {
+      if (CreateAndEnableHook(vtable[kResetIndex], reinterpret_cast<void*>(&HookedReset),
+                              reinterpret_cast<void**>(&g_original_reset))) {
+        g_reset_hooked = true;
+      }
+    }
+  } else {
+    if (!g_end_scene_hooked.load()) {
+      if (CreateVTableHook(dummy_device, kEndSceneIndex, reinterpret_cast<void*>(&HookedEndScene),
+                           reinterpret_cast<void**>(&g_original_end_scene))) {
+        g_end_scene_hooked = true;
+        dover::shared::LogInfo("DX9: Pure VTable EndScene hook installed successfully.");
+      }
     }
   }
 
@@ -236,7 +272,8 @@ bool InitializeDx9Hook() {
   d3d->Release();
 
   if (g_end_scene_hooked.load()) {
-    dover::shared::LogInfo("DX9 Hook installed via dummy device.");
+    dover::shared::LogInfo("DX9 Hook installed via dummy device (Method: %s).",
+                           g_active_injection_method == shared::InjectionMethod::InlineMinHook ? "MinHook" : "VTable");
     return true;
   }
 
@@ -257,11 +294,24 @@ void ShutdownDx9Hook() {
     g_imgui_initialized = false;
   }
 
-  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_end_scene));
-  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_reset));
+  if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+    DisableAndRemoveHook(reinterpret_cast<void*>(g_original_end_scene));
+    DisableAndRemoveHook(reinterpret_cast<void*>(g_original_reset));
+  } else {
+    if (g_dx9_device_vtable) {
+      if (g_end_scene_hooked.load()) {
+        RemoveVTableHookFromAddress(g_dx9_device_vtable, kEndSceneIndex, reinterpret_cast<void*>(g_original_end_scene));
+      }
+      if (g_reset_hooked.load()) {
+        RemoveVTableHookFromAddress(g_dx9_device_vtable, kResetIndex, reinterpret_cast<void*>(g_original_reset));
+      }
+    }
+  }
 
   g_end_scene_hooked = false;
   g_reset_hooked = false;
+  g_live_d3d9_device = nullptr;
+  g_dx9_device_vtable = nullptr;
 
   // Unregister from shared renderer
   shared::SetDx9Device(nullptr);

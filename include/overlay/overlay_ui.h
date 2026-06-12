@@ -8,12 +8,19 @@ struct ImFont;
 
 namespace dover::overlay {
 
+enum class GraphicsAPI {
+    Unknown,
+    DX9,
+    DX11,
+    DX12
+};
+
 struct OverlayState {
     std::atomic<bool> show_overlay{false};
     std::atomic<bool> in_overlay_frame{false};
     std::atomic<WNDPROC> original_wnd_proc{nullptr};
     std::atomic<HWND> game_hwnd{nullptr};
-    std::atomic<const char*> active_dx_version{"Unknown API"};
+    std::atomic<GraphicsAPI> active_dx_version{GraphicsAPI::Unknown};
     std::atomic<uint32_t> swapchain_width{0};
     std::atomic<uint32_t> swapchain_height{0};
     std::atomic<uint32_t> client_width{0};

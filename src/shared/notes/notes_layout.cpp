@@ -93,26 +93,7 @@ void NotesWindow::FlushEditBufferToNote() {
   const char* src = m_edit_buffer;
   
   bool is_different = false;
-  int d_idx = 0;
-  
-  for (int s_idx = 0; src[s_idx] != '\0'; ) {
-      if (d_idx >= MAX_NOTE_SIZE - 1) break;
-      
-      if (src[s_idx] == '\r' && src[s_idx+1] == '\n') {
-          if (dest[d_idx] != ' ') is_different = true;
-          dest[d_idx++] = ' ';
-          s_idx += 2;
-      } else if (src[s_idx] == '\r' && src[s_idx+1] == '-' && src[s_idx+2] == '\n') {
-          s_idx += 3;
-      } else {
-          if (dest[d_idx] != src[s_idx]) is_different = true;
-          dest[d_idx++] = src[s_idx];
-          s_idx++;
-      }
-  }
-  
-  if (dest[d_idx] != '\0') is_different = true;
-  dest[d_idx] = '\0';
+  detail::SanitizeEditBufferToNote(src, dest, MAX_NOTE_SIZE, is_different);
 
   if (is_different) {
       note.is_dirty = true;
@@ -155,12 +136,10 @@ void NotesWindow::SelectNoteByFilename(const char* filename) {
   }
 }
 
-std::string NotesWindow::GetSelectedNoteFilename() const {
+void NotesWindow::GetSelectedNoteFilename(char* out_buffer, size_t out_size) const {
+  if (!out_buffer || out_size == 0) return;
   std::lock_guard<std::mutex> lock(m_selected_note_filename_mutex);
-  if (m_selected_note_filename[0] != '\0') {
-      return std::string(m_selected_note_filename, strnlen(m_selected_note_filename, sizeof(m_selected_note_filename)));
-  }
-  return "";
+  strncpy_s(out_buffer, out_size, m_selected_note_filename, _TRUNCATE);
 }
 
 void NotesWindow::SwitchToEditor() {
@@ -246,29 +225,22 @@ PendingFormat RenderToolbarInternal(NotesWindow* window, bool interactive, float
       ImGui::PushStyleColor(ImGuiCol_ButtonActive,     ImVec4(0.28f, 0.35f, 0.50f, 1.00f));
       ImGui::PushStyleColor(ImGuiCol_Border,           ImVec4(0.32f, 0.40f, 0.58f, 0.70f));
       
-      const char* size_items[] = { "Tiny", "Small", "Medium", "Large", "Huge" };
+      static int s_temp_font_size = window->GetFontSize();
       
-      if (ImGui::Button(size_items[window->m_zoom_idx], ImVec2(80.0f, 0))) {
-        ImGui::OpenPopup("##zoom_popup");
+      ImGui::PushItemWidth(100.0f);
+      ImGui::SliderInt("##font_size", &s_temp_font_size, 12, 36, "Size: %d");
+      bool is_slider_active = ImGui::IsItemActive();
+      
+      if (ImGui::IsItemDeactivatedAfterEdit()) {
+          window->SetFontSize(s_temp_font_size);
+          dover::shared::GameStorage::Get().SaveState();
       }
       
-      ImVec2 popup_pos = ImGui::GetItemRectMin();
-      popup_pos.y += ImGui::GetItemRectSize().y;
-      
-      ImGui::SetNextWindowPos(popup_pos);
-      ImGui::SetNextWindowSize(ImVec2(80.0f, 0.0f));
-      
-      if (ImGui::BeginPopup("##zoom_popup")) {
-        for (int i = 0; i < IM_ARRAYSIZE(size_items); i++) {
-          bool is_selected = (window->m_zoom_idx == i);
-          if (ImGui::Selectable(size_items[i], is_selected)) {
-            window->m_zoom_idx = i;
-            dover::shared::GameStorage::Get().SaveState();
-          }
-          if (is_selected) ImGui::SetItemDefaultFocus();
-        }
-        ImGui::EndPopup();
+      if (!is_slider_active) {
+          s_temp_font_size = window->GetFontSize();
       }
+      
+      ImGui::PopItemWidth();
       ImGui::PopStyleColor(4);
       ImGui::PopStyleVar(4);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Change Text Size");
@@ -475,9 +447,6 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
 
       ImVec2 pos = ImGui::GetCursorScreenPos();
       
-      char id_buf[24];
-      snprintf(id_buf, sizeof(id_buf), "##note_%d", i);
-      
       ImVec2 item_min = ImVec2(pos.x + 6.0f, pos.y);
       ImVec2 item_max = ImVec2(pos.x + sb_w - 6.0f, pos.y + 32.0f);
       
@@ -487,7 +456,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
       
       ImGui::SetCursorPosX(6.0f);
       // Reduce width to avoid capturing clicks intended for the floating sort button on the right
-      bool selected_now = ImGui::Selectable(id_buf, is_sel,
+      bool selected_now = ImGui::Selectable("##note", is_sel,
                              ImGuiSelectableFlags_None,
                              ImVec2(sb_w - 48.0f, 32.0f));
                             
@@ -496,9 +465,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
       
       ImGui::PopStyleColor(3);
 
-      char popup_id[64];
-      snprintf(popup_id, sizeof(popup_id), "##popup_note_%d", i);
-      if (ImGui::BeginPopupContextItem(popup_id)) {
+      if (ImGui::BeginPopupContextItem("##popup_note")) {
           ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
           if (ImGui::MenuItem(ICON_DELETE " Delete Note")) {
               note_to_delete = i;
@@ -603,7 +570,7 @@ int RenderSidebarInternal(NotesWindow* window, float sb_w, float win_h) {
                 } else {
                     SetSortMode(c, default_asc);
                 }
-                dover::shared::GameStorage::Get().SaveState();
+                dover::shared::GameStorage::Get().SaveConfig();
             }
             
             if (selected) {
@@ -655,7 +622,7 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
     if (window->m_editor_wrap_width < 100.0f) window->m_editor_wrap_width = 100.0f;
 
     static constexpr float editor_sizes[5] = { 12.0f, 14.0f, 17.0f, 21.0f, 25.0f };
-    float font_size = editor_sizes[std::clamp(window->m_zoom_idx.load(), 0, 4)];
+    float font_size = static_cast<float>(window->GetFontSize());
 
     static float s_last_wrap_width = 0.0f;
     if (window->m_editor_wrap_width != s_last_wrap_width) {
@@ -769,26 +736,7 @@ void RenderEditorInternal(NotesWindow* window, float content_h, float avail_w) {
         const char* src = window->m_edit_buffer;
         
         bool is_different = false;
-        int d_idx = 0;
-        
-        for (int s_idx = 0; src[s_idx] != '\0'; ) {
-            if (d_idx >= MAX_NOTE_SIZE - 1) break;
-            
-            if (src[s_idx] == '\r' && src[s_idx+1] == '\n') {
-                if (dest[d_idx] != ' ') is_different = true;
-                dest[d_idx++] = ' ';
-                s_idx += 2;
-            } else if (src[s_idx] == '\r' && src[s_idx+1] == '-' && src[s_idx+2] == '\n') {
-                s_idx += 3;
-            } else {
-                if (dest[d_idx] != src[s_idx]) is_different = true;
-                dest[d_idx++] = src[s_idx];
-                s_idx++;
-            }
-        }
-        
-        if (dest[d_idx] != '\0') is_different = true;
-        dest[d_idx] = '\0';
+        detail::SanitizeEditBufferToNote(src, dest, MAX_NOTE_SIZE, is_different);
 
         if (is_different) {
           notes[sel_idx].is_dirty = true;
@@ -803,8 +751,32 @@ void RenderPreviewInternal(NotesWindow* window, float /*content_h*/) {
   if (sel_idx < 0 || static_cast<size_t>(sel_idx) >= notes.size()) return;
   const auto& content = notes[sel_idx].content;
   if (content && content[0] != '\0') {
-    RenderMarkdown(content.get(), window->m_zoom_idx);
+    RenderMarkdown(content.get(), window->GetFontSize());
   }
+}
+
+void SanitizeEditBufferToNote(const char* src, char* dest, size_t dest_size, bool& is_different) {
+  if (!src || !dest || dest_size == 0) return;
+  
+  int d_idx = 0;
+  for (int s_idx = 0; src[s_idx] != '\0'; ) {
+      if (static_cast<size_t>(d_idx) >= dest_size - 1) break;
+      
+      if (src[s_idx] == '\r' && src[s_idx+1] == '\n') {
+          if (dest[d_idx] != '\n') is_different = true;
+          dest[d_idx++] = '\n';
+          s_idx += 2;
+      } else if (src[s_idx] == '\r' && src[s_idx+1] == '-' && src[s_idx+2] == '\n') {
+          s_idx += 3;
+      } else {
+          if (dest[d_idx] != src[s_idx]) is_different = true;
+          dest[d_idx++] = src[s_idx];
+          s_idx++;
+      }
+  }
+  
+  if (dest[d_idx] != '\0') is_different = true;
+  dest[d_idx] = '\0';
 }
 
 FloatBtnAction RenderFloatingButtonsInternal(NotesWindow* window) {
@@ -1124,15 +1096,18 @@ void NotesWindow::RenderContent(bool interactive) {
       // tidak menimpa note lain yang bergeser naik ke index ini.
       m_synced_note_idx = -1;
       
+      // Explicit re-fetch to update the span and prevent UB access
       notes = GetNotes();
-      if (m_selected_note_idx > 0) {
-        m_selected_note_idx--;
+
+      if (m_selected_note_idx >= static_cast<int>(notes.size())) {
+        m_selected_note_idx = static_cast<int>(notes.size()) - 1;
       }
       if (!notes.empty()) {
         SelectNote(m_selected_note_idx);
       } else {
-        m_edit_buffer[0] = '\0';
+        m_selected_note_idx = -1;
         m_synced_note_idx = -1;
+        m_edit_buffer[0] = '\0';
       }
     }
   }

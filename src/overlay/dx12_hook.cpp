@@ -36,6 +36,10 @@ using ExecuteCommandListsFn = void(WINAPI*)(ID3D12CommandQueue*, UINT, ID3D12Com
 using D3D12CreateDeviceFn = HRESULT(WINAPI*)(IUnknown*, D3D_FEATURE_LEVEL, REFIID, void**);
 using CreateDXGIFactory1Fn = HRESULT(WINAPI*)(REFIID, void**);
 
+HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT flags);
+HRESULT WINAPI HookedResizeBuffers(IDXGISwapChain* swapchain, UINT buffer_count, UINT width, UINT height, DXGI_FORMAT format, UINT flags);
+void WINAPI HookedExecuteCommandLists(ID3D12CommandQueue* queue, UINT NumCommandLists, ID3D12CommandList* const* ppCommandLists);
+
 PresentFn g_original_present = nullptr;
 ResizeBuffersFn g_original_resize_buffers = nullptr;
 ExecuteCommandListsFn g_original_execute_command_lists = nullptr;
@@ -44,6 +48,12 @@ std::atomic<bool> g_present_hooked{false};
 std::atomic<bool> g_resize_hooked{false};
 std::atomic<bool> g_execute_hooked{false};
 std::atomic<bool> g_imgui_initialized{false};
+
+shared::InjectionMethod g_active_injection_method = shared::InjectionMethod::PureVTable;
+IDXGISwapChain* g_live_swapchain = nullptr;
+ID3D12CommandQueue* g_live_command_queue = nullptr;
+void** g_dx12_swapchain_vtable = nullptr;
+void** g_dx12_queue_vtable = nullptr;
 
 // Raw pointers (Zero ComPtr overhead on global teardown). We explicitly manage lifetimes in ShutdownDx12Hook.
 ID3D12Device* g_device = nullptr;
@@ -135,6 +145,14 @@ bool CreateRenderTargets(IDXGISwapChain* swapchain) {
 }
 
 void WINAPI HookedExecuteCommandListsInternal(ID3D12CommandQueue* queue, UINT NumCommandLists, ID3D12CommandList* const* ppCommandLists) {
+    if (g_active_injection_method == shared::InjectionMethod::PureVTable) {
+        if (!g_live_command_queue && queue) {
+            D3D12_COMMAND_QUEUE_DESC desc = queue->GetDesc();
+            if (desc.Type == D3D12_COMMAND_LIST_TYPE_DIRECT) {
+                g_live_command_queue = queue;
+            }
+        }
+    }
     if (!g_command_queue && queue) {
         D3D12_COMMAND_QUEUE_DESC desc = queue->GetDesc();
         if (desc.Type == D3D12_COMMAND_LIST_TYPE_DIRECT) {
@@ -165,6 +183,20 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
             return g_original_present(swapchain, sync_interval, flags);
         }
         return S_OK;
+    }
+
+    if (g_active_injection_method == shared::InjectionMethod::PureVTable) {
+        if (!g_live_swapchain) {
+            g_live_swapchain = swapchain;
+        }
+        if (!g_resize_hooked.load()) {
+            if (CreateVTableHook(swapchain, kResizeBuffersIndex,
+                                 reinterpret_cast<void*>(&HookedResizeBuffers),
+                                 reinterpret_cast<void**>(&g_original_resize_buffers))) {
+                g_resize_hooked = true;
+                dover::shared::LogInfo("DX12: Lazy VTable hook for ResizeBuffers installed.");
+            }
+        }
     }
 
     TickInputCooldown();
@@ -245,7 +277,7 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
                 hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
             GetOverlayState().original_wnd_proc.store(old_proc, std::memory_order_release);
 
-            GetOverlayState().active_dx_version.store("DirectX 12", std::memory_order_release);
+            GetOverlayState().active_dx_version.store(GraphicsAPI::DX12, std::memory_order_release);
             g_imgui_initialized = true;
             dover::shared::LogInfo("Dear ImGui initialized inside D3D12 Present hook. Device: %p", g_device);
             dover::shared::LogDebug("DX12 Initialization parameters -> HWND: %p, Buffers: %u", hwnd, g_buffer_count);
@@ -388,9 +420,13 @@ HRESULT WINAPI HookedResizeBuffers(IDXGISwapChain* swapchain, UINT buffer_count,
 } // namespace
 
 bool InitializeDx12Hook() {
-    if (!InitializeHookSystem()) {
-        dover::shared::LogError("MinHook initialization failed for DX12.");
-        return false;
+    g_active_injection_method = shared::GetAppConfig().injection_method.load(std::memory_order_relaxed);
+
+    if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+        if (!InitializeHookSystem()) {
+            dover::shared::LogError("MinHook initialization failed for DX12.");
+            return false;
+        }
     }
 
     HMODULE d3d12 = GetModuleHandleW(L"d3d12.dll");
@@ -451,25 +487,45 @@ bool InitializeDx12Hook() {
 
     void** vtable = *reinterpret_cast<void***>(dummy_swapchain);
     void** queue_vtable = *reinterpret_cast<void***>(dummy_queue);
+    g_dx12_swapchain_vtable = vtable;
+    g_dx12_queue_vtable = queue_vtable;
 
-    if (!g_execute_hooked.load()) {
-        if (CreateAndEnableHook(queue_vtable[kExecuteCommandListsIndex], reinterpret_cast<void*>(&HookedExecuteCommandLists),
-                                reinterpret_cast<void**>(&g_original_execute_command_lists))) {
-            g_execute_hooked = true;
+    if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+        if (!g_execute_hooked.load()) {
+            if (CreateAndEnableHook(queue_vtable[kExecuteCommandListsIndex], reinterpret_cast<void*>(&HookedExecuteCommandLists),
+                                    reinterpret_cast<void**>(&g_original_execute_command_lists))) {
+                g_execute_hooked = true;
+            }
         }
-    }
 
-    if (!g_present_hooked.load()) {
-        if (CreateAndEnableHook(vtable[kPresentIndex], reinterpret_cast<void*>(&HookedPresent),
-                                reinterpret_cast<void**>(&g_original_present))) {
-            g_present_hooked = true;
+        if (!g_present_hooked.load()) {
+            if (CreateAndEnableHook(vtable[kPresentIndex], reinterpret_cast<void*>(&HookedPresent),
+                                    reinterpret_cast<void**>(&g_original_present))) {
+                g_present_hooked = true;
+            }
         }
-    }
 
-    if (!g_resize_hooked.load()) {
-        if (CreateAndEnableHook(vtable[kResizeBuffersIndex], reinterpret_cast<void*>(&HookedResizeBuffers),
-                                reinterpret_cast<void**>(&g_original_resize_buffers))) {
-            g_resize_hooked = true;
+        if (!g_resize_hooked.load()) {
+            if (CreateAndEnableHook(vtable[kResizeBuffersIndex], reinterpret_cast<void*>(&HookedResizeBuffers),
+                                    reinterpret_cast<void**>(&g_original_resize_buffers))) {
+                g_resize_hooked = true;
+            }
+        }
+    } else {
+        if (!g_execute_hooked.load()) {
+            if (CreateVTableHook(dummy_queue, kExecuteCommandListsIndex, reinterpret_cast<void*>(&HookedExecuteCommandLists),
+                                 reinterpret_cast<void**>(&g_original_execute_command_lists))) {
+                g_execute_hooked = true;
+                dover::shared::LogInfo("DX12: Pure VTable ExecuteCommandLists hook installed successfully.");
+            }
+        }
+
+        if (!g_present_hooked.load()) {
+            if (CreateVTableHook(dummy_swapchain, kPresentIndex, reinterpret_cast<void*>(&HookedPresent),
+                                 reinterpret_cast<void**>(&g_original_present))) {
+                g_present_hooked = true;
+                dover::shared::LogInfo("DX12: Pure VTable Present hook installed successfully.");
+            }
         }
     }
 
@@ -480,7 +536,8 @@ bool InitializeDx12Hook() {
     dummy_device->Release();
 
     if (g_present_hooked.load()) {
-        dover::shared::LogInfo("DX12 Hook installed via dummy swapchain.");
+        dover::shared::LogInfo("DX12 Hook installed via dummy swapchain (Method: %s).",
+                               g_active_injection_method == shared::InjectionMethod::InlineMinHook ? "MinHook" : "VTable");
         return true;
     }
 
@@ -554,9 +611,23 @@ void ShutdownDx12Hook() {
     }
     ResetDx12State(false);
 
-    DisableAndRemoveHook(reinterpret_cast<void*>(g_original_execute_command_lists));
-    DisableAndRemoveHook(reinterpret_cast<void*>(g_original_present));
-    DisableAndRemoveHook(reinterpret_cast<void*>(g_original_resize_buffers));
+    if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+        DisableAndRemoveHook(reinterpret_cast<void*>(g_original_execute_command_lists));
+        DisableAndRemoveHook(reinterpret_cast<void*>(g_original_present));
+        DisableAndRemoveHook(reinterpret_cast<void*>(g_original_resize_buffers));
+    } else {
+        if (g_dx12_queue_vtable && g_execute_hooked.load()) {
+            RemoveVTableHookFromAddress(g_dx12_queue_vtable, kExecuteCommandListsIndex, reinterpret_cast<void*>(g_original_execute_command_lists));
+        }
+        if (g_dx12_swapchain_vtable) {
+            if (g_present_hooked.load()) {
+                RemoveVTableHookFromAddress(g_dx12_swapchain_vtable, kPresentIndex, reinterpret_cast<void*>(g_original_present));
+            }
+            if (g_resize_hooked.load()) {
+                RemoveVTableHookFromAddress(g_dx12_swapchain_vtable, kResizeBuffersIndex, reinterpret_cast<void*>(g_original_resize_buffers));
+            }
+        }
+    }
 
     g_original_execute_command_lists = nullptr;
     g_original_present = nullptr;
@@ -565,6 +636,10 @@ void ShutdownDx12Hook() {
     g_execute_hooked = false;
     g_present_hooked = false;
     g_resize_hooked = false;
+    g_live_swapchain = nullptr;
+    g_live_command_queue = nullptr;
+    g_dx12_swapchain_vtable = nullptr;
+    g_dx12_queue_vtable = nullptr;
 }
 
 void* CreateDx12TextureInternal(const uint8_t* rgba_data, int width, int height) {

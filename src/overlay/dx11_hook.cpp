@@ -28,12 +28,19 @@ constexpr int kResizeBuffersIndex = 13;
 using PresentFn = HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT);
 using ResizeBuffersFn = HRESULT(WINAPI*)(IDXGISwapChain*, UINT, UINT, UINT, DXGI_FORMAT, UINT);
 
+HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT flags);
+HRESULT WINAPI HookedResizeBuffers(IDXGISwapChain* swapchain, UINT buffer_count, UINT width, UINT height, DXGI_FORMAT format, UINT flags);
+
 PresentFn g_original_present = nullptr;
 ResizeBuffersFn g_original_resize_buffers = nullptr;
 
 std::atomic<bool> g_present_hooked{false};
 std::atomic<bool> g_resize_hooked{false};
 std::atomic<bool> g_imgui_initialized{false};
+
+shared::InjectionMethod g_active_injection_method = shared::InjectionMethod::PureVTable;
+IDXGISwapChain* g_live_swapchain = nullptr;
+void** g_dx11_swapchain_vtable = nullptr;
 
 ID3D11Device* g_d3d11_device = nullptr;
 ID3D11DeviceContext* g_d3d11_context = nullptr;
@@ -60,6 +67,20 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
       return g_original_present(swapchain, sync_interval, flags);
     }
     return S_OK;
+  }
+
+  if (g_active_injection_method == shared::InjectionMethod::PureVTable) {
+    if (!g_live_swapchain) {
+      g_live_swapchain = swapchain;
+    }
+    if (!g_resize_hooked.load()) {
+      if (CreateVTableHook(swapchain, kResizeBuffersIndex,
+                           reinterpret_cast<void*>(&HookedResizeBuffers),
+                           reinterpret_cast<void**>(&g_original_resize_buffers))) {
+        g_resize_hooked = true;
+        dover::shared::LogInfo("DX11: Lazy VTable hook for ResizeBuffers installed.");
+      }
+    }
   }
 
   TickInputCooldown();
@@ -90,7 +111,7 @@ HRESULT WINAPI HookedPresent(IDXGISwapChain* swapchain, UINT sync_interval, UINT
           hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
       GetOverlayState().original_wnd_proc.store(old_proc, std::memory_order_release);
 
-      GetOverlayState().active_dx_version.store("DirectX 11", std::memory_order_release);
+      GetOverlayState().active_dx_version.store(GraphicsAPI::DX11, std::memory_order_release);
       CreateRenderTargetView(swapchain);
 
       // Register device with shared renderer so asset texture creation works
@@ -178,9 +199,13 @@ HRESULT WINAPI HookedResizeBuffers(IDXGISwapChain* swapchain, UINT buffer_count,
 } // namespace
 
 bool InitializeDx11Hook() {
-  if (!InitializeHookSystem()) {
-    dover::shared::LogError("MinHook initialization failed.");
-    return false;
+  g_active_injection_method = shared::GetAppConfig().injection_method.load(std::memory_order_relaxed);
+
+  if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+    if (!InitializeHookSystem()) {
+      dover::shared::LogError("MinHook initialization failed.");
+      return false;
+    }
   }
 
   HMODULE d3d11 = GetModuleHandleW(L"d3d11.dll");
@@ -235,18 +260,29 @@ bool InitializeDx11Hook() {
   }
 
   void** vtable = *reinterpret_cast<void***>(dummy_swapchain);
+  g_dx11_swapchain_vtable = vtable;
 
-  if (!g_present_hooked.load()) {
-    if (CreateAndEnableHook(vtable[kPresentIndex], reinterpret_cast<void*>(&HookedPresent),
-                            reinterpret_cast<void**>(&g_original_present))) {
-      g_present_hooked = true;
+  if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+    if (!g_present_hooked.load()) {
+      if (CreateAndEnableHook(vtable[kPresentIndex], reinterpret_cast<void*>(&HookedPresent),
+                              reinterpret_cast<void**>(&g_original_present))) {
+        g_present_hooked = true;
+      }
     }
-  }
 
-  if (!g_resize_hooked.load()) {
-    if (CreateAndEnableHook(vtable[kResizeBuffersIndex], reinterpret_cast<void*>(&HookedResizeBuffers),
-                            reinterpret_cast<void**>(&g_original_resize_buffers))) {
-      g_resize_hooked = true;
+    if (!g_resize_hooked.load()) {
+      if (CreateAndEnableHook(vtable[kResizeBuffersIndex], reinterpret_cast<void*>(&HookedResizeBuffers),
+                              reinterpret_cast<void**>(&g_original_resize_buffers))) {
+        g_resize_hooked = true;
+      }
+    }
+  } else {
+    if (!g_present_hooked.load()) {
+      if (CreateVTableHook(dummy_swapchain, kPresentIndex, reinterpret_cast<void*>(&HookedPresent),
+                           reinterpret_cast<void**>(&g_original_present))) {
+        g_present_hooked = true;
+        dover::shared::LogInfo("DX11: Pure VTable Present hook installed successfully.");
+      }
     }
   }
 
@@ -256,7 +292,8 @@ bool InitializeDx11Hook() {
   DestroyWindow(dummy_window);
 
   if (g_present_hooked.load()) {
-    dover::shared::LogInfo("DX11 Hook installed via dummy swapchain.");
+    dover::shared::LogInfo("DX11 Hook installed via dummy swapchain (Method: %s).",
+                           g_active_injection_method == shared::InjectionMethod::InlineMinHook ? "MinHook" : "VTable");
     return true;
   }
 
@@ -278,13 +315,26 @@ void ShutdownDx11Hook() {
     g_imgui_initialized = false;
   }
 
-  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_present));
-  DisableAndRemoveHook(reinterpret_cast<void*>(g_original_resize_buffers));
+  if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+    DisableAndRemoveHook(reinterpret_cast<void*>(g_original_present));
+    DisableAndRemoveHook(reinterpret_cast<void*>(g_original_resize_buffers));
+  } else {
+    if (g_dx11_swapchain_vtable) {
+      if (g_present_hooked.load()) {
+        RemoveVTableHookFromAddress(g_dx11_swapchain_vtable, kPresentIndex, reinterpret_cast<void*>(g_original_present));
+      }
+      if (g_resize_hooked.load()) {
+        RemoveVTableHookFromAddress(g_dx11_swapchain_vtable, kResizeBuffersIndex, reinterpret_cast<void*>(g_original_resize_buffers));
+      }
+    }
+  }
 
   g_original_present = nullptr;
   g_original_resize_buffers = nullptr;
   g_present_hooked = false;
   g_resize_hooked = false;
+  g_live_swapchain = nullptr;
+  g_dx11_swapchain_vtable = nullptr;
 
   if (g_d3d11_device) {
     g_d3d11_device->Release();

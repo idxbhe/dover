@@ -62,7 +62,7 @@ float ReadIniFloat(const std::filesystem::path& path, const char* section, const
     char def_buf[32];
     snprintf(def_buf, sizeof(def_buf), "%f", default_val);
     std::string val = ReadIniString(path, section, key, def_buf);
-    try { return std::stof(val); } catch (...) { return default_val; }
+    try { return std::stof(val); } catch (const std::exception&) { return default_val; }
 }
 
 void WriteIniFloat(const std::filesystem::path& path, const char* section, const char* key, float value) {
@@ -75,7 +75,7 @@ int ReadIniInt(const std::filesystem::path& path, const char* section, const cha
     char def_buf[32];
     snprintf(def_buf, sizeof(def_buf), "%d", default_val);
     std::string val = ReadIniString(path, section, key, def_buf);
-    try { return std::stoi(val); } catch (...) { return default_val; }
+    try { return std::stoi(val); } catch (const std::exception&) { return default_val; }
 }
 
 void WriteIniInt(const std::filesystem::path& path, const char* section, const char* key, int value) {

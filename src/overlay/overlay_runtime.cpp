@@ -14,9 +14,14 @@
 #include "shared/ipc.h"
 #include "shared/log.h"
 #include "shared/engine_quirks.h"
+#include "shared/settings/app_config.h"
+#include "shared/config.h"
 
 #include <atomic>
 #include <windows.h>
+#include <psapi.h>
+
+#pragma comment(lib, "psapi.lib")
 
 namespace dover::overlay {
 
@@ -32,6 +37,25 @@ DWORD WINAPI OverlayThreadProc(LPVOID /*param*/) {
   const DWORD pid = GetCurrentProcessId();
   if (!dover::shared::SignalOverlayReadyEvent(pid)) {
     dover::shared::LogError("Failed to signal overlay ready event.");
+  }
+
+  // Early bootstrap configuration loading
+  wchar_t exe_name_w[MAX_PATH] = {};
+  GetModuleBaseNameW(GetCurrentProcess(), nullptr, exe_name_w, MAX_PATH);
+  std::wstring exe_name(exe_name_w);
+
+  dover::shared::GameStorage::Get().Initialize(exe_name);
+
+  auto boot_path = dover::shared::GameStorage::Get().GetConfigPath();
+  if (!boot_path.empty() && std::filesystem::exists(boot_path)) {
+    int raw = dover::shared::ReadIniInt(boot_path, "advanced", "injection_method",
+                                        static_cast<int>(dover::shared::InjectionMethod::PureVTable));
+    if (raw < 0 || raw > 1) raw = 0;
+    dover::shared::GetAppConfig().injection_method.store(
+        static_cast<dover::shared::InjectionMethod>(raw), std::memory_order_relaxed);
+    dover::shared::LogInfo("Bootstrap Config: loaded injection_method = %d", raw);
+  } else {
+    dover::shared::LogInfo("Bootstrap Config: config.ini not found, using default injection_method (PureVTable)");
   }
 
   dover::shared::LogInfo("Overlay runtime started.");

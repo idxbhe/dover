@@ -204,9 +204,12 @@ static void ProcessWordWrap(ImGuiInputTextCallbackData* data) {
       last_space_c_idx = i;
     }
 
-    float char_width = g_editor_font->CalcTextSizeA(g_font_size, FLT_MAX, 0.0f,
-                                               &s_clean_str[i],
-                                               &s_clean_str[i] + 1).x;
+    // Optimization: Avoid CalcTextSizeA per-character. 
+    // In ImGui 1.92+, fonts are size-agnostic. Fetch the baked data for current size.
+    float char_width = 0.0f;
+    if (ImFontBaked* baked = g_editor_font->GetFontBaked(g_font_size)) {
+      char_width = baked->GetCharAdvance((ImWchar)s_clean_str[i]);
+    }
     current_line_width += char_width;
 
     if (current_line_width > g_wrap_width) {

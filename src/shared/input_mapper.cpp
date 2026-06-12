@@ -26,7 +26,8 @@ void ProcessGamepadRemapping(XINPUT_STATE* state, DWORD user_index) {
         // Even if no state changed, we must still zero out any currently held mapped buttons
         // so the game doesn't process them.
         for (int i = 0; i < 18; ++i) {
-            if (config.gamepad_to_vk_map[i].vk_code != 0) {
+            GamepadMapping map = config.gamepad_to_vk_map[i].load(std::memory_order_relaxed);
+            if (map.vk_code != 0) {
                 if (i < 16) state->Gamepad.wButtons &= ~(1 << i);
                 else if (i == 16) state->Gamepad.bLeftTrigger = 0;
                 else if (i == 17) state->Gamepad.bRightTrigger = 0;
@@ -42,7 +43,7 @@ void ProcessGamepadRemapping(XINPUT_STATE* state, DWORD user_index) {
     int input_count = 0;
 
     for (int i = 0; i < 18; ++i) {
-        const auto& map = config.gamepad_to_vk_map[i];
+        GamepadMapping map = config.gamepad_to_vk_map[i].load(std::memory_order_relaxed);
         uint8_t vk_code = map.vk_code;
         if (vk_code == 0) continue;
 

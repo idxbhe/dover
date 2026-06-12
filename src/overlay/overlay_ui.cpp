@@ -118,11 +118,11 @@ static void RenderNavButton(
       ImGui::GetWindowDrawList()->AddRect(pos, p_max, ImGui::ColorConvertFloat4ToU32(border_color), 4.0f, 1.0f, ImDrawFlags_None);
 
       // Draw 3D double shadow behind the text glyph
-      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->LegacySize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), icon);
-      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->LegacySize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), icon);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_gui, dover::shared::g_font_gui->LegacySize, ImVec2(text_pos.x + 1.0f, text_pos.y + 1.5f), ImGui::ColorConvertFloat4ToU32(shadow_color), icon);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_gui, dover::shared::g_font_gui->LegacySize, ImVec2(text_pos.x - 0.5f, text_pos.y - 0.5f), ImGui::ColorConvertFloat4ToU32(highlight_color), icon);
 
       // Draw the crisp main icon text inside the gradient box
-      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_panel, dover::shared::g_font_panel->LegacySize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), icon);
+      ImGui::GetWindowDrawList()->AddText(dover::shared::g_font_gui, dover::shared::g_font_gui->LegacySize, text_pos, ImGui::ColorConvertFloat4ToU32(text_color), icon);
 
       // Draw active indicator (Long line if focused, small dot if open but not focused)
       if (state.is_open) {
@@ -176,7 +176,7 @@ void RenderImGuiUI() {
   }
 
   // 1. Draw Pinned Info Window (transparent corner overlay) - Hidden when interactive overlay is active
-  if (!curr_show_overlay && (shared::GetAppConfig().show_fps || shared::GetAppConfig().show_clock || shared::GetAppConfig().show_api)) {
+  if (!curr_show_overlay && (shared::GetAppConfig().show_fps.load() || shared::GetAppConfig().show_clock.load() || shared::GetAppConfig().show_api.load())) {
     ImGui::SetNextWindowPos(ImVec2(12.0f, 10.0f), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
     ImGui::Begin("Info Window", nullptr,
@@ -184,22 +184,29 @@ void RenderImGuiUI() {
                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs);
 
-    if (shared::GetAppConfig().show_fps) {
+    if (shared::GetAppConfig().show_fps.load()) {
       TickFPS();
     }
 
-    if (shared::GetAppConfig().show_clock) {
+    if (shared::GetAppConfig().show_clock.load()) {
       SYSTEMTIME time{};
       GetLocalTime(&time);
       ImGui::TextColored(ImVec4(0.20f, 1.00f, 0.70f, 1.00f), "%02u:%02u:%02u", time.wHour, time.wMinute, time.wSecond);
     }
     
-    if (shared::GetAppConfig().show_fps) {
+    if (shared::GetAppConfig().show_fps.load()) {
       ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", g_fps_value);
     }
     
-    if (shared::GetAppConfig().show_api) {
-      ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", GetOverlayState().active_dx_version.load(std::memory_order_acquire));
+    if (shared::GetAppConfig().show_api.load()) {
+      const char* api_str = "Unknown API";
+      switch (GetOverlayState().active_dx_version.load(std::memory_order_acquire)) {
+        case GraphicsAPI::DX9:  api_str = "DirectX 9"; break;
+        case GraphicsAPI::DX11: api_str = "DirectX 11"; break;
+        case GraphicsAPI::DX12: api_str = "DirectX 12"; break;
+        default: break;
+      }
+      ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.20f, 1.00f), "API:  %s", api_str);
     }
     
     ImGui::End();
@@ -209,7 +216,7 @@ void RenderImGuiUI() {
   if (curr_show_overlay) {
     // Dim the underlying game frame for premium presentation
     ImVec2 display_size = ImGui::GetIO().DisplaySize;
-    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, (int)(shared::GetAppConfig().overlay_bg_alpha * 255.0f)));
+    ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(0, 0), display_size, IM_COL32(0, 0, 0, (int)(shared::GetAppConfig().overlay_bg_alpha.load() * 255.0f)));
 
     bool show_notes = shared::notes::GetNotesWindow().IsOpen();
 
@@ -267,7 +274,7 @@ void RenderImGuiUI() {
       ImGui::GetWindowDrawList()->PathStroke(border_dark, 1.0f, 0);
     }
 
-    ImGui::PushFont(dover::shared::g_font_panel, dover::shared::kIconSize);
+    ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kIconSize);
 
     const float icon_btn_width = 34.0f;
     const float button_group_width = (icon_btn_width * 4.0f) + (button_spacing * 3.0f); // Group of 4 icon buttons
@@ -457,7 +464,7 @@ void RenderImGuiUI() {
 
 namespace {
 struct ConfigSnapshot {
-    shared::AppConfig app;
+    shared::AppConfigPOD app;
     bool window_notes_maximized;
     bool window_notes_fullscreen;
     bool window_notes_pinned;
@@ -476,7 +483,7 @@ static ConfigSnapshot s_cfg_snap;
 struct StateSnapshot {
     char selected_note_filename[256];
     int notes_view_mode;
-    int notes_zoom_idx;
+    int notes_font_size;
     int notes_sort_criteria;
     bool notes_sort_ascending;
     bool notes_is_open;
@@ -524,42 +531,51 @@ void InitializeOverlay() {
     shared::input::GetInputWindow().Initialize();
 
     // Register callbacks
-    dover::shared::GameStorage::Get().RegisterConfigLoad([](const std::filesystem::path& cfg) {
-        shared::GetAppConfig().show_fps   = shared::ReadIniBool(cfg, "osd", "show_fps",   true);
-        shared::GetAppConfig().show_clock = shared::ReadIniBool(cfg, "osd", "show_clock", true);
-        shared::GetAppConfig().show_api   = shared::ReadIniBool(cfg, "osd", "show_api",   false);
-        shared::GetAppConfig().show_gamepad_hud     = shared::ReadIniBool(cfg, "osd", "show_gamepad_hud", false);
-        shared::GetAppConfig().gamepad_hud_position = shared::ReadIniInt(cfg, "osd", "gamepad_hud_position", 2);
-        shared::GetAppConfig().gamepad_hud_scale    = shared::ReadIniFloat(cfg, "osd", "gamepad_hud_scale", 1.0f);
+    dover::shared::GameStorage::Get().RegisterConfigLoad([](const std::filesystem::path& cfg_path) {
+        auto& config = shared::GetAppConfig();
+        config.show_fps.store(shared::ReadIniBool(cfg_path, "osd", "show_fps",   true), std::memory_order_relaxed);
+        config.show_clock.store(shared::ReadIniBool(cfg_path, "osd", "show_clock", true), std::memory_order_relaxed);
+        config.show_api.store(shared::ReadIniBool(cfg_path, "osd", "show_api",   false), std::memory_order_relaxed);
+        config.show_gamepad_hud.store(shared::ReadIniBool(cfg_path, "osd", "show_gamepad_hud", false), std::memory_order_relaxed);
+        config.gamepad_hud_position.store(shared::ReadIniInt(cfg_path, "osd", "gamepad_hud_position", 2), std::memory_order_relaxed);
+        config.gamepad_hud_scale.store(shared::ReadIniFloat(cfg_path, "osd", "gamepad_hud_scale", 1.0f), std::memory_order_relaxed);
 
-        shared::GetAppConfig().global_window_alpha = shared::ReadIniFloat(cfg, "theme", "window_alpha", 0.95f);
-        shared::GetAppConfig().overlay_bg_alpha    = shared::ReadIniFloat(cfg, "theme", "overlay_alpha", 0.63f);
+        config.global_window_alpha.store(shared::ReadIniFloat(cfg_path, "theme", "window_alpha", 0.95f), std::memory_order_relaxed);
+        config.overlay_bg_alpha.store(shared::ReadIniFloat(cfg_path, "theme", "overlay_alpha", 0.63f), std::memory_order_relaxed);
 
-        shared::GetAppConfig().hotkey_toggle_main = shared::ReadIniInt(cfg, "hotkeys", "toggle_main", VK_TAB);
-        shared::GetAppConfig().hotkey_toggle_modifier = shared::ReadIniInt(cfg, "hotkeys", "toggle_modifier", VK_SHIFT);
+        config.hotkey_toggle_main.store(shared::ReadIniInt(cfg_path, "hotkeys", "toggle_main", VK_TAB), std::memory_order_relaxed);
+        config.hotkey_toggle_modifier.store(shared::ReadIniInt(cfg_path, "hotkeys", "toggle_modifier", VK_SHIFT), std::memory_order_relaxed);
+
+        int raw_method = shared::ReadIniInt(cfg_path, "advanced", "injection_method",
+                                             static_cast<int>(shared::InjectionMethod::PureVTable));
+        if (raw_method < 0 || raw_method > 1) raw_method = 0;
+        config.injection_method.store(static_cast<shared::InjectionMethod>(raw_method), std::memory_order_relaxed);
 
         for (int i = 0; i < 18; ++i) {
             char key[32];
+            shared::GamepadMapping mapping = {};
             snprintf(key, sizeof(key), "map_%d", i);
-            shared::GetAppConfig().gamepad_to_vk_map[i].vk_code = static_cast<uint8_t>(shared::ReadIniInt(cfg, "input", key, 0));
+            mapping.vk_code = static_cast<uint8_t>(shared::ReadIniInt(cfg_path, "input", key, 0));
             
             snprintf(key, sizeof(key), "map_%d_ctrl", i);
-            shared::GetAppConfig().gamepad_to_vk_map[i].modifier_ctrl = shared::ReadIniBool(cfg, "input", key, false);
+            mapping.modifier_ctrl = shared::ReadIniBool(cfg_path, "input", key, false);
             
             snprintf(key, sizeof(key), "map_%d_shift", i);
-            shared::GetAppConfig().gamepad_to_vk_map[i].modifier_shift = shared::ReadIniBool(cfg, "input", key, false);
+            mapping.modifier_shift = shared::ReadIniBool(cfg_path, "input", key, false);
             
             snprintf(key, sizeof(key), "map_%d_alt", i);
-            shared::GetAppConfig().gamepad_to_vk_map[i].modifier_alt = shared::ReadIniBool(cfg, "input", key, false);
+            mapping.modifier_alt = shared::ReadIniBool(cfg_path, "input", key, false);
+
+            config.gamepad_to_vk_map[i].store(mapping, std::memory_order_relaxed);
         }
 
-        shared::notes::GetNotesWindow().SetBgAlpha(shared::GetAppConfig().global_window_alpha);
-        shared::settings::GetSettingsWindow().SetBgAlpha(shared::GetAppConfig().global_window_alpha);
+        shared::notes::GetNotesWindow().SetBgAlpha(config.global_window_alpha.load());
+        shared::settings::GetSettingsWindow().SetBgAlpha(config.global_window_alpha.load());
 
         auto load_window_state = [&](const char* id, shared::ui::BaseWindow& wnd) {
-            wnd.SetMaximized(shared::ReadIniBool(cfg, id, "maximized", false));
-            wnd.SetFullscreen(shared::ReadIniBool(cfg, id, "fullscreen", false));
-            wnd.SetPinned(shared::ReadIniBool(cfg, id, "pinned", false));
+            wnd.SetMaximized(shared::ReadIniBool(cfg_path, id, "maximized", false));
+            wnd.SetFullscreen(shared::ReadIniBool(cfg_path, id, "fullscreen", false));
+            wnd.SetPinned(shared::ReadIniBool(cfg_path, id, "pinned", false));
         };
         load_window_state("window_notes", shared::notes::GetNotesWindow());
         load_window_state("window_settings", shared::settings::GetSettingsWindow());
@@ -568,7 +584,22 @@ void InitializeOverlay() {
     });
 
     dover::shared::GameStorage::Get().RegisterConfigCapture([]() {
-        s_cfg_snap.app = shared::GetAppConfig();
+        auto& config = shared::GetAppConfig();
+        s_cfg_snap.app.show_fps = config.show_fps.load();
+        s_cfg_snap.app.show_clock = config.show_clock.load();
+        s_cfg_snap.app.show_api = config.show_api.load();
+        s_cfg_snap.app.show_gamepad_hud = config.show_gamepad_hud.load();
+        s_cfg_snap.app.gamepad_hud_position = config.gamepad_hud_position.load();
+        s_cfg_snap.app.gamepad_hud_scale = config.gamepad_hud_scale.load();
+        s_cfg_snap.app.global_window_alpha = config.global_window_alpha.load();
+        s_cfg_snap.app.overlay_bg_alpha = config.overlay_bg_alpha.load();
+        s_cfg_snap.app.hotkey_toggle_main = config.hotkey_toggle_main.load();
+        s_cfg_snap.app.hotkey_toggle_modifier = config.hotkey_toggle_modifier.load();
+        s_cfg_snap.app.injection_method = config.injection_method.load();
+        for (int i = 0; i < 18; ++i) {
+            s_cfg_snap.app.gamepad_to_vk_map[i] = config.gamepad_to_vk_map[i].load();
+        }
+
         s_cfg_snap.window_notes_maximized = shared::notes::GetNotesWindow().IsMaximized();
         s_cfg_snap.window_notes_fullscreen = shared::notes::GetNotesWindow().IsFullscreen();
         s_cfg_snap.window_notes_pinned = shared::notes::GetNotesWindow().IsPinned();
@@ -584,10 +615,9 @@ void InitializeOverlay() {
     });
 
     dover::shared::GameStorage::Get().RegisterStateCapture([]() {
-        std::string fn = shared::notes::GetNotesWindow().GetSelectedNoteFilename();
-        strncpy_s(s_st_snap.selected_note_filename, sizeof(s_st_snap.selected_note_filename), fn.c_str(), _TRUNCATE);
+        shared::notes::GetNotesWindow().GetSelectedNoteFilename(s_st_snap.selected_note_filename, sizeof(s_st_snap.selected_note_filename));
         s_st_snap.notes_view_mode = shared::notes::GetNotesWindow().GetViewMode();
-        s_st_snap.notes_zoom_idx = shared::notes::GetNotesWindow().GetZoomIndex();
+        s_st_snap.notes_font_size = shared::notes::GetNotesWindow().GetFontSize();
         s_st_snap.notes_sort_criteria = static_cast<int>(shared::notes::GetSortCriteria());
         s_st_snap.notes_sort_ascending = shared::notes::IsSortAscending();
         s_st_snap.notes_is_open = shared::notes::GetNotesWindow().IsOpen();
@@ -609,39 +639,41 @@ void InitializeOverlay() {
         s_st_snap.inputmap_is_open = shared::input::GetInputWindow().IsOpen();
     });
 
-    dover::shared::GameStorage::Get().RegisterConfigSave([](const std::filesystem::path& cfg) {
-        shared::WriteIniBool(cfg, "osd", "show_fps",   s_cfg_snap.app.show_fps);
-        shared::WriteIniBool(cfg, "osd", "show_clock", s_cfg_snap.app.show_clock);
-        shared::WriteIniBool(cfg, "osd", "show_api",   s_cfg_snap.app.show_api);
-        shared::WriteIniBool(cfg, "osd", "show_gamepad_hud",     s_cfg_snap.app.show_gamepad_hud);
-        shared::WriteIniInt(cfg, "osd", "gamepad_hud_position", s_cfg_snap.app.gamepad_hud_position);
-        shared::WriteIniFloat(cfg, "osd", "gamepad_hud_scale",    s_cfg_snap.app.gamepad_hud_scale);
+    dover::shared::GameStorage::Get().RegisterConfigSave([](const std::filesystem::path& cfg_path) {
+        shared::WriteIniBool(cfg_path, "osd", "show_fps",   s_cfg_snap.app.show_fps);
+        shared::WriteIniBool(cfg_path, "osd", "show_clock", s_cfg_snap.app.show_clock);
+        shared::WriteIniBool(cfg_path, "osd", "show_api",   s_cfg_snap.app.show_api);
+        shared::WriteIniBool(cfg_path, "osd", "show_gamepad_hud",     s_cfg_snap.app.show_gamepad_hud);
+        shared::WriteIniInt(cfg_path, "osd", "gamepad_hud_position", s_cfg_snap.app.gamepad_hud_position);
+        shared::WriteIniFloat(cfg_path, "osd", "gamepad_hud_scale",    s_cfg_snap.app.gamepad_hud_scale);
 
-        shared::WriteIniFloat(cfg, "theme", "window_alpha",  s_cfg_snap.app.global_window_alpha);
-        shared::WriteIniFloat(cfg, "theme", "overlay_alpha", s_cfg_snap.app.overlay_bg_alpha);
+        shared::WriteIniFloat(cfg_path, "theme", "window_alpha",  s_cfg_snap.app.global_window_alpha);
+        shared::WriteIniFloat(cfg_path, "theme", "overlay_alpha", s_cfg_snap.app.overlay_bg_alpha);
 
-        shared::WriteIniInt(cfg, "hotkeys", "toggle_main", s_cfg_snap.app.hotkey_toggle_main);
-        shared::WriteIniInt(cfg, "hotkeys", "toggle_modifier", s_cfg_snap.app.hotkey_toggle_modifier);
+        shared::WriteIniInt(cfg_path, "hotkeys", "toggle_main", s_cfg_snap.app.hotkey_toggle_main);
+        shared::WriteIniInt(cfg_path, "hotkeys", "toggle_modifier", s_cfg_snap.app.hotkey_toggle_modifier);
+
+        shared::WriteIniInt(cfg_path, "advanced", "injection_method", static_cast<int>(s_cfg_snap.app.injection_method));
 
         for (int i = 0; i < 18; ++i) {
             char key[32];
             snprintf(key, sizeof(key), "map_%d", i);
-            shared::WriteIniInt(cfg, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].vk_code);
+            shared::WriteIniInt(cfg_path, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].vk_code);
             
             snprintf(key, sizeof(key), "map_%d_ctrl", i);
-            shared::WriteIniBool(cfg, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_ctrl);
+            shared::WriteIniBool(cfg_path, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_ctrl);
             
             snprintf(key, sizeof(key), "map_%d_shift", i);
-            shared::WriteIniBool(cfg, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_shift);
+            shared::WriteIniBool(cfg_path, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_shift);
             
             snprintf(key, sizeof(key), "map_%d_alt", i);
-            shared::WriteIniBool(cfg, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_alt);
+            shared::WriteIniBool(cfg_path, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_alt);
         }
 
         auto save_window_state = [&](const char* id, bool is_max, bool is_full, bool is_pin) {
-            shared::WriteIniBool(cfg, id, "maximized", is_max);
-            shared::WriteIniBool(cfg, id, "fullscreen", is_full);
-            shared::WriteIniBool(cfg, id, "pinned", is_pin);
+            shared::WriteIniBool(cfg_path, id, "maximized", is_max);
+            shared::WriteIniBool(cfg_path, id, "fullscreen", is_full);
+            shared::WriteIniBool(cfg_path, id, "pinned", is_pin);
         };
         save_window_state("window_notes", s_cfg_snap.window_notes_maximized, s_cfg_snap.window_notes_fullscreen, s_cfg_snap.window_notes_pinned);
         save_window_state("window_settings", s_cfg_snap.window_settings_maximized, s_cfg_snap.window_settings_fullscreen, s_cfg_snap.window_settings_pinned);
@@ -665,8 +697,19 @@ void InitializeOverlay() {
         bool sort_asc = shared::ReadIniBool(st, "notes", "sort_ascending", true);
         shared::notes::SetSortMode(static_cast<shared::notes::NoteSortCriteria>(sort_crit), sort_asc);
 
-        int zoom_idx = shared::ReadIniInt(st, "notes", "zoom_idx", 2);
-        shared::notes::GetNotesWindow().SetZoomIndex(zoom_idx);
+        int font_size = shared::ReadIniInt(st, "notes", "font_size", -1);
+        if (font_size == -1) {
+            int zoom_idx = shared::ReadIniInt(st, "notes", "zoom_idx", 2);
+            switch (zoom_idx) {
+                case 0: font_size = 13; break;
+                case 1: font_size = 15; break;
+                case 2: font_size = 18; break;
+                case 3: font_size = 22; break;
+                case 4: font_size = 26; break;
+                default: font_size = 18; break;
+            }
+        }
+        shared::notes::GetNotesWindow().SetFontSize(font_size);
 
         int settings_cat = shared::ReadIniInt(st, "settings", "selected_category", 0);
         shared::settings::GetSettingsWindow().SetSelectedCategory(settings_cat);
@@ -719,7 +762,7 @@ void InitializeOverlay() {
     dover::shared::GameStorage::Get().RegisterStateSave([](const std::filesystem::path& st) {
         shared::WriteIniString(st, "notes", "selected_note_filename", s_st_snap.selected_note_filename);
         shared::WriteIniInt(st, "notes", "view_mode",           s_st_snap.notes_view_mode);
-        shared::WriteIniInt(st, "notes", "zoom_idx",            s_st_snap.notes_zoom_idx);
+        shared::WriteIniInt(st, "notes", "font_size",           s_st_snap.notes_font_size);
         shared::WriteIniInt(st, "notes", "sort_criteria",       s_st_snap.notes_sort_criteria);
         shared::WriteIniBool(st, "notes", "sort_ascending",     s_st_snap.notes_sort_ascending);
         shared::WriteIniInt(st, "settings", "selected_category", s_st_snap.settings_selected_category);

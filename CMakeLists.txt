@@ -191,6 +191,7 @@ add_library(dover_shared STATIC
   src/shared/game_storage.cpp
   src/shared/theme.cpp
   src/shared/ui/components/base_window.cpp
+  src/shared/ui/widgets.cpp
   src/shared/settings/settings_window.cpp
   src/shared/settings/app_config.cpp
   src/shared/notes/notes_manager.cpp
