@@ -15,18 +15,19 @@ GameStorage& GameStorage::Get() {
 }
 
 void GameStorage::Initialize(const std::wstring& exe_name) {
-    if (m_initialized) return;
-
     // Resolve game directory: Documents/Dover/overlay/games/<exe_name>/
-    m_game_dir = shared::EnsureGameDir(exe_name);
-    if (m_game_dir.empty()) {
+    fs::path new_dir = shared::EnsureGameDir(exe_name);
+    if (new_dir.empty()) {
         // Fallback: use temp dir so the app still functions without crashing
         wchar_t tmp[MAX_PATH];
         GetTempPathW(MAX_PATH, tmp);
-        m_game_dir = fs::path(tmp) / L"dover" / exe_name;
+        new_dir = fs::path(tmp) / L"dover" / exe_name;
         std::error_code ec;
-        fs::create_directories(m_game_dir, ec);
+        fs::create_directories(new_dir, ec);
     }
+
+    if (m_initialized && m_game_dir == new_dir) return;
+    m_game_dir = new_dir;
 
     // Ensure notes subdirectory exists
     {

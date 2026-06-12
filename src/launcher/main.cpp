@@ -15,6 +15,7 @@
 #include "shared/theme.h"
 #include "shared/icons.h"
 #include "shared/game_storage.h"
+#include "shared/settings/app_config.h"
 
 #pragma comment(lib, "d3d11.lib")
 
@@ -612,6 +613,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
   dover::shared::SetupImGuiTheme();
 
+  // Register AppConfig Load/Save callbacks
+  dover::shared::GameStorage::Get().RegisterConfigLoad([](const std::filesystem::path& path) {
+      dover::shared::LoadAppConfigFromIni(path);
+  });
+  dover::shared::GameStorage::Get().RegisterConfigSave([](const std::filesystem::path& path) {
+      dover::shared::SaveAppConfigToIni(path);
+  });
+
   // Fix Notes module UI wake-up gap
   dover::shared::notes::SetWakeupCallback([hwnd]() {
       PostMessageW(hwnd, WM_PAINT, 0, 0);
@@ -691,6 +700,16 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
     // Consume 1 quota for this frame
     g_FramesToRender--;
+
+    // Handle Config/State Capture and Flush for Launcher (Synchronous)
+    if (dover::shared::GameStorage::Get().TestAndClearConfigCaptureRequested()) {
+        dover::shared::GameStorage::Get().ExecuteConfigCapture();
+        dover::shared::GameStorage::Get().FlushConfig();
+    }
+    if (dover::shared::GameStorage::Get().TestAndClearStateCaptureRequested()) {
+        dover::shared::GameStorage::Get().ExecuteStateCapture();
+        dover::shared::GameStorage::Get().FlushState();
+    }
 
     if (g_ResizeWidth != 0 && g_ResizeHeight != 0) {
       CleanupRenderTarget();
@@ -1123,8 +1142,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 if (!is_open) {
                     if (active_win == ActiveWindow::Notes) dover::shared::notes::ShutdownNotesManager();
                     dover::shared::GameStorage::Get().Initialize(game.name);
-                    
+                    dover::shared::GameStorage::Get().LoadConfig();
+
                     if (win_type == ActiveWindow::Notes) {
+
                         dover::shared::notes::InitializeNotesManager(dover::shared::GameStorage::Get().GetNotesDir());
                         auto& win = dover::shared::notes::GetNotesWindow();
                         win.SetRenderContext(dover::shared::ui::RenderContext::Launcher);

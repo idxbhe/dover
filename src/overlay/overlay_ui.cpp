@@ -532,43 +532,9 @@ void InitializeOverlay() {
 
     // Register callbacks
     dover::shared::GameStorage::Get().RegisterConfigLoad([](const std::filesystem::path& cfg_path) {
+        shared::LoadAppConfigFromIni(cfg_path);
+
         auto& config = shared::GetAppConfig();
-        config.show_fps.store(shared::ReadIniBool(cfg_path, "osd", "show_fps",   true), std::memory_order_relaxed);
-        config.show_clock.store(shared::ReadIniBool(cfg_path, "osd", "show_clock", true), std::memory_order_relaxed);
-        config.show_api.store(shared::ReadIniBool(cfg_path, "osd", "show_api",   false), std::memory_order_relaxed);
-        config.show_gamepad_hud.store(shared::ReadIniBool(cfg_path, "osd", "show_gamepad_hud", false), std::memory_order_relaxed);
-        config.gamepad_hud_position.store(shared::ReadIniInt(cfg_path, "osd", "gamepad_hud_position", 2), std::memory_order_relaxed);
-        config.gamepad_hud_scale.store(shared::ReadIniFloat(cfg_path, "osd", "gamepad_hud_scale", 1.0f), std::memory_order_relaxed);
-
-        config.global_window_alpha.store(shared::ReadIniFloat(cfg_path, "theme", "window_alpha", 0.95f), std::memory_order_relaxed);
-        config.overlay_bg_alpha.store(shared::ReadIniFloat(cfg_path, "theme", "overlay_alpha", 0.63f), std::memory_order_relaxed);
-
-        config.hotkey_toggle_main.store(shared::ReadIniInt(cfg_path, "hotkeys", "toggle_main", VK_TAB), std::memory_order_relaxed);
-        config.hotkey_toggle_modifier.store(shared::ReadIniInt(cfg_path, "hotkeys", "toggle_modifier", VK_SHIFT), std::memory_order_relaxed);
-
-        int raw_method = shared::ReadIniInt(cfg_path, "advanced", "injection_method",
-                                             static_cast<int>(shared::InjectionMethod::PureVTable));
-        if (raw_method < 0 || raw_method > 1) raw_method = 0;
-        config.injection_method.store(static_cast<shared::InjectionMethod>(raw_method), std::memory_order_relaxed);
-
-        for (int i = 0; i < 18; ++i) {
-            char key[32];
-            shared::GamepadMapping mapping = {};
-            snprintf(key, sizeof(key), "map_%d", i);
-            mapping.vk_code = static_cast<uint8_t>(shared::ReadIniInt(cfg_path, "input", key, 0));
-            
-            snprintf(key, sizeof(key), "map_%d_ctrl", i);
-            mapping.modifier_ctrl = shared::ReadIniBool(cfg_path, "input", key, false);
-            
-            snprintf(key, sizeof(key), "map_%d_shift", i);
-            mapping.modifier_shift = shared::ReadIniBool(cfg_path, "input", key, false);
-            
-            snprintf(key, sizeof(key), "map_%d_alt", i);
-            mapping.modifier_alt = shared::ReadIniBool(cfg_path, "input", key, false);
-
-            config.gamepad_to_vk_map[i].store(mapping, std::memory_order_relaxed);
-        }
-
         shared::notes::GetNotesWindow().SetBgAlpha(config.global_window_alpha.load());
         shared::settings::GetSettingsWindow().SetBgAlpha(config.global_window_alpha.load());
 
@@ -640,35 +606,7 @@ void InitializeOverlay() {
     });
 
     dover::shared::GameStorage::Get().RegisterConfigSave([](const std::filesystem::path& cfg_path) {
-        shared::WriteIniBool(cfg_path, "osd", "show_fps",   s_cfg_snap.app.show_fps);
-        shared::WriteIniBool(cfg_path, "osd", "show_clock", s_cfg_snap.app.show_clock);
-        shared::WriteIniBool(cfg_path, "osd", "show_api",   s_cfg_snap.app.show_api);
-        shared::WriteIniBool(cfg_path, "osd", "show_gamepad_hud",     s_cfg_snap.app.show_gamepad_hud);
-        shared::WriteIniInt(cfg_path, "osd", "gamepad_hud_position", s_cfg_snap.app.gamepad_hud_position);
-        shared::WriteIniFloat(cfg_path, "osd", "gamepad_hud_scale",    s_cfg_snap.app.gamepad_hud_scale);
-
-        shared::WriteIniFloat(cfg_path, "theme", "window_alpha",  s_cfg_snap.app.global_window_alpha);
-        shared::WriteIniFloat(cfg_path, "theme", "overlay_alpha", s_cfg_snap.app.overlay_bg_alpha);
-
-        shared::WriteIniInt(cfg_path, "hotkeys", "toggle_main", s_cfg_snap.app.hotkey_toggle_main);
-        shared::WriteIniInt(cfg_path, "hotkeys", "toggle_modifier", s_cfg_snap.app.hotkey_toggle_modifier);
-
-        shared::WriteIniInt(cfg_path, "advanced", "injection_method", static_cast<int>(s_cfg_snap.app.injection_method));
-
-        for (int i = 0; i < 18; ++i) {
-            char key[32];
-            snprintf(key, sizeof(key), "map_%d", i);
-            shared::WriteIniInt(cfg_path, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].vk_code);
-            
-            snprintf(key, sizeof(key), "map_%d_ctrl", i);
-            shared::WriteIniBool(cfg_path, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_ctrl);
-            
-            snprintf(key, sizeof(key), "map_%d_shift", i);
-            shared::WriteIniBool(cfg_path, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_shift);
-            
-            snprintf(key, sizeof(key), "map_%d_alt", i);
-            shared::WriteIniBool(cfg_path, "input", key, s_cfg_snap.app.gamepad_to_vk_map[i].modifier_alt);
-        }
+        shared::SaveAppConfigToIni(cfg_path, &s_cfg_snap.app);
 
         auto save_window_state = [&](const char* id, bool is_max, bool is_full, bool is_pin) {
             shared::WriteIniBool(cfg_path, id, "maximized", is_max);

@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <windows.h>
 #include <atomic>
+#include <filesystem>
 
 namespace dover::shared {
 
@@ -57,5 +58,8 @@ struct AppConfig {
 };
 
 AppConfig& GetAppConfig();
+
+void LoadAppConfigFromIni(const std::filesystem::path& path);
+void SaveAppConfigToIni(const std::filesystem::path& path, const AppConfigPOD* snap_pod = nullptr);
 
 } // namespace dover::shared

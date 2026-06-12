@@ -302,6 +302,13 @@ void SettingsWindow::RenderContent(bool interactive) {
 
                 RenderHotkeySelector("Toggle Overlay Menu", shared::GetAppConfig().hotkey_toggle_main, shared::GetAppConfig().hotkey_toggle_modifier);
                 
+                if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kPreviewSizes[0]);
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.75f, 0.50f, 0.80f)); // Subtle Warning Gold
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 8.0f);
+                ImGui::TextWrapped("Note: This hotkey is captured by the overlay and will be inaccessible to the game during gameplay.");
+                ImGui::PopStyleColor();
+                if (dover::shared::g_font_gui) ImGui::PopFont();
+
                 ImGui::Dummy(ImVec2(0.0f, 8.0f)); // Premium small spacing before secondary keybinds
                 
                 ImGui::TextDisabled("Quick Notes:          [Alt+N]");
@@ -446,9 +453,11 @@ void SettingsWindow::RenderContent(bool interactive) {
                     }
 
                     ImGui::Spacing();
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 0.75f));
+                    if (dover::shared::g_font_gui) ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kPreviewSizes[0]);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.75f, 0.50f, 0.80f)); // Subtle Warning Gold
                     ImGui::TextWrapped("Note: Changes to the injection method require a full game restart to take effect.");
                     ImGui::PopStyleColor();
+                    if (dover::shared::g_font_gui) ImGui::PopFont();
                 }
                 break;
             }

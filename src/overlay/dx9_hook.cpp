@@ -42,7 +42,10 @@ IDirect3DDevice9* g_d3d9_device = nullptr;
 
 shared::InjectionMethod g_active_injection_method = shared::InjectionMethod::PureVTable;
 IDirect3DDevice9* g_live_d3d9_device = nullptr;
-void** g_dx9_device_vtable = nullptr;
+
+static constexpr size_t kMaxCachedVtables = 8;
+void** g_dx9_hooked_vtables[kMaxCachedVtables] = {};
+size_t g_dx9_hooked_vtables_count = 0;
 
 HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
   if (!device || IsOverlayShutdownRequested()) {
@@ -69,39 +72,52 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
   TickInputCooldown();
 
   if (!g_imgui_initialized.load()) {
-    D3DDEVICE_CREATION_PARAMETERS params = {};
-    if (SUCCEEDED(device->GetCreationParameters(&params)) && params.hFocusWindow) {
-      HWND hwnd = params.hFocusWindow;
-      g_d3d9_device = device;
-      
-      D3DVIEWPORT9 viewport;
-      if (SUCCEEDED(device->GetViewport(&viewport))) {
-          GetOverlayState().game_hwnd.store(hwnd, std::memory_order_release);
-          GetOverlayState().swapchain_width.store(viewport.Width, std::memory_order_relaxed);
-          GetOverlayState().swapchain_height.store(viewport.Height, std::memory_order_relaxed);
-          UpdateMouseScaling();
+    HWND hwnd = nullptr;
+    UINT width = 0, height = 0;
 
-          IMGUI_CHECKVERSION();
-          ImGui::CreateContext();
-          OverrideImGuiClipboardFunctions();
-          InitializeOverlay();
-
-          ImGui_ImplWin32_Init(hwnd);
-          ImGui_ImplDX9_Init(device);
-
-          // Subclass WndProc using shared HookedWndProc
-          WNDPROC old_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
-              hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
-          GetOverlayState().original_wnd_proc.store(old_proc, std::memory_order_release);
-
-          GetOverlayState().active_dx_version.store(GraphicsAPI::DX9, std::memory_order_release);
-
-          // Register device with shared renderer so asset texture creation works
-          shared::SetDx9Device(device);
-
-          g_imgui_initialized = true;
-          dover::shared::LogInfo("Dear ImGui initialized inside D3D9 EndScene hook.");
+    IDirect3DSwapChain9* swapchain = nullptr;
+    if (SUCCEEDED(device->GetSwapChain(0, &swapchain)) && swapchain) {
+      D3DPRESENT_PARAMETERS pp = {};
+      if (SUCCEEDED(swapchain->GetPresentParameters(&pp))) {
+        hwnd = pp.hDeviceWindow;
+        width = pp.BackBufferWidth;
+        height = pp.BackBufferHeight;
       }
+      swapchain->Release();
+    }
+
+    if (!hwnd) {
+      D3DDEVICE_CREATION_PARAMETERS params = {};
+      if (SUCCEEDED(device->GetCreationParameters(&params))) {
+        hwnd = params.hFocusWindow;
+      }
+    }
+
+    if (hwnd && width > 0 && height > 0) {
+      g_d3d9_device = device;
+      GetOverlayState().game_hwnd.store(hwnd, std::memory_order_release);
+      GetOverlayState().swapchain_width.store(width, std::memory_order_relaxed);
+      GetOverlayState().swapchain_height.store(height, std::memory_order_relaxed);
+      UpdateMouseScaling();
+
+      IMGUI_CHECKVERSION();
+      ImGui::CreateContext();
+      OverrideImGuiClipboardFunctions();
+      InitializeOverlay();
+
+      ImGui_ImplWin32_Init(hwnd);
+      ImGui_ImplDX9_Init(device);
+
+      WNDPROC old_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+          hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&HookedWndProc)));
+      GetOverlayState().original_wnd_proc.store(old_proc, std::memory_order_release);
+
+      GetOverlayState().active_dx_version.store(GraphicsAPI::DX9, std::memory_order_release);
+
+      shared::SetDx9Device(device);
+
+      g_imgui_initialized = true;
+      dover::shared::LogInfo("Dear ImGui initialized inside D3D9 EndScene hook (Pure Device compatible).");
     }
   }
 
@@ -131,8 +147,8 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
           IDirect3DSurface9* original_rt = nullptr;
           D3DVIEWPORT9 original_viewport;
           
-          device->GetRenderTarget(0, &original_rt);
-          device->GetViewport(&original_viewport);
+          bool restore_rt = SUCCEEDED(device->GetRenderTarget(0, &original_rt));
+          bool restore_vp = SUCCEEDED(device->GetViewport(&original_viewport));
 
           IDirect3DSurface9* backbuffer = nullptr;
           if (SUCCEEDED(device->GetBackBuffer(0, 0, D3DBACKBUFFER_TYPE_MONO, &backbuffer))) {
@@ -147,13 +163,18 @@ HRESULT WINAPI HookedEndScene(IDirect3DDevice9* device) {
               ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
 
               backbuffer->Release();
+          } else {
+              // Fallback: GetBackBuffer failed (likely Pure Device). Draw anyway.
+              ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
           }
 
-          if (original_rt) {
+          if (restore_rt && original_rt) {
               device->SetRenderTarget(0, original_rt);
               original_rt->Release();
           }
-          device->SetViewport(&original_viewport);
+          if (restore_vp) {
+              device->SetViewport(&original_viewport);
+          }
       } else {
           ImGui_ImplDX9_RenderDrawData(ImGui::GetDrawData());
       }
@@ -229,47 +250,90 @@ bool InitializeDx9Hook() {
   params.SwapEffect = D3DSWAPEFFECT_DISCARD;
   params.hDeviceWindow = dummy_window;
 
-  IDirect3DDevice9* dummy_device = nullptr;
-  HRESULT hr = d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_NULLREF, dummy_window,
-                                 D3DCREATE_SOFTWARE_VERTEXPROCESSING, &params, &dummy_device);
-  
-  if (FAILED(hr) || !dummy_device) {
-    dover::shared::LogError("Failed to create dummy device.");
-    DestroyWindow(dummy_window);
-    d3d->Release();
-    return false;
-  }
-
-  void** vtable = *reinterpret_cast<void***>(dummy_device);
-  g_dx9_device_vtable = vtable;
-  
-  if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
-    if (!g_end_scene_hooked.load()) {
-      if (CreateAndEnableHook(vtable[kEndSceneIndex], reinterpret_cast<void*>(&HookedEndScene),
-                              reinterpret_cast<void**>(&g_original_end_scene))) {
-        g_end_scene_hooked = true;
+  auto hook_vtable = [&](void* device_ptr) {
+    if (!device_ptr) return;
+    void** vtable = *reinterpret_cast<void***>(device_ptr);
+    
+    // Track unique vtables for PureVTable unhooking
+    if (g_active_injection_method == shared::InjectionMethod::PureVTable) {
+      bool already_tracked = false;
+      for (size_t i = 0; i < g_dx9_hooked_vtables_count; ++i) {
+        if (g_dx9_hooked_vtables[i] == vtable) {
+          already_tracked = true;
+          break;
+        }
+      }
+      if (!already_tracked && g_dx9_hooked_vtables_count < kMaxCachedVtables) {
+        g_dx9_hooked_vtables[g_dx9_hooked_vtables_count++] = vtable;
       }
     }
-
-    if (!g_reset_hooked.load()) {
-      if (CreateAndEnableHook(vtable[kResetIndex], reinterpret_cast<void*>(&HookedReset),
-                              reinterpret_cast<void**>(&g_original_reset))) {
+    
+    if (g_active_injection_method == shared::InjectionMethod::InlineMinHook) {
+      if (!g_end_scene_hooked.load()) {
+        if (CreateAndEnableHook(vtable[kEndSceneIndex], reinterpret_cast<void*>(&HookedEndScene), reinterpret_cast<void**>(&g_original_end_scene))) {
+          g_end_scene_hooked = true;
+        }
+      }
+      if (!g_reset_hooked.load()) {
+        if (CreateAndEnableHook(vtable[kResetIndex], reinterpret_cast<void*>(&HookedReset), reinterpret_cast<void**>(&g_original_reset))) {
+          g_reset_hooked = true;
+        }
+      }
+    } else {
+      void* orig_end_scene = nullptr;
+      if (CreateVTableHook(device_ptr, kEndSceneIndex, reinterpret_cast<void*>(&HookedEndScene), &orig_end_scene)) {
+        if (!g_original_end_scene) g_original_end_scene = reinterpret_cast<EndSceneFn>(orig_end_scene);
+        g_end_scene_hooked = true;
+      }
+      void* orig_reset = nullptr;
+      if (CreateVTableHook(device_ptr, kResetIndex, reinterpret_cast<void*>(&HookedReset), &orig_reset)) {
+        if (!g_original_reset) g_original_reset = reinterpret_cast<ResetFn>(orig_reset);
         g_reset_hooked = true;
       }
     }
-  } else {
-    if (!g_end_scene_hooked.load()) {
-      if (CreateVTableHook(dummy_device, kEndSceneIndex, reinterpret_cast<void*>(&HookedEndScene),
-                           reinterpret_cast<void**>(&g_original_end_scene))) {
-        g_end_scene_hooked = true;
-        dover::shared::LogInfo("DX9: Pure VTable EndScene hook installed successfully.");
+  };
+
+  DWORD d3d9_behaviors[] = {
+    D3DCREATE_HARDWARE_VERTEXPROCESSING,
+    D3DCREATE_HARDWARE_VERTEXPROCESSING | D3DCREATE_PUREDEVICE,
+    D3DCREATE_SOFTWARE_VERTEXPROCESSING,
+    D3DCREATE_SOFTWARE_VERTEXPROCESSING | D3DCREATE_PUREDEVICE
+  };
+
+  for (DWORD behavior : d3d9_behaviors) {
+    IDirect3DDevice9* dummy_device = nullptr;
+    if (SUCCEEDED(d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, dummy_window, behavior, &params, &dummy_device)) && dummy_device) {
+      hook_vtable(dummy_device);
+      dummy_device->Release();
+    }
+    // MinHook patches the actual function code, so one successful hook is enough
+    if (g_active_injection_method == shared::InjectionMethod::InlineMinHook && g_end_scene_hooked.load() && g_reset_hooked.load()) {
+      break; 
+    }
+  }
+
+  d3d->Release();
+
+  // For PureVTable, hook D3D9Ex variants as well
+  if (g_active_injection_method == shared::InjectionMethod::PureVTable) {
+    using Direct3DCreate9ExFn = HRESULT(WINAPI*)(UINT, IDirect3D9Ex**);
+    auto create9ex = reinterpret_cast<Direct3DCreate9ExFn>(GetProcAddress(d3d9, "Direct3DCreate9Ex"));
+    if (create9ex) {
+      IDirect3D9Ex* d3dEx = nullptr;
+      if (SUCCEEDED(create9ex(D3D_SDK_VERSION, &d3dEx)) && d3dEx) {
+        for (DWORD behavior : d3d9_behaviors) {
+          IDirect3DDevice9Ex* dummy_device_ex = nullptr;
+          if (SUCCEEDED(d3dEx->CreateDeviceEx(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, dummy_window, behavior, &params, nullptr, &dummy_device_ex)) && dummy_device_ex) {
+            hook_vtable(dummy_device_ex);
+            dummy_device_ex->Release();
+          }
+        }
+        d3dEx->Release();
       }
     }
   }
 
-  dummy_device->Release();
   DestroyWindow(dummy_window);
-  d3d->Release();
 
   if (g_end_scene_hooked.load()) {
     dover::shared::LogInfo("DX9 Hook installed via dummy device (Method: %s).",
@@ -298,20 +362,21 @@ void ShutdownDx9Hook() {
     DisableAndRemoveHook(reinterpret_cast<void*>(g_original_end_scene));
     DisableAndRemoveHook(reinterpret_cast<void*>(g_original_reset));
   } else {
-    if (g_dx9_device_vtable) {
+    for (size_t i = 0; i < g_dx9_hooked_vtables_count; ++i) {
+      void** vtable = g_dx9_hooked_vtables[i];
       if (g_end_scene_hooked.load()) {
-        RemoveVTableHookFromAddress(g_dx9_device_vtable, kEndSceneIndex, reinterpret_cast<void*>(g_original_end_scene));
+        RemoveVTableHookFromAddress(vtable, kEndSceneIndex, reinterpret_cast<void*>(g_original_end_scene));
       }
       if (g_reset_hooked.load()) {
-        RemoveVTableHookFromAddress(g_dx9_device_vtable, kResetIndex, reinterpret_cast<void*>(g_original_reset));
+        RemoveVTableHookFromAddress(vtable, kResetIndex, reinterpret_cast<void*>(g_original_reset));
       }
     }
+    g_dx9_hooked_vtables_count = 0;
   }
 
   g_end_scene_hooked = false;
   g_reset_hooked = false;
   g_live_d3d9_device = nullptr;
-  g_dx9_device_vtable = nullptr;
 
   // Unregister from shared renderer
   shared::SetDx9Device(nullptr);
