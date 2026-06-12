@@ -32,16 +32,16 @@ void LoadAppConfigFromIni(const std::filesystem::path& path) {
         char key[32];
         GamepadMapping mapping = {};
         snprintf(key, sizeof(key), "map_%d", i);
-        mapping.vk_code = static_cast<uint8_t>(ReadIniInt(path, "input", key, 0));
+        mapping.vk_code = static_cast<uint8_t>(ReadIniInt(path, "controller_tool", key, 0));
         
         snprintf(key, sizeof(key), "map_%d_ctrl", i);
-        mapping.modifier_ctrl = ReadIniBool(path, "input", key, false);
+        mapping.modifier_ctrl = ReadIniBool(path, "controller_tool", key, false);
         
         snprintf(key, sizeof(key), "map_%d_shift", i);
-        mapping.modifier_shift = ReadIniBool(path, "input", key, false);
+        mapping.modifier_shift = ReadIniBool(path, "controller_tool", key, false);
         
         snprintf(key, sizeof(key), "map_%d_alt", i);
-        mapping.modifier_alt = ReadIniBool(path, "input", key, false);
+        mapping.modifier_alt = ReadIniBool(path, "controller_tool", key, false);
 
         config.gamepad_to_vk_map[i].store(mapping, std::memory_order_relaxed);
     }
@@ -73,16 +73,16 @@ void SaveAppConfigToIni(const std::filesystem::path& path, const AppConfigPOD* s
         auto mapping = use_snap ? snap_pod->gamepad_to_vk_map[i] : config.gamepad_to_vk_map[i].load();
         
         snprintf(key, sizeof(key), "map_%d", i);
-        WriteIniInt(path, "input", key, mapping.vk_code);
+        WriteIniInt(path, "controller_tool", key, mapping.vk_code);
         
         snprintf(key, sizeof(key), "map_%d_ctrl", i);
-        WriteIniBool(path, "input", key, mapping.modifier_ctrl);
+        WriteIniBool(path, "controller_tool", key, mapping.modifier_ctrl);
         
         snprintf(key, sizeof(key), "map_%d_shift", i);
-        WriteIniBool(path, "input", key, mapping.modifier_shift);
+        WriteIniBool(path, "controller_tool", key, mapping.modifier_shift);
         
         snprintf(key, sizeof(key), "map_%d_alt", i);
-        WriteIniBool(path, "input", key, mapping.modifier_alt);
+        WriteIniBool(path, "controller_tool", key, mapping.modifier_alt);
     }
 }
 

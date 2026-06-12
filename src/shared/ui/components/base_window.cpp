@@ -153,7 +153,7 @@ void BaseWindow::Render(bool interactive) {
 
         // Standardized Header / Toolbar
         if (interactive) {
-            if (strcmp(m_window_name, "Settings") != 0 && strcmp(m_window_name, "Input Mapper") != 0) {
+            if (strcmp(m_window_name, "Settings") != 0 && strcmp(m_window_name, "Controller Tool") != 0) {
                 ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 3.0f); // Move decorations & toolbar 3px lower
                 RenderToolbar(interactive);
                 

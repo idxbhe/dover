@@ -200,8 +200,8 @@ add_library(dover_shared STATIC
   src/shared/notes/notes_style.cpp
   src/shared/crosshair/crosshair_window.cpp
   src/shared/assets/asset_storage.cpp
-  src/shared/input_mapper.cpp
-  src/shared/input/input_window.cpp
+  src/shared/input/remapper.cpp
+  src/shared/input/controller_tool_window.cpp
   src/shared/renderer.cpp
   src/shared/input_utils.cpp
   src/shared/engine_quirks.cpp

@@ -239,8 +239,8 @@
         "codepoint_hex": "U+F127",
         "utf8_cpp": "\\xef\\x84\\xa7"
     },
-    "panel-inputmap": {
-        "macro": "ICON_PANEL_INPUTMAP",
+    "panel-controller": {
+        "macro": "ICON_PANEL_CONTROLLER",
         "codepoint_dec": 61736,
         "codepoint_hex": "U+F128",
         "utf8_cpp": "\\xef\\x84\\xa8"

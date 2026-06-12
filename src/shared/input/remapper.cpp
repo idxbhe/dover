@@ -1,7 +1,7 @@
-#include "shared/input_mapper.h"
+#include "shared/input/remapper.h"
 #include "shared/settings/app_config.h"
 
-namespace dover::shared::input_mapper {
+namespace dover::shared::input::remapper {
 
 static DWORD g_prev_virtual_buttons[XUSER_MAX_COUNT] = {0};
 
@@ -86,4 +86,4 @@ void ProcessGamepadRemapping(XINPUT_STATE* state, DWORD user_index) {
     g_prev_virtual_buttons[user_index] = current_buttons;
 }
 
-} // namespace dover::shared::input_mapper
+} // namespace dover::shared::input::remapper

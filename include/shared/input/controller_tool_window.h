@@ -2,7 +2,7 @@
 
 #include "shared/ui/components/base_window.h"
 
-namespace dover::shared::input {
+namespace dover::shared::controller {
 
 struct ButtonRenderData {
     const char* name;
@@ -12,10 +12,10 @@ struct ButtonRenderData {
     bool is_trigger;
 };
 
-class InputWindow : public shared::ui::BaseWindow {
+class ControllerToolWindow : public shared::ui::BaseWindow {
 public:
-    InputWindow();
-    ~InputWindow() override = default;
+    ControllerToolWindow();
+    ~ControllerToolWindow() override = default;
 
     void Initialize();
     void RenderGamepadOverlay();
@@ -38,6 +38,6 @@ private:
 };
 
 // Global instance getter
-InputWindow& GetInputWindow();
+ControllerToolWindow& GetControllerToolWindow();
 
-} // namespace dover::shared::input
+} // namespace dover::shared::controller

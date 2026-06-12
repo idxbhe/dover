@@ -45,7 +45,7 @@
 #define ICON_GAMEPAD_X                 "\xef\x84\xa5" // gamepad-x
 #define ICON_GAMEPAD_Y                 "\xef\x84\xa6" // gamepad-y
 #define ICON_NOTES_CHECKED             "\xef\x84\xa7" // notes-checked
-#define ICON_PANEL_INPUTMAP            "\xef\x84\xa8" // panel-inputmap
+#define ICON_PANEL_CONTROLLER          "\xef\x84\xa8" // panel-controller
 #define ICON_PANEL_NOTES               "\xef\x84\xa9" // panel-notes
 #define ICON_PANEL_RETICLE             "\xef\x84\xaa" // panel-reticle
 #define ICON_PANEL_SETTINGS            "\xef\x84\xab" // panel-settings

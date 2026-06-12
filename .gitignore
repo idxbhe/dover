@@ -62,6 +62,7 @@ Desktop.ini
 $RECYCLE.BIN/
 
 # 7. Local Debug Helpers & Build Outputs
+*.lnk
 build_warnings.txt
 full_build_log.txt
 final_build_log.txt

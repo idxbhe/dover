@@ -2,7 +2,7 @@
 #include "shared/settings/app_config.h"
 #include "overlay/overlay_ui.h"
 #include "overlay/hook_utils.h"
-#include "shared/input_mapper.h"
+#include "shared/input/remapper.h"
 #include "shared/input_utils.h"
 #include "shared/log.h"
 
@@ -603,7 +603,7 @@ DWORD WINAPI HookedXInput14GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
     DWORD result = g_orig_xinput14_getstate ? g_orig_xinput14_getstate(dwUserIndex, pState) : ERROR_DEVICE_NOT_CONNECTED;
     if (result == ERROR_SUCCESS) {
         if (!shared::g_allow_xinput && !GetOverlayState().show_overlay) {
-            shared::input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
+            shared::input::remapper::ProcessGamepadRemapping(pState, dwUserIndex);
         }
         ModifyXInputState(dwUserIndex, pState);
     }
@@ -614,7 +614,7 @@ DWORD WINAPI HookedXInput13GetState(DWORD dwUserIndex, XINPUT_STATE* pState) {
     DWORD result = g_orig_xinput13_getstate ? g_orig_xinput13_getstate(dwUserIndex, pState) : ERROR_DEVICE_NOT_CONNECTED;
     if (result == ERROR_SUCCESS) {
         if (!shared::g_allow_xinput && !GetOverlayState().show_overlay) {
-            shared::input_mapper::ProcessGamepadRemapping(pState, dwUserIndex);
+            shared::input::remapper::ProcessGamepadRemapping(pState, dwUserIndex);
         }
         ModifyXInputState(dwUserIndex, pState);
     }

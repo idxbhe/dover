@@ -5,7 +5,7 @@
 #include "shared/notes/manager.h"
 #include "shared/settings/settings_window.h"
 #include "shared/crosshair/crosshair_window.h"
-#include "shared/input/input_window.h"
+#include "shared/input/controller_tool_window.h"
 #include "shared/game_storage.h"
 #include "shared/icons.h"
 #include "shared/fonts.h"
@@ -362,28 +362,28 @@ void RenderImGuiUI() {
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Crosshair");
 
-    // B3. Input Map Button Rendering
+    // B3. Controller Tool Button Rendering
     ImGui::SameLine(0.0f, button_spacing);
     {
-      bool is_input_open = shared::input::GetInputWindow().IsOpen();
-      bool is_input_focused = shared::input::GetInputWindow().IsFocused();
+      bool is_input_open = shared::controller::GetControllerToolWindow().IsOpen();
+      bool is_input_focused = shared::controller::GetControllerToolWindow().IsFocused();
       NavButtonState input_state{is_input_open, is_input_focused};
       RenderNavButton(
-          ICON_PANEL_INPUTMAP, input_state,
+          ICON_PANEL_CONTROLLER, input_state,
           ImVec4(0.20f, 0.85f, 0.45f, 0.85f),  // active shadow (greenish)
           ImVec4(0.40f, 0.95f, 0.55f, 0.85f),  // active border
           icon_btn_width, icon_box_height
       );
     }
-    if (ImGui::Button(ICON_PANEL_INPUTMAP, ImVec2(icon_btn_width, icon_box_height))) {
-      if (!shared::input::GetInputWindow().IsOpen()) {
-        shared::input::GetInputWindow().Open();
-        ImGui::SetWindowFocus("Input Mapper");
-      } else if (!shared::input::GetInputWindow().IsFocused()) {
-        ImGui::SetWindowFocus("Input Mapper");
+    if (ImGui::Button(ICON_PANEL_CONTROLLER, ImVec2(icon_btn_width, icon_box_height))) {
+      if (!shared::controller::GetControllerToolWindow().IsOpen()) {
+        shared::controller::GetControllerToolWindow().Open();
+        ImGui::SetWindowFocus("Controller Tool");
+      } else if (!shared::controller::GetControllerToolWindow().IsFocused()) {
+        ImGui::SetWindowFocus("Controller Tool");
       }
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Input Mapper");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Controller Tool");
 
     ImGui::PopStyleColor(); // Pop ImGuiCol_Text to restore icon text visibility
 
@@ -453,13 +453,13 @@ void RenderImGuiUI() {
   shared::notes::GetNotesWindow().Render(GetOverlayState().show_overlay);
   shared::settings::GetSettingsWindow().Render(GetOverlayState().show_overlay);
   shared::crosshair::GetCrosshairWindow().Render(GetOverlayState().show_overlay);
-  shared::input::GetInputWindow().Render(GetOverlayState().show_overlay);
+  shared::controller::GetControllerToolWindow().Render(GetOverlayState().show_overlay);
   
   // Render the crosshair directly on the background draw list
   shared::crosshair::GetCrosshairWindow().RenderCrosshairOverlay();
   
   // Render the gamepad visualizer directly on the background draw list
-  shared::input::GetInputWindow().RenderGamepadOverlay();
+  shared::controller::GetControllerToolWindow().RenderGamepadOverlay();
 }
 
 namespace {
@@ -474,9 +474,9 @@ struct ConfigSnapshot {
     bool window_crosshair_maximized;
     bool window_crosshair_fullscreen;
     bool window_crosshair_pinned;
-    bool window_input_maximized;
-    bool window_input_fullscreen;
-    bool window_input_pinned;
+    bool window_controller_maximized;
+    bool window_controller_fullscreen;
+    bool window_controller_pinned;
 };
 static ConfigSnapshot s_cfg_snap;
 
@@ -502,7 +502,7 @@ struct StateSnapshot {
     float crosshair_pos_x;
     float crosshair_pos_y;
     
-    bool inputmap_is_open;
+    bool controller_tool_is_open;
 };
 static StateSnapshot s_st_snap;
 } // namespace
@@ -528,7 +528,7 @@ void InitializeOverlay() {
     shared::notes::GetNotesWindow().Initialize();
     shared::settings::GetSettingsWindow().Initialize();
     shared::crosshair::GetCrosshairWindow().Initialize();
-    shared::input::GetInputWindow().Initialize();
+    shared::controller::GetControllerToolWindow().Initialize();
 
     // Register callbacks
     dover::shared::GameStorage::Get().RegisterConfigLoad([](const std::filesystem::path& cfg_path) {
@@ -546,7 +546,7 @@ void InitializeOverlay() {
         load_window_state("window_notes", shared::notes::GetNotesWindow());
         load_window_state("window_settings", shared::settings::GetSettingsWindow());
         load_window_state("window_crosshair", shared::crosshair::GetCrosshairWindow());
-        load_window_state("window_input", shared::input::GetInputWindow());
+        load_window_state("window_controller_tool", shared::controller::GetControllerToolWindow());
     });
 
     dover::shared::GameStorage::Get().RegisterConfigCapture([]() {
@@ -575,9 +575,9 @@ void InitializeOverlay() {
         s_cfg_snap.window_crosshair_maximized = shared::crosshair::GetCrosshairWindow().IsMaximized();
         s_cfg_snap.window_crosshair_fullscreen = shared::crosshair::GetCrosshairWindow().IsFullscreen();
         s_cfg_snap.window_crosshair_pinned = shared::crosshair::GetCrosshairWindow().IsPinned();
-        s_cfg_snap.window_input_maximized = shared::input::GetInputWindow().IsMaximized();
-        s_cfg_snap.window_input_fullscreen = shared::input::GetInputWindow().IsFullscreen();
-        s_cfg_snap.window_input_pinned = shared::input::GetInputWindow().IsPinned();
+        s_cfg_snap.window_controller_maximized = shared::controller::GetControllerToolWindow().IsMaximized();
+        s_cfg_snap.window_controller_fullscreen = shared::controller::GetControllerToolWindow().IsFullscreen();
+        s_cfg_snap.window_controller_pinned = shared::controller::GetControllerToolWindow().IsPinned();
     });
 
     dover::shared::GameStorage::Get().RegisterStateCapture([]() {
@@ -602,7 +602,7 @@ void InitializeOverlay() {
         s_st_snap.crosshair_pos_x = shared::crosshair::GetCrosshairWindow().GetPosX();
         s_st_snap.crosshair_pos_y = shared::crosshair::GetCrosshairWindow().GetPosY();
         
-        s_st_snap.inputmap_is_open = shared::input::GetInputWindow().IsOpen();
+        s_st_snap.controller_tool_is_open = shared::controller::GetControllerToolWindow().IsOpen();
     });
 
     dover::shared::GameStorage::Get().RegisterConfigSave([](const std::filesystem::path& cfg_path) {
@@ -616,7 +616,7 @@ void InitializeOverlay() {
         save_window_state("window_notes", s_cfg_snap.window_notes_maximized, s_cfg_snap.window_notes_fullscreen, s_cfg_snap.window_notes_pinned);
         save_window_state("window_settings", s_cfg_snap.window_settings_maximized, s_cfg_snap.window_settings_fullscreen, s_cfg_snap.window_settings_pinned);
         save_window_state("window_crosshair", s_cfg_snap.window_crosshair_maximized, s_cfg_snap.window_crosshair_fullscreen, s_cfg_snap.window_crosshair_pinned);
-        save_window_state("window_input", s_cfg_snap.window_input_maximized, s_cfg_snap.window_input_fullscreen, s_cfg_snap.window_input_pinned);
+        save_window_state("window_controller_tool", s_cfg_snap.window_controller_maximized, s_cfg_snap.window_controller_fullscreen, s_cfg_snap.window_controller_pinned);
     });
 
     dover::shared::GameStorage::Get().RegisterStateLoad([](const std::filesystem::path& st) {
@@ -661,8 +661,8 @@ void InitializeOverlay() {
         bool crosshair_open = shared::ReadIniBool(st, "crosshair", "is_open", false);
         shared::crosshair::GetCrosshairWindow().SetOpenDirect(crosshair_open);
         
-        bool input_open = shared::ReadIniBool(st, "inputmap", "is_open", false);
-        shared::input::GetInputWindow().SetOpenDirect(input_open);
+        bool input_open = shared::ReadIniBool(st, "controller_tool", "is_open", false);
+        shared::controller::GetControllerToolWindow().SetOpenDirect(input_open);
         
         bool crosshair_active = shared::ReadIniBool(st, "crosshair", "is_active", false);
         shared::crosshair::GetCrosshairWindow().SetCrosshairActive(crosshair_active);
@@ -708,7 +708,7 @@ void InitializeOverlay() {
         shared::WriteIniBool(st, "notes", "is_open",            s_st_snap.notes_is_open);
         shared::WriteIniBool(st, "settings", "is_open",         s_st_snap.settings_is_open);
         shared::WriteIniBool(st, "crosshair", "is_open",        s_st_snap.crosshair_is_open);
-        shared::WriteIniBool(st, "inputmap", "is_open",         s_st_snap.inputmap_is_open);
+        shared::WriteIniBool(st, "controller_tool", "is_open",  s_st_snap.controller_tool_is_open);
         
         shared::WriteIniBool(st, "crosshair", "is_active",      s_st_snap.crosshair_is_active);
         shared::WriteIniInt(st, "crosshair", "selected_index",  s_st_snap.crosshair_selected_index);

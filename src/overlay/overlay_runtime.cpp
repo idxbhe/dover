@@ -10,7 +10,7 @@
 #include "shared/notes/manager.h"
 #include "shared/notes/layout.h"
 #include "shared/crosshair/crosshair_window.h"
-#include "shared/input/input_window.h"
+#include "shared/input/controller_tool_window.h"
 #include "shared/ipc.h"
 #include "shared/log.h"
 #include "shared/engine_quirks.h"

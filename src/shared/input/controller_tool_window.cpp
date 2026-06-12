@@ -1,4 +1,4 @@
-#include "shared/input/input_window.h"
+#include "shared/input/controller_tool_window.h"
 #include "shared/settings/app_config.h"
 #include "shared/input_utils.h"
 #include "shared/icons.h"
@@ -16,11 +16,7 @@
 #include "shared/renderer.h"
 
 
-namespace dover::shared {
-
-}
-
-namespace dover::shared::input {
+namespace dover::shared::controller {
 
 struct ButtonOffset {
     const char* name;
@@ -53,18 +49,18 @@ const ButtonOffset g_button_offsets[] = {
     { "btn_y", 0.7700f, 0.3337f, 0.0758f, 0.1165f },
 };
 
-InputWindow::InputWindow()
-    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Input Mapper", shared::ui::WindowFeature::NoPin, ImVec2(480.0f, 400.0f)) {
+ControllerToolWindow::ControllerToolWindow()
+    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Controller Tool", shared::ui::WindowFeature::NoPin, ImVec2(480.0f, 400.0f)) {
 }
 
-void InputWindow::Initialize() {
+void ControllerToolWindow::Initialize() {
     m_is_open = false;
     m_recording_index = -1;
     m_textures_loaded = false;
     m_visualizer_button_count = 0;
 }
 
-void InputWindow::RenderContent(bool interactive) {
+void ControllerToolWindow::RenderContent(bool interactive) {
     const float win_w = ImGui::GetContentRegionAvail().x;
     const float win_h = ImGui::GetContentRegionAvail().y;
 
@@ -79,7 +75,7 @@ void InputWindow::RenderContent(bool interactive) {
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 12.0f);
 
-    bool content_ok = ImGui::BeginChild("InputContent", ImVec2(win_w, win_h), ImGuiChildFlags_AlwaysUseWindowPadding, 0);
+    bool content_ok = ImGui::BeginChild("ControllerContent", ImVec2(win_w, win_h), ImGuiChildFlags_AlwaysUseWindowPadding, 0);
 
     if (content_ok) {
         ImGui::SetCursorPosY(10.0f);
@@ -95,7 +91,7 @@ void InputWindow::RenderContent(bool interactive) {
         // Draw the icon in the panel font (which has icons merged)
         ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kIconSize);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
-        ImGui::Text("%s", ICON_PANEL_INPUTMAP);
+        ImGui::Text("%s", ICON_PANEL_CONTROLLER);
         ImGui::PopStyleColor();
         ImGui::PopFont();
 
@@ -104,7 +100,7 @@ void InputWindow::RenderContent(bool interactive) {
         // Draw the title text in the preview bold font
         ImGui::PushFont(dover::shared::g_font_preview_bold, dover::shared::kTitleSize);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.56f, 0.68f, 0.84f, 1.00f));
-        ImGui::Text("Controller");
+        ImGui::Text("Controller Tool");
         ImGui::PopStyleColor();
         ImGui::PopFont();
 
@@ -117,8 +113,8 @@ void InputWindow::RenderContent(bool interactive) {
         ImGui::PushStyleColor(ImGuiCol_TabDimmed, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
         ImGui::PushStyleColor(ImGuiCol_TabDimmedSelected, ImVec4(0.227f, 0.267f, 0.329f, 0.70f));
 
-        if (ImGui::BeginTabBar("InputTabs")) {
-            if (ImGui::BeginTabItem("Remapper")) {
+        if (ImGui::BeginTabBar("ControllerTabs")) {
+            if (ImGui::BeginTabItem("Input Mapping")) {
                 RenderRemapper(interactive);
                 ImGui::EndTabItem();
             }
@@ -138,7 +134,7 @@ void InputWindow::RenderContent(bool interactive) {
     ImGui::PopStyleColor(5);
 }
 
-void InputWindow::RenderRemapper(bool interactive) {
+void ControllerToolWindow::RenderRemapper(bool interactive) {
     (void)interactive;
     ImGui::TextDisabled("Map gamepad buttons to keyboard keys. Press ESC to unbind.");
         ImGui::Dummy(ImVec2(0.0f, 8.0f));
@@ -299,7 +295,7 @@ void InputWindow::RenderRemapper(bool interactive) {
         ImGui::EndTable();
 }
 
-void InputWindow::LoadGamepadTextures() {
+void ControllerToolWindow::LoadGamepadTextures() {
     if (m_textures_loaded) return;
 
     if (!assets::AssetStorage::Get().IsInitialized()) return;
@@ -377,7 +373,7 @@ void InputWindow::LoadGamepadTextures() {
     InitializeVisualizerButtons();
 }
 
-void InputWindow::InitializeVisualizerButtons() {
+void ControllerToolWindow::InitializeVisualizerButtons() {
     m_visualizer_button_count = 0;
     
     auto GetXInputFlag = [](const char* name, bool& is_trigger) -> unsigned int {
@@ -423,7 +419,7 @@ void InputWindow::InitializeVisualizerButtons() {
     }
 }
 
-void InputWindow::RenderVisualizer() {
+void ControllerToolWindow::RenderVisualizer() {
     auto& cfg = shared::GetAppConfig();
     if (cfg.gamepad_hud_scale > 1.0f) cfg.gamepad_hud_scale = 1.0f;
     
@@ -657,7 +653,7 @@ void InputWindow::RenderVisualizer() {
     ImGui::Dummy(ImVec2(avail_w, avail_h));
 }
 
-void InputWindow::RenderGamepadOverlay() {
+void ControllerToolWindow::RenderGamepadOverlay() {
     auto& cfg = shared::GetAppConfig();
     if (!cfg.show_gamepad_hud) return;
 
@@ -745,9 +741,9 @@ void InputWindow::RenderGamepadOverlay() {
     }
 }
 
-InputWindow& GetInputWindow() {
-    static InputWindow instance;
+ControllerToolWindow& GetControllerToolWindow() {
+    static ControllerToolWindow instance;
     return instance;
 }
 
-} // namespace dover::shared::input
+} // namespace dover::shared::controller

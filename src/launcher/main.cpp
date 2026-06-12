@@ -9,7 +9,7 @@
 
 #include "shared/settings/settings_window.h"
 #include "shared/crosshair/crosshair_window.h"
-#include "shared/input/input_window.h"
+#include "shared/input/controller_tool_window.h"
 #include "shared/renderer.h"
 #include "shared/assets/asset_storage.h"
 #include "shared/theme.h"
@@ -1159,7 +1159,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         win.SetRenderContext(dover::shared::ui::RenderContext::Launcher);
                         win.SetOpenDirect(true);
                     } else if (win_type == ActiveWindow::Controller) {
-                        auto& win = dover::shared::input::GetInputWindow();
+                        auto& win = dover::shared::controller::GetControllerToolWindow();
                         win.SetRenderContext(dover::shared::ui::RenderContext::Launcher);
                         win.SetOpenDirect(true);
                     }
@@ -1180,7 +1180,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 8.0f));
         draw_module_card("Notes", "Notes Editor", "\xef\x84\xa9", ActiveWindow::Notes);
         draw_module_card("Crosshair", "Smart Reticle", "\xef\x84\xaa", ActiveWindow::Crosshair);
-        draw_module_card("Controller", "Input Map", "\xef\x84\xa8", ActiveWindow::Controller);
+        draw_module_card("Controller", "Controller Tool", "\xef\x84\xa8", ActiveWindow::Controller);
         draw_module_card("Settings", "App Config", "\xef\x84\xab", ActiveWindow::Settings);
         ImGui::PopStyleVar();
         
@@ -1241,7 +1241,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             active_game_idx = -1;
         }
     } else if (active_win == ActiveWindow::Controller) {
-        auto& controller_win = dover::shared::input::GetInputWindow();
+        auto& controller_win = dover::shared::controller::GetControllerToolWindow();
         if (controller_win.IsOpen()) {
             controller_win.Render(true);
         } else {
