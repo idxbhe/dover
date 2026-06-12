@@ -19,7 +19,7 @@ namespace detail {
 
 class NotesWindow : public shared::ui::BaseWindow {
 public:
-    NotesWindow() : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Notes", shared::ui::WindowFeature::Default) {
+    NotesWindow() : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Notes", shared::ui::WindowFeature::Default, ImVec2(900.0f, 450.0f), ImVec2(425.0f, 250.0f)) {
         m_bg_alpha = 0.95f; // Set default Notes opacity
     }
 
@@ -56,7 +56,7 @@ private:
     float m_sidebar_width = 240.0f;
     bool m_sidebar_visible = true;
     std::atomic<int> m_view_mode{1}; // 0=editor, 1=preview
-    std::atomic<int> m_font_size{18};
+    std::atomic<int> m_font_size{22};
     int m_force_focus_frames = 0;
     
     std::atomic<int> m_selected_note_idx{0};

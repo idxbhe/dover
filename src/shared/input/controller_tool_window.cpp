@@ -50,7 +50,7 @@ const ButtonOffset g_button_offsets[] = {
 };
 
 ControllerToolWindow::ControllerToolWindow()
-    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Controller Tool", shared::ui::WindowFeature::NoPin, ImVec2(480.0f, 400.0f)) {
+    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Controller Tool", shared::ui::WindowFeature::NoPin, ImVec2(700.0f, 450.0f), ImVec2(560.0f, 300.0f)) {
 }
 
 void ControllerToolWindow::Initialize() {

@@ -24,7 +24,7 @@ namespace dover::overlay {
 namespace dover::shared::settings {
 
 SettingsWindow::SettingsWindow()
-    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Settings", shared::ui::WindowFeature::NoPin, ImVec2(520.0f, 300.0f)) {
+    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Settings", shared::ui::WindowFeature::NoPin, ImVec2(500.0f, 400.0f), ImVec2(165.0f, 250.0f)) {
     m_selected_category = 0;
     m_sidebar_width = 165.0f;
 }

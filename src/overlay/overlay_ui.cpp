@@ -443,6 +443,39 @@ void RenderImGuiUI() {
     ImGui::PopFont();
     ImGui::End();
 
+    // C. Exit Game Button (Bottom Right)
+    float padding = 20.0f;
+    float btn_width = 150.0f;
+    float btn_height = 40.0f;
+    ImGui::SetNextWindowPos(ImVec2(display_size.x - btn_width - padding, display_size.y - btn_height - padding), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(btn_width, btn_height), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.0f);
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::Begin("ExitGameBtnWin", nullptr, 
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | 
+                 ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove);
+                 
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.15f, 0.15f, 0.85f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.00f, 0.25f, 0.25f, 0.95f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.70f, 0.10f, 0.10f, 1.00f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));
+    
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    
+    ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kIconSize); 
+    if (ImGui::Button(ICON_WINDOW_CLOSE "  EXIT GAME", ImVec2(btn_width, btn_height))) {
+        TerminateProcess(GetCurrentProcess(), 0);
+    }
+    ImGui::PopFont();
+    
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor(4);
+    
+    ImGui::End();
+    ImGui::PopStyleVar(2);
+
     // B. Floating Feature Jendela (Modular, bebas geser, mengingat posisi via dover/imgui.ini)
     
 

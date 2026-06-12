@@ -45,13 +45,15 @@ protected:
     ImVec2 m_prev_pos{0.0f, 0.0f};
     ImVec2 m_prev_size{0.0f, 0.0f};
     ImVec2 m_default_size{800.0f, 500.0f};
+    ImVec2 m_min_size{250.0f, 250.0f};
 
     // Appearance State
     float m_bg_alpha = 0.95f;
 
 public:
-    BaseWindow(RenderContext ctx, const char* name, WindowFeature features = WindowFeature::Default, ImVec2 default_size = ImVec2(800.0f, 500.0f))
-        : m_ctx(ctx), m_features(features), m_default_size(default_size) {
+    BaseWindow(RenderContext ctx, const char* name, WindowFeature features = WindowFeature::Default, 
+               ImVec2 default_size = ImVec2(800.0f, 500.0f), ImVec2 min_size = ImVec2(250.0f, 250.0f))
+        : m_ctx(ctx), m_features(features), m_default_size(default_size), m_min_size(min_size) {
         strncpy_s(m_window_name, sizeof(m_window_name), name, _TRUNCATE);
     }
     

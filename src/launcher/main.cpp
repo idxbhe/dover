@@ -58,23 +58,37 @@ struct GameConfig {
   }
 };
 
+void SaveGamesToDisk(const std::vector<GameConfig>& games);
+
 std::vector<GameConfig> LoadSavedGames() {
   std::vector<GameConfig> games;
   auto root = dover::shared::GetDoverRootDir();
   if (root.empty()) return games;
   const auto config_path = root / L"launcher" / L"games.ini";
-  if (!std::filesystem::exists(config_path)) return games;
+  std::error_code ec;
+  if (!std::filesystem::exists(config_path, ec) || ec) return games;
 
   int count = GetPrivateProfileIntW(L"Games", L"Count", 0, config_path.c_str());
+  bool any_deleted = false;
   for (int i = 0; i < count; ++i) {
     std::wstring key = std::format(L"Game{}", i);
     wchar_t path_buf[MAX_PATH] = {};
     GetPrivateProfileStringW(L"Games", key.c_str(), L"", path_buf, MAX_PATH, config_path.c_str());
 
     if (path_buf[0] != L'\0') {
-      games.push_back(GameConfig::FromPath(path_buf));
+      std::error_code ec_exists;
+      if (std::filesystem::exists(path_buf, ec_exists) && !ec_exists) {
+        games.push_back(GameConfig::FromPath(path_buf));
+      } else {
+        any_deleted = true;
+      }
     }
   }
+
+  if (any_deleted) {
+      SaveGamesToDisk(games);
+  }
+
   return games;
 }
 
@@ -132,7 +146,8 @@ HANDLE LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv
     const auto executable_dir = dover::shared::GetExecutableDirectory();
     const auto injector32_path = executable_dir / L"injector32.exe";
 
-    if (!std::filesystem::exists(injector32_path)) {
+    std::error_code ec;
+    if (!std::filesystem::exists(injector32_path, ec) || ec) {
       dover::shared::LogError("32-bit helper injector (injector32.exe) not found beside launcher.");
       return nullptr;
     }
@@ -154,7 +169,8 @@ HANDLE LaunchAndInject(const std::wstring& target_path, int argc, wchar_t** argv
   }
 
   const auto overlay_path = dover::shared::GetOverlayDllPath();
-  if (overlay_path.empty() || !std::filesystem::exists(overlay_path)) {
+  std::error_code ec_dll;
+  if (overlay_path.empty() || !std::filesystem::exists(overlay_path, ec_dll) || ec_dll) {
     dover::shared::LogError("64-bit Overlay DLL not found beside launcher.");
     return nullptr;
   }
@@ -335,12 +351,13 @@ LauncherState LoadLauncherState() {
   auto root = dover::shared::GetDoverRootDir();
   if (root.empty()) return state;
   auto config_path = root / L"launcher" / L"games.ini";
-  if (!std::filesystem::exists(config_path)) return state;
+  std::error_code ec;
+  if (!std::filesystem::exists(config_path, ec) || ec) return state;
 
   state.x = GetPrivateProfileIntW(L"Launcher", L"x", 100, config_path.c_str());
   state.y = GetPrivateProfileIntW(L"Launcher", L"y", 100, config_path.c_str());
-  state.width = GetPrivateProfileIntW(L"Launcher", L"width", 800, config_path.c_str());
-  state.height = GetPrivateProfileIntW(L"Launcher", L"height", 500, config_path.c_str());
+  state.width = GetPrivateProfileIntW(L"Launcher", L"width", 1000, config_path.c_str());
+  state.height = GetPrivateProfileIntW(L"Launcher", L"height", 550, config_path.c_str());
   state.maximized = GetPrivateProfileIntW(L"Launcher", L"maximized", 0, config_path.c_str()) != 0;
 
   wchar_t sidebar_w_buf[32];
@@ -431,6 +448,8 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
       mmi->ptMaxSize.x = mi.rcWork.right - mi.rcWork.left;
       mmi->ptMaxSize.y = mi.rcWork.bottom - mi.rcWork.top;
     }
+    mmi->ptMinTrackSize.x = 625;
+    mmi->ptMinTrackSize.y = 300;
     return 0;
   }
 
@@ -579,8 +598,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
   if (!hMonitor) {
     g_LauncherState.x = 100;
     g_LauncherState.y = 100;
-    g_LauncherState.width = 800;
-    g_LauncherState.height = 500;
+    g_LauncherState.width = 1000;
+    g_LauncherState.height = 550;
   }
 
   HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"Dover Launcher", WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU,

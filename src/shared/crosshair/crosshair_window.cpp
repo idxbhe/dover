@@ -24,8 +24,8 @@ CrosshairWindow& GetCrosshairWindow() {
     return instance;
 }
 
-CrosshairWindow::CrosshairWindow() 
-    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Crosshairs", shared::ui::WindowFeature::NoPin, ImVec2(600, 450)) {
+CrosshairWindow::CrosshairWindow()
+    : shared::ui::BaseWindow(shared::ui::RenderContext::Overlay, "Crosshairs", shared::ui::WindowFeature::NoPin, ImVec2(750, 500), ImVec2(600.0f, 375.0f)) {
 }
 
 void CrosshairWindow::PreRender(bool /*interactive*/) {

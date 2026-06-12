@@ -209,40 +209,81 @@ PendingFormat RenderToolbarInternal(NotesWindow* window, bool interactive, float
     }
 
     if (show_size) {
-      float orig_size_y = ImGui::GetCursorPosY();
-      ImGui::SetCursorPosY(orig_size_y - 2.0f);
-      ImGui::TextDisabled("Size:"); 
-      ImGui::SetCursorPosY(orig_size_y);
-      ImGui::SameLine();
-      
-      ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-      ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-      ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(0.5f, 0.5f));
-      ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.5f, 0.5f));
-      
-      ImGui::PushStyleColor(ImGuiCol_Button,           ImVec4(0.15f, 0.18f, 0.26f, 1.00f));
-      ImGui::PushStyleColor(ImGuiCol_ButtonHovered,    ImVec4(0.22f, 0.27f, 0.38f, 1.00f));
-      ImGui::PushStyleColor(ImGuiCol_ButtonActive,     ImVec4(0.28f, 0.35f, 0.50f, 1.00f));
-      ImGui::PushStyleColor(ImGuiCol_Border,           ImVec4(0.32f, 0.40f, 0.58f, 0.70f));
-      
-      static int s_temp_font_size = window->GetFontSize();
-      
-      ImGui::PushItemWidth(100.0f);
-      ImGui::SliderInt("##font_size", &s_temp_font_size, 12, 36, "Size: %d");
-      bool is_slider_active = ImGui::IsItemActive();
-      
-      if (ImGui::IsItemDeactivatedAfterEdit()) {
-          window->SetFontSize(s_temp_font_size);
-          dover::shared::GameStorage::Get().SaveState();
+      ImGui::SetNextItemWidth(35.0f);
+      ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0));
+      ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.20f, 0.20f, 0.25f, 0.60f));
+      ImGui::SetNextWindowSizeConstraints(ImVec2(140.0f + ImGui::GetStyle().WindowPadding.x * 2.0f, 0.0f), ImVec2(FLT_MAX, FLT_MAX));
+      if (ImGui::BeginCombo("##font_size_combo", "Aa", ImGuiComboFlags_NoArrowButton)) {
+          ImVec2 pos = ImGui::GetCursorScreenPos();
+          float width = 140.0f;
+          float height = 26.0f;
+          ImGui::Dummy(ImVec2(width, height));
+          
+          const float slider_width = 100.0f;
+          float slider_x = pos.x + 8.0f;
+          float val_x = pos.x + 8.0f + slider_width + 8.0f;
+          
+          ImGui::SetCursorScreenPos(ImVec2(slider_x, pos.y + (height - ImGui::GetFrameHeight()) * 0.5f));
+          
+          ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 0.0f));
+          ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+          ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+          ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+          ImGui::PushStyleColor(ImGuiCol_SliderGrab,       ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+          ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0.00f, 0.00f, 0.00f, 0.00f));
+          
+          ImGui::SetNextItemWidth(slider_width);
+          int temp_font_size = window->GetFontSize();
+          if (ImGui::SliderInt("##font_size", &temp_font_size, 12, 36, "")) {
+              window->SetFontSize(temp_font_size);
+          }
+          bool active = ImGui::IsItemActive();
+          bool hovered = ImGui::IsItemHovered();
+          
+          if (ImGui::IsItemDeactivatedAfterEdit()) {
+              dover::shared::GameStorage::Get().SaveState();
+          }
+          
+          float frame_height = ImGui::GetFrameHeight();
+          ImVec2 slider_pos = ImVec2(slider_x, pos.y + (height - frame_height) * 0.5f);
+          
+          float fraction = (float)(temp_font_size - 12) / (36.0f - 12.0f);
+          if (fraction < 0.0f) fraction = 0.0f;
+          if (fraction > 1.0f) fraction = 1.0f;
+          
+          float grab_center_x = slider_pos.x + fraction * slider_width;
+          float grab_center_y = slider_pos.y + frame_height * 0.5f;
+          
+          ImVec4 grab_color = ImVec4(1.00f, 1.00f, 1.00f, 0.90f);
+          if (active) {
+              grab_color = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+          } else if (hovered) {
+              grab_color = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
+          }
+          
+          float track_h = 3.0f;
+          ImVec2 track_min = ImVec2(slider_pos.x, slider_pos.y + frame_height * 0.5f - track_h * 0.5f);
+          ImVec2 track_max = ImVec2(slider_pos.x + slider_width, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
+          ImGui::GetWindowDrawList()->AddRectFilled(track_min, track_max, ImGui::GetColorU32(ImVec4(1.00f, 1.00f, 1.00f, 0.15f)), 1.5f);
+
+          if (fraction > 0.0f) {
+            ImVec2 active_max = ImVec2(grab_center_x, slider_pos.y + frame_height * 0.5f + track_h * 0.5f);
+            ImGui::GetWindowDrawList()->AddRectFilled(track_min, active_max, ImGui::GetColorU32(ImVec4(0.118f, 0.478f, 0.812f, 0.90f)), 1.5f);
+          }
+          
+          ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(grab_center_x, grab_center_y), 5.5f, ImGui::GetColorU32(grab_color), 32);
+          
+          char val_buf[16];
+          snprintf(val_buf, sizeof(val_buf), "%d", temp_font_size);
+          float val_y = float(int(pos.y + (height - ImGui::GetFontSize()) * 0.5f));
+          ImGui::GetWindowDrawList()->AddText(ImVec2(val_x, val_y), ImGui::GetColorU32(ImGuiCol_TextDisabled), val_buf);
+          
+          ImGui::PopStyleColor(5);
+          ImGui::PopStyleVar(1);
+
+          ImGui::EndCombo();
       }
-      
-      if (!is_slider_active) {
-          s_temp_font_size = window->GetFontSize();
-      }
-      
-      ImGui::PopItemWidth();
-      ImGui::PopStyleColor(4);
-      ImGui::PopStyleVar(4);
+      ImGui::PopStyleColor(2);
       if (ImGui::IsItemHovered()) ImGui::SetTooltip("Change Text Size");
       ImGui::SameLine();
       ImGui::TextDisabled("|"); ImGui::SameLine();
@@ -981,6 +1022,22 @@ void NotesWindow::RenderContent(bool interactive) {
       }
       SwitchToEditor();
     }
+  }
+
+  // Ctrl + Mouse Wheel Font Size Adjustment
+  if (ImGui::GetIO().KeyCtrl && (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows) || ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))) {
+      float wheel = ImGui::GetIO().MouseWheel;
+      if (wheel != 0.0f) {
+          int current_size = GetFontSize();
+          int new_size = current_size + (wheel > 0.0f ? 1 : -1);
+          if (new_size < 12) new_size = 12;
+          if (new_size > 36) new_size = 36;
+          
+          if (new_size != current_size) {
+              SetFontSize(new_size);
+              dover::shared::GameStorage::Get().SaveState();
+          }
+      }
   }
 
   auto notes = GetNotes();

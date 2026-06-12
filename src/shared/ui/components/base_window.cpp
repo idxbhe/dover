@@ -95,11 +95,18 @@ void BaseWindow::Render(bool interactive) {
             m_was_fullscreen = false;
         } else {
             ImGui::SetNextWindowSize(m_default_size, ImGuiCond_FirstUseEver);
+            const ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+            if (main_viewport) {
+                ImVec2 default_pos;
+                default_pos.x = main_viewport->WorkPos.x + (main_viewport->WorkSize.x - m_default_size.x) * 0.5f;
+                default_pos.y = main_viewport->WorkPos.y + (main_viewport->WorkSize.y - m_default_size.y) * 0.5f;
+                ImGui::SetNextWindowPos(default_pos, ImGuiCond_FirstUseEver);
+            }
         }
     }
 
     bool no_border = m_is_fullscreen || m_is_maximized || !interactive;
-    ImGui::SetNextWindowSizeConstraints(ImVec2(150.0f, 150.0f), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::SetNextWindowSizeConstraints(m_min_size, ImVec2(FLT_MAX, FLT_MAX));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, m_is_maximized ? 0.0f : 2.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
     
