@@ -38,6 +38,75 @@ constexpr DWORD kOverlayReadyTimeoutMs = 10000;
 
 int g_FramesToRender = 5;
 
+struct LauncherState {
+  int x = 100;
+  int y = 100;
+  int width = 800;
+  int height = 500;
+  bool maximized = false;
+  float sidebar_width = 220.0f;
+  bool sidebar_folded = false;
+  std::vector<std::string> cleanup_msgs;
+};
+
+LauncherState g_LauncherState;
+
+LauncherState LoadLauncherState() {
+  LauncherState state;
+  auto root = dover::shared::GetDoverRootDir();
+  if (root.empty()) return state;
+  auto config_path = root / L"launcher" / L"games.ini";
+  std::error_code ec;
+  if (!std::filesystem::exists(config_path, ec) || ec) return state;
+
+  state.x = GetPrivateProfileIntW(L"Launcher", L"x", 100, config_path.c_str());
+  state.y = GetPrivateProfileIntW(L"Launcher", L"y", 100, config_path.c_str());
+  state.width = GetPrivateProfileIntW(L"Launcher", L"width", 1000, config_path.c_str());
+  state.height = GetPrivateProfileIntW(L"Launcher", L"height", 550, config_path.c_str());
+  state.maximized = GetPrivateProfileIntW(L"Launcher", L"maximized", 0, config_path.c_str()) != 0;
+
+  wchar_t sidebar_w_buf[32];
+  GetPrivateProfileStringW(L"Launcher", L"sidebar_width", L"220.0", sidebar_w_buf, 32, config_path.c_str());
+  state.sidebar_width = static_cast<float>(_wtof(sidebar_w_buf));
+  state.sidebar_folded = GetPrivateProfileIntW(L"Launcher", L"sidebar_folded", 0, config_path.c_str()) != 0;
+
+  return state;
+}
+
+void SaveLauncherState(HWND hwnd) {
+  auto root = dover::shared::GetDoverRootDir();
+  if (root.empty()) return;
+  auto config_path = root / L"launcher" / L"games.ini";
+
+  // Ensure directory exists for WritePrivateProfileString
+  std::error_code ec;
+  std::filesystem::create_directories(config_path.parent_path(), ec);
+
+  WINDOWPLACEMENT wp = {};
+  wp.length = sizeof(wp);
+  if (GetWindowPlacement(hwnd, &wp)) {
+    bool maximized = false;
+    if (wp.showCmd == SW_SHOWMINIMIZED) {
+      maximized = (wp.flags & WPF_RESTORETOMAXIMIZED) != 0;
+    } else {
+      maximized = (wp.showCmd == SW_SHOWMAXIMIZED);
+    }
+
+    int x = wp.rcNormalPosition.left;
+    int y = wp.rcNormalPosition.top;
+    int width = wp.rcNormalPosition.right - wp.rcNormalPosition.left;
+    int height = wp.rcNormalPosition.bottom - wp.rcNormalPosition.top;
+
+    WritePrivateProfileStringW(L"Launcher", L"x", std::to_wstring(x).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"y", std::to_wstring(y).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"width", std::to_wstring(width).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"height", std::to_wstring(height).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"maximized", std::to_wstring(maximized ? 1 : 0).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"sidebar_width", std::to_wstring(g_LauncherState.sidebar_width).c_str(), config_path.c_str());
+    WritePrivateProfileStringW(L"Launcher", L"sidebar_folded", std::to_wstring(g_LauncherState.sidebar_folded ? 1 : 0).c_str(), config_path.c_str());
+  }
+}
+
 std::filesystem::path ResolveWorkingDirectory(const std::wstring& application_path) {
   return std::filesystem::path(application_path).parent_path();
 }
@@ -80,6 +149,9 @@ std::vector<GameConfig> LoadSavedGames() {
       if (std::filesystem::exists(path_buf, ec_exists) && !ec_exists) {
         games.push_back(GameConfig::FromPath(path_buf));
       } else {
+        std::string path_u8 = WideToUTF8(path_buf);
+        dover::shared::LogWarning("Cleaning up missing game path from launcher: %s", path_u8.c_str());
+        g_LauncherState.cleanup_msgs.push_back(path_u8);
         any_deleted = true;
       }
     }
@@ -332,74 +404,6 @@ void RemoveTrayIcon() {
   if (!g_has_tray_icon) return;
   Shell_NotifyIconW(NIM_DELETE, &g_nid);
   g_has_tray_icon = false;
-}
-
-struct LauncherState {
-  int x = 100;
-  int y = 100;
-  int width = 800;
-  int height = 500;
-  bool maximized = false;
-  float sidebar_width = 220.0f;
-  bool sidebar_folded = false;
-};
-
-LauncherState g_LauncherState;
-
-LauncherState LoadLauncherState() {
-  LauncherState state;
-  auto root = dover::shared::GetDoverRootDir();
-  if (root.empty()) return state;
-  auto config_path = root / L"launcher" / L"games.ini";
-  std::error_code ec;
-  if (!std::filesystem::exists(config_path, ec) || ec) return state;
-
-  state.x = GetPrivateProfileIntW(L"Launcher", L"x", 100, config_path.c_str());
-  state.y = GetPrivateProfileIntW(L"Launcher", L"y", 100, config_path.c_str());
-  state.width = GetPrivateProfileIntW(L"Launcher", L"width", 1000, config_path.c_str());
-  state.height = GetPrivateProfileIntW(L"Launcher", L"height", 550, config_path.c_str());
-  state.maximized = GetPrivateProfileIntW(L"Launcher", L"maximized", 0, config_path.c_str()) != 0;
-
-  wchar_t sidebar_w_buf[32];
-  GetPrivateProfileStringW(L"Launcher", L"sidebar_width", L"220.0", sidebar_w_buf, 32, config_path.c_str());
-  state.sidebar_width = static_cast<float>(_wtof(sidebar_w_buf));
-  state.sidebar_folded = GetPrivateProfileIntW(L"Launcher", L"sidebar_folded", 0, config_path.c_str()) != 0;
-
-  return state;
-}
-
-void SaveLauncherState(HWND hwnd) {
-  auto root = dover::shared::GetDoverRootDir();
-  if (root.empty()) return;
-  auto config_path = root / L"launcher" / L"games.ini";
-
-  // Ensure directory exists for WritePrivateProfileString
-  std::error_code ec;
-  std::filesystem::create_directories(config_path.parent_path(), ec);
-
-  WINDOWPLACEMENT wp = {};
-  wp.length = sizeof(wp);
-  if (GetWindowPlacement(hwnd, &wp)) {
-    bool maximized = false;
-    if (wp.showCmd == SW_SHOWMINIMIZED) {
-      maximized = (wp.flags & WPF_RESTORETOMAXIMIZED) != 0;
-    } else {
-      maximized = (wp.showCmd == SW_SHOWMAXIMIZED);
-    }
-
-    int x = wp.rcNormalPosition.left;
-    int y = wp.rcNormalPosition.top;
-    int width = wp.rcNormalPosition.right - wp.rcNormalPosition.left;
-    int height = wp.rcNormalPosition.bottom - wp.rcNormalPosition.top;
-
-    WritePrivateProfileStringW(L"Launcher", L"x", std::to_wstring(x).c_str(), config_path.c_str());
-    WritePrivateProfileStringW(L"Launcher", L"y", std::to_wstring(y).c_str(), config_path.c_str());
-    WritePrivateProfileStringW(L"Launcher", L"width", std::to_wstring(width).c_str(), config_path.c_str());
-    WritePrivateProfileStringW(L"Launcher", L"height", std::to_wstring(height).c_str(), config_path.c_str());
-    WritePrivateProfileStringW(L"Launcher", L"maximized", std::to_wstring(maximized ? 1 : 0).c_str(), config_path.c_str());
-    WritePrivateProfileStringW(L"Launcher", L"sidebar_width", std::to_wstring(g_LauncherState.sidebar_width).c_str(), config_path.c_str());
-    WritePrivateProfileStringW(L"Launcher", L"sidebar_folded", std::to_wstring(g_LauncherState.sidebar_folded ? 1 : 0).c_str(), config_path.c_str());
-  }
 }
 
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -1232,6 +1236,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     ImGui::EndChild();
     ImGui::PopStyleColor();
     
+    if (!g_LauncherState.cleanup_msgs.empty()) {
+        ImGui::OpenPopup("Cleanup Notification");
+    }
+
+    if (ImGui::BeginPopupModal("Cleanup Notification", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("The following game paths were cleaned up because they no longer exist:");
+        ImGui::Separator();
+        for (const auto& msg_str : g_LauncherState.cleanup_msgs) {
+            ImGui::BulletText("%s", msg_str.c_str());
+        }
+        ImGui::Separator();
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() / 2 - 60);
+        if (ImGui::Button("OK", ImVec2(120, 0))) {
+            g_LauncherState.cleanup_msgs.clear();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
     ImGui::End();
 
     if (active_win == ActiveWindow::Notes) {

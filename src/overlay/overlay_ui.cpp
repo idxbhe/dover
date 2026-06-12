@@ -466,6 +466,8 @@ void RenderImGuiUI() {
     
     ImGui::PushFont(dover::shared::g_font_gui, dover::shared::kIconSize); 
     if (ImGui::Button(ICON_WINDOW_CLOSE "  EXIT GAME", ImVec2(btn_width, btn_height))) {
+        dover::shared::GameStorage::Get().ExecuteStateCapture();
+        dover::shared::GameStorage::Get().FlushState();
         TerminateProcess(GetCurrentProcess(), 0);
     }
     ImGui::PopFont();

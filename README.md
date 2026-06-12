@@ -9,10 +9,11 @@ A lightweight, high-performance in-game overlay for DirectX 9, DirectX 11, and D
 *   **Universal Support:** Highly optimized x86 and x64 core for DX9/DX11/DX12 (DX12 is x64 only) with zero-overhead memory mapping.
 *   **Stability First:** Safe VTable unhooking helper prevents crashes during shutdown or DLL detachment by avoiding dangling pointers.
 *   **Advanced Injection:** Toggle between Pure VTable and Inline Hook (MinHook) methods via advanced settings.
-*   **In-Game Notes:** Markdown-supported notes with pinning capability and interactive task lists.
+*   **In-Game Notes:** Markdown-supported notes with pinning capability, interactive task lists, and Ctrl + Mouse Wheel font size adjustment.
 *   **Custom Crosshair:** Load custom reticles from `assets.pak` with scaling and positioning controls.
 *   **Controller Tool:** Map controller inputs (including LT/RT triggers) to keyboard keys with modifiers and visualize inputs in real-time.
 *   **Gamepad HUD Visualizer:** Premium in-game real-time controller layout HUD visualizer.
+*   **Exit Game Button:** Quick termination button in the overlay for convenience.
 *   **Opacity Control:** Adjustable window and background transparency.
 *   **Auto-Save Layout:** Automatically saves window positions and settings.
 *   **Input Blocking:** Prevents overlay inputs from leaking into the game.

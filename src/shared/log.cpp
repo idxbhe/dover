@@ -89,6 +89,13 @@ void LogInfo(const char* format, ...) {
     va_end(args);
 }
 
+void LogWarning(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    LogWithTag("WARNING", format, args);
+    va_end(args);
+}
+
 void LogError(const char* format, ...) {
     va_list args;
     va_start(args, format);
