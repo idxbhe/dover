@@ -291,6 +291,8 @@ HRESULT WINAPI HookedPresentInternal(IDXGISwapChain* swapchain, UINT sync_interv
         bool should_render = GetOverlayState().show_overlay || 
                             shared::GetAppConfig().show_fps || 
                             shared::GetAppConfig().show_clock || 
+                            shared::GetAppConfig().show_cpu || 
+                            shared::GetAppConfig().show_ram || 
                             shared::GetAppConfig().show_api;
 
         if (should_render) {

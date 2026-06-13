@@ -201,6 +201,8 @@ void SettingsWindow::RenderContent(bool interactive) {
                 RenderSettingsHeader("OSD (On Screen Display)");
                 if (shared::ui::ToggleCheckbox("FPS", &shared::GetAppConfig().show_fps))           dover::shared::GameStorage::Get().SaveConfig();
                 if (shared::ui::ToggleCheckbox("CLOCK", &shared::GetAppConfig().show_clock))        dover::shared::GameStorage::Get().SaveConfig();
+                if (shared::ui::ToggleCheckbox("CPU", &shared::GetAppConfig().show_cpu))            dover::shared::GameStorage::Get().SaveConfig();
+                if (shared::ui::ToggleCheckbox("RAM", &shared::GetAppConfig().show_ram))            dover::shared::GameStorage::Get().SaveConfig();
                 if (shared::ui::ToggleCheckbox("GRAPHIC API", &shared::GetAppConfig().show_api))    dover::shared::GameStorage::Get().SaveConfig();
                 break;
             }

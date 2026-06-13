@@ -14,6 +14,8 @@ void LoadAppConfigFromIni(const std::filesystem::path& path) {
     config.show_fps.store(ReadIniBool(path, "osd", "show_fps", true), std::memory_order_relaxed);
     config.show_clock.store(ReadIniBool(path, "osd", "show_clock", true), std::memory_order_relaxed);
     config.show_api.store(ReadIniBool(path, "osd", "show_api", false), std::memory_order_relaxed);
+    config.show_cpu.store(ReadIniBool(path, "osd", "show_cpu", false), std::memory_order_relaxed);
+    config.show_ram.store(ReadIniBool(path, "osd", "show_ram", false), std::memory_order_relaxed);
     config.show_gamepad_hud.store(ReadIniBool(path, "osd", "show_gamepad_hud", false), std::memory_order_relaxed);
     config.gamepad_hud_position.store(ReadIniInt(path, "osd", "gamepad_hud_position", 2), std::memory_order_relaxed);
     config.gamepad_hud_scale.store(ReadIniFloat(path, "osd", "gamepad_hud_scale", 1.0f), std::memory_order_relaxed);
@@ -56,6 +58,8 @@ void SaveAppConfigToIni(const std::filesystem::path& path, const AppConfigPOD* s
     WriteIniBool(path, "osd", "show_fps", use_snap ? snap_pod->show_fps : config.show_fps.load());
     WriteIniBool(path, "osd", "show_clock", use_snap ? snap_pod->show_clock : config.show_clock.load());
     WriteIniBool(path, "osd", "show_api", use_snap ? snap_pod->show_api : config.show_api.load());
+    WriteIniBool(path, "osd", "show_cpu", use_snap ? snap_pod->show_cpu : config.show_cpu.load());
+    WriteIniBool(path, "osd", "show_ram", use_snap ? snap_pod->show_ram : config.show_ram.load());
     WriteIniBool(path, "osd", "show_gamepad_hud", use_snap ? snap_pod->show_gamepad_hud : config.show_gamepad_hud.load());
     WriteIniInt(path, "osd", "gamepad_hud_position", use_snap ? snap_pod->gamepad_hud_position : config.gamepad_hud_position.load());
     WriteIniFloat(path, "osd", "gamepad_hud_scale", use_snap ? snap_pod->gamepad_hud_scale : config.gamepad_hud_scale.load());

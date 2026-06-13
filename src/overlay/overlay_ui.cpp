@@ -7,6 +7,7 @@
 #include "shared/crosshair/crosshair_window.h"
 #include "shared/input/controller_tool_window.h"
 #include "shared/game_storage.h"
+#include "shared/telemetry.h"
 #include "shared/icons.h"
 #include "shared/fonts.h"
 #include "shared/theme.h"
@@ -33,39 +34,6 @@ namespace dover::overlay {
 OverlayState& GetOverlayState() {
     static OverlayState s;
     return s;
-}
-
-
-
-// ---- Accurate FPS counter using QPC (bypasses ImGui's inflated averaging) ----
-static LARGE_INTEGER g_fps_freq      = {};
-static double        g_fps_last_time = 0.0;
-static int           g_fps_frames    = 0;
-static float         g_fps_value     = 0.0f;
-static bool          g_fps_init      = false;
-
-static void TickFPS() {
-  if (!g_fps_init) {
-    QueryPerformanceFrequency(&g_fps_freq);
-    LARGE_INTEGER now;
-    QueryPerformanceCounter(&now);
-    g_fps_last_time = static_cast<double>(now.QuadPart) / static_cast<double>(g_fps_freq.QuadPart);
-    g_fps_init = true;
-    return;
-  }
-
-  g_fps_frames++;
-
-  LARGE_INTEGER now;
-  QueryPerformanceCounter(&now);
-  double current_time = static_cast<double>(now.QuadPart) / static_cast<double>(g_fps_freq.QuadPart);
-  double elapsed = current_time - g_fps_last_time;
-
-  if (elapsed >= 0.5) { // Update every 0.5 seconds for perfect stability and responsiveness
-    g_fps_value = static_cast<float>(g_fps_frames / elapsed);
-    g_fps_frames = 0;
-    g_fps_last_time = current_time;
-  }
 }
 
 
@@ -139,6 +107,11 @@ static void RenderNavButton(
 }
 
 void RenderImGuiUI() {
+  auto& app_cfg = shared::GetAppConfig();
+  if (app_cfg.show_fps.load() || app_cfg.show_cpu.load() || app_cfg.show_ram.load()) {
+      shared::telemetry::Update();
+  }
+
   if (!dover::shared::GameStorage::Get().IsConfigFlushReady()) {
       if (dover::shared::GameStorage::Get().TestAndClearConfigCaptureRequested()) {
           dover::shared::GameStorage::Get().ExecuteConfigCapture();
@@ -176,17 +149,15 @@ void RenderImGuiUI() {
   }
 
   // 1. Draw Pinned Info Window (transparent corner overlay) - Hidden when interactive overlay is active
-  if (!curr_show_overlay && (shared::GetAppConfig().show_fps.load() || shared::GetAppConfig().show_clock.load() || shared::GetAppConfig().show_api.load())) {
+  if (!curr_show_overlay && (shared::GetAppConfig().show_fps.load() || shared::GetAppConfig().show_clock.load() || 
+                             shared::GetAppConfig().show_cpu.load() || shared::GetAppConfig().show_ram.load() || 
+                             shared::GetAppConfig().show_api.load())) {
     ImGui::SetNextWindowPos(ImVec2(12.0f, 10.0f), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.0f);
     ImGui::Begin("Info Window", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                  ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                  ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs);
-
-    if (shared::GetAppConfig().show_fps.load()) {
-      TickFPS();
-    }
 
     if (shared::GetAppConfig().show_clock.load()) {
       SYSTEMTIME time{};
@@ -195,7 +166,15 @@ void RenderImGuiUI() {
     }
     
     if (shared::GetAppConfig().show_fps.load()) {
-      ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", g_fps_value);
+      ImGui::TextColored(ImVec4(1.00f, 1.00f, 1.00f, 1.00f), "FPS:  %.1f", shared::telemetry::GetData().fps);
+    }
+
+    if (shared::GetAppConfig().show_cpu.load()) {
+        ImGui::TextColored(ImVec4(1.00f, 0.70f, 0.20f, 1.00f), "CPU:  %3.0f%%", shared::telemetry::GetData().cpu_usage);
+    }
+
+    if (shared::GetAppConfig().show_ram.load()) {
+        ImGui::TextColored(ImVec4(0.20f, 0.80f, 1.00f, 1.00f), "RAM:  %.2f / %.2f GB", shared::telemetry::GetData().ram_used_gb, shared::telemetry::GetData().ram_total_gb);
     }
     
     if (shared::GetAppConfig().show_api.load()) {
@@ -589,6 +568,8 @@ void InitializeOverlay() {
         s_cfg_snap.app.show_fps = config.show_fps.load();
         s_cfg_snap.app.show_clock = config.show_clock.load();
         s_cfg_snap.app.show_api = config.show_api.load();
+        s_cfg_snap.app.show_cpu = config.show_cpu.load();
+        s_cfg_snap.app.show_ram = config.show_ram.load();
         s_cfg_snap.app.show_gamepad_hud = config.show_gamepad_hud.load();
         s_cfg_snap.app.gamepad_hud_position = config.gamepad_hud_position.load();
         s_cfg_snap.app.gamepad_hud_scale = config.gamepad_hud_scale.load();

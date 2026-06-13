@@ -205,6 +205,7 @@ add_library(dover_shared STATIC
   src/shared/renderer.cpp
   src/shared/input_utils.cpp
   src/shared/engine_quirks.cpp
+  src/shared/telemetry.cpp
 )
 
 target_include_directories(dover_shared PUBLIC

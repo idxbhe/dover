@@ -10,6 +10,7 @@ A lightweight, high-performance in-game overlay for DirectX 9, DirectX 11, and D
 *   **Stability First:** Safe VTable unhooking helper prevents crashes during shutdown or DLL detachment by avoiding dangling pointers.
 *   **Advanced Injection:** Toggle between Pure VTable and Inline Hook (MinHook) methods via advanced settings.
 *   **In-Game Notes:** Markdown-supported notes with pinning capability, interactive task lists, and Ctrl + Mouse Wheel font size adjustment.
+*   **System Telemetry:** Real-time monitoring of FPS (accurate QPC-based), CPU usage, and RAM consumption.
 *   **Custom Crosshair:** Load custom reticles from `assets.pak` with scaling and positioning controls.
 *   **Controller Tool:** Map controller inputs (including LT/RT triggers) to keyboard keys with modifiers and visualize inputs in real-time.
 *   **Gamepad HUD Visualizer:** Premium in-game real-time controller layout HUD visualizer.

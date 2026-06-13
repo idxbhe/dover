@@ -21,6 +21,8 @@ struct AppConfigPOD {
     bool show_fps = true;
     bool show_clock = true;
     bool show_api = false;
+    bool show_cpu = false;
+    bool show_ram = false;
     int hotkey_toggle_main = VK_TAB;
     int hotkey_toggle_modifier = VK_SHIFT;
     GamepadMapping gamepad_to_vk_map[18] = {};
@@ -36,6 +38,8 @@ struct AppConfig {
     std::atomic<bool> show_fps{true};
     std::atomic<bool> show_clock{true};
     std::atomic<bool> show_api{false};
+    std::atomic<bool> show_cpu{false};
+    std::atomic<bool> show_ram{false};
     std::atomic<int> hotkey_toggle_main{VK_TAB};
     std::atomic<int> hotkey_toggle_modifier{VK_SHIFT};
     
